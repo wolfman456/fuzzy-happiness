@@ -43,3 +43,7 @@ npm run test                # Vitest (no watch; use `npm run test:watch` for wat
 ## Testing policy
 
 - Every plan and every code change ships with unit tests and keeps **line coverage ≥ 90%** (jacoco `check` gate bound to the `test` phase in `tabletopserv/pom.xml` fails the build below that threshold). Backend tests run with `./mvnw test` from `tabletopserv/`.
+
+## Documentation
+
+- Keep `draft-design.md` and the README(s) in sync with the code. When a change ships a documented behavior — new endpoint, decided open question, config surface or dependency — update the sections that describe it (status banner, API surface, roadmap, tech notes, "decided" list) in the **same change**. Docs are part of the deliverable.

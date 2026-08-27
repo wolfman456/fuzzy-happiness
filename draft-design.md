@@ -1,6 +1,6 @@
 # Fuzzy Happiness — Tabletop Game Platform (Initial Design Draft)
 
-> **Status:** Draft v0.3 — character generation (guided wizard + quick-build) added.
+> **Status:** Draft v0.4 — accounts & auth implemented (JWT bearer, roles, email verification).
 > A starting point to iterate on as requirements become clearer.
 > Open questions and things to decide are flagged inline and collected in [Open Questions](#open-questions--open-decisions).
 
@@ -67,8 +67,10 @@ additional games can be plugged in later.
   login/register, lobby, session (chat + table), character sheets.
 - **Real-time:** server-authoritative. Clients send commands; the server updates state
   and broadcasts events to everyone subscribed to that session's topic.
-- **Auth:** `spring-security` (already a dependency) for accounts; JWT bearer for REST +
-  session token on WebSocket handshake.
+- **Auth (implemented):** `spring-security` accounts with **JWT bearer** (24h, HS-signed,
+  jjwt) for REST, roles `USER`/`MODERATOR`/`ADMIN`, bcrypt password hashing, and email
+  verification (login is blocked until the address is confirmed). Auth endpoints landed in
+  `feature/spring-security` — see [§12 API Surface](#12-proposed-api-surface-initial).
 - **Discord VoIP:** Discord has **no public API to programmatically join a voice
   channel** — see [§10 Discord VoIP Integration](#10-discord-voip-integration).
 - **Rules data:** the D&D plug-in consumes the open 5e-bits SRD API through a backend
@@ -92,7 +94,8 @@ Session ── emits ──> SessionEvent (presence, chat, dice, table state)
 
 | Entity | Notes |
 |---|---|
-| `User` | id, display name, email, password hash, avatar |
+| `User` | id, display name, username (unique), email, date of birth, email-verified flag, auth role (`USER`/`MODERATOR`/`ADMIN`), password hash |
+| `EmailVerificationToken` | single-use, 24h expiry; token delivered by email on signup / resend |
 | `Game` | registry entry: slug (`dnd-5e`), display name, sheet schema |
 | `Character` | **abstract** base: id, name, portrait, description/backstory, game version. Contains only fields that translate across games. Serialized as a discriminated (TPH) entity per game. |
 | `Dnd5eCharacter` | concrete D&D fields: ability scores + score source, level, class, race, HP, AC, skills ...; rule data held as SRD `index` references (see §9) |
@@ -230,8 +233,12 @@ This is an acceptable MVP trade-off and keeps the platform out of the voice busi
 ## 12. Proposed API Surface (initial)
 
 ```
-POST   /api/auth/register          create account
-POST   /api/auth/login             obtain token
+POST   /api/auth/register            create account                          ✓
+POST   /api/auth/login               obtain token (username or email)        ✓
+GET    /api/auth/verify?token=       confirm email (single-use, 24h)         ✓
+POST   /api/auth/resend-verification resend verification (60s cooldown)      ✓
+GET    /api/users/me                 current user profile (JWT)              ✓
+GET    /api/admin/users              admin-only user listing                 ✓
 POST   /api/sessions               create session (returns invite code)
 GET    /api/sessions/{id}          snapshot (participants, game, status)
 POST   /api/sessions/join          join by invite code
@@ -254,11 +261,18 @@ GET    /api/users/me/characters/{id}
 WS     /ws                          STOMP endpoint; topics as in §6
 ```
 
+`✓` = implemented in `feature/spring-security` (Draft v0.4); the rest is pending.
+Unverified users get `403` on login until `/api/auth/verify` confirms their email; the
+`resend` endpoint is intentionally enumeration-safe (always `202`).
+
 ## 13. Phased Roadmap
 
 | Stage | Scope | Exit criteria |
 |---|---|---|
 | 1. Sessions & chat | accounts, lobby, invite code, join/leave, live chat + presence | group can get in a room and talk |
+
+> Stage 1 status: the **accounts/auth** slice is done (register, login, verify, roles, JWT —
+> Draft v0.4). Remaining: lobby, invite code, join/leave, chat + presence over STOMP.
 | 2. Characters | abstract `Character`, registry, D&D sheet model + **generation** (guided wizard + quick-build) backed by the SRD proxy, server compile validation | create a validated level 1–3 D&D character via wizard or quick-build |
 | 3. Game table | dice rolls, initiative/order, shared table state | dice events broadcast to the session |
 | 4. Discord | OAuth connect + deep-link voice | "Connect Discord" flows to voice + table side-by-side |
@@ -269,7 +283,11 @@ WS     /ws                          STOMP endpoint; topics as in §6
 **Decided so far:** D&D 5e-first MVP · user accounts · Discord VoIP = OAuth + companion
 client · SRD integration = backend live proxy + cache over REST · character generation =
 guided wizard + quick-build, house-rule d20 scores assigned by the player, starting
-levels 1–3, client-draft + pure server compile.
+levels 1–3, client-draft + pure server compile · **auth (implemented):** login by
+username **or** email, age ≥ 13 at signup, strict password policy (≥ 8 chars with upper,
+lower, digit, special), 24h JWT with no refresh token, single-use 24h email-verification
+tokens with a 60s resend cooldown, roles `USER`/`MODERATOR`/`ADMIN` with a dev-seeded
+bootstrap admin.
 
 - Do we need friends list / permanent groups, or is invite-code enough for now?
 - Should board/map/tokens be a stage after MVP, or explicitly out of scope?
@@ -293,6 +311,14 @@ levels 1–3, client-draft + pure server compile.
 - CI: `node.js.yml`, `maven.yml`, `maven-publish.yml` (see `AGENTS.md`).
 - Dice/rolls (incl. the d20 score rolls) use a cryptographically secure RNG
   (server-side `java.security.SecureRandom`).
-- To implement Stage 1-2 the immediate additions are `spring-boot-starter-websocket`,
-  `h2`, `postgresql`, an auth filter/JWT dependency, plus `spring-boot-starter-cache`
-  + `caffeine` (for the SRD `SrdClient` cache).
+- **Dependencies now present:** JPA (+ `-test`), JDBC, security (+ `security-test`),
+  validation, mail, webflux/webmvc (+ test starters), websocket, cache + caffeine,
+  H2 + PostgreSQL (runtime), jjwt 0.12.6 (JWT signing), and jacoco with a ≥ 90% line
+  coverage gate on the `test` phase.
+- **Auth stack in place:** stateless JWT filter chain, BCrypt, roles
+  `USER`/`MODERATOR`/`ADMIN` on `User`, email verification via `EmailVerificationToken`
+  (`ConsoleEmailSender` in dev, SMTP in prod), and a dev-only bootstrap admin
+  (credentials from `tabletopserv.admin.*` props, overridable via env). Explicit JSON
+  `401`/`403` responses; business errors handled by `GlobalExceptionHandler`.
+- Still to build for stage 1-2 runtime: STOMP broker config + presence/chat wiring, and
+  the SRD `SrdClient` WebClient proxy with the Caffeine cache.
