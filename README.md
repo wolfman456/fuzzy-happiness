@@ -32,6 +32,7 @@ if nothing else.
 
 - Frontend: tabletopweb/ — React 19, Vite 8, plain JSX (oxlint, Vitest)
 - Backend: tabletopserv/ — Spring Boot 4.1.1, Java 21, Maven wrapper
+- Auth: Spring Security — 24h JWT bearer (jjwt), bcrypt, `USER`/`MODERATOR`/`ADMIN` roles, email verification
 - Rules data: D&D 5e SRD API (5e-bits/dnd5eapi.co), proxied + cached by the backend
 - Persistence: JPA (H2 dev / PostgreSQL prod via Spring profiles)
 
@@ -39,6 +40,14 @@ See `AGENTS.md` for repo layout, commands, and conventions.
 
 ## Status
 
-Early design phase. The initial design draft lives in [`draft-design.md`](draft-design.md)
-and will be iterated into the final design as requirements are confirmed. MVP scope and
-roadmap stages are defined there.
+Iterative build; design draft in [`draft-design.md`](draft-design.md) (Draft v0.4).
+
+Delivered:
+
+- Core domain model + JPA persistence (users, games, characters, sessions) — `feature/java-start` (PR #9).
+- Accounts & auth — `feature/spring-security`: register / login (username or email), 24h JWT,
+  roles, bcrypt, email verification with resend; bootstrap admin in dev. 58 backend tests,
+  jacoco line-coverage gate ≥ 90%.
+
+Next: real-time sessions (WebSocket/STOMP lobby, invite codes, chat + presence), then
+character generation backed by the 5e SRD proxy, then the game table (dice, initiative).
