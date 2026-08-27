@@ -18,7 +18,7 @@ class DomainModelPersistenceTest {
     private TestEntityManager em;
 
     private Long persistOwner() {
-        return em.persistAndFlush(new User("Aria", "aria@example.com", "hash")).getId();
+        return em.persistAndFlush(new User("aria", "Aria", "aria@example.com", java.time.LocalDate.of(1990, 1, 15), "hash")).getId();
     }
 
     private Long persistGame() {
@@ -31,11 +31,15 @@ class DomainModelPersistenceTest {
         em.clear();
 
         User reloaded = em.find(User.class, id);
+        assertThat(reloaded.getUsername()).isEqualTo("aria");
         assertThat(reloaded.getDisplayName()).isEqualTo("Aria");
         assertThat(reloaded.getEmail()).isEqualTo("aria@example.com");
+        assertThat(reloaded.getDateOfBirth()).isEqualTo(java.time.LocalDate.of(1990, 1, 15));
         assertThat(reloaded.getPasswordHash()).isEqualTo("hash");
         assertThat(reloaded.getAvatar()).isNull();
         assertThat(reloaded.getCharacters()).isEmpty();
+        assertThat(reloaded.getAuthRole()).isEqualTo(AuthRole.USER);
+        assertThat(reloaded.isEmailVerified()).isFalse();
     }
 
     @Test
@@ -47,6 +51,45 @@ class DomainModelPersistenceTest {
         assertThat(reloaded.getSlug()).isEqualTo("dnd-5e");
         assertThat(reloaded.getDisplayName()).isEqualTo("D&D 5e");
         assertThat(reloaded.getSheetSchema()).isEqualTo("{}");
+    }
+
+    @Test
+    void persistsModeratorAuthRoleAsString() {
+        User user = new User("mod", "Moderator", "mod@example.com",
+                java.time.LocalDate.of(1990, 1, 15), "hash");
+        user.setAuthRole(AuthRole.MODERATOR);
+        em.persistAndFlush(user);
+
+        assertThat(em.getEntityManager().createNativeQuery("""
+                        select auth_role from users where id = :id
+                        """).setParameter("id", user.getId()).getSingleResult()).isEqualTo("MODERATOR");
+        em.clear();
+
+        User reloaded = em.find(User.class, user.getId());
+        assertThat(reloaded.getAuthRole()).isEqualTo(AuthRole.MODERATOR);
+    }
+
+    @Test
+    void persistsEmailVerificationToken() {
+        User user = em.find(User.class, persistOwner());
+        EmailVerificationToken token = new EmailVerificationToken("tok-123", user,
+                java.time.LocalDateTime.now().plusDays(1));
+        em.persistAndFlush(token);
+        Long id = token.getId();
+        em.clear();
+
+        EmailVerificationToken reloaded = em.find(EmailVerificationToken.class, id);
+        assertThat(reloaded.getToken()).isEqualTo("tok-123");
+        assertThat(reloaded.getUser().getId()).isEqualTo(user.getId());
+        assertThat(reloaded.getCreatedAt()).isNotNull();
+        assertThat(reloaded.getUsedAt()).isNull();
+        assertThat(reloaded.isUsed()).isFalse();
+        assertThat(reloaded.isExpired()).isFalse();
+
+        User owner = em.find(User.class, user.getId());
+        assertThat(em.getEntityManager().createNativeQuery("""
+                        select count(*) from email_verification_tokens where user_id = :id
+                        """).setParameter("id", owner.getId()).getSingleResult()).isEqualTo(1L);
     }
 
     @Test
@@ -180,7 +223,7 @@ class DomainModelPersistenceTest {
     @Test
     void persistsSessionWithParticipantsAndEvents() {
         User gm = em.find(User.class, persistOwner());
-        User player = em.persistAndFlush(new User("Ivo", "ivo@example.com", "hash"));
+        User player = em.persistAndFlush(new User("ivo", "Ivo", "ivo@example.com", java.time.LocalDate.of(1988, 5, 20), "hash"));
         em.clear();
         Game game = em.find(Game.class, persistGame());
 
@@ -250,10 +293,18 @@ class DomainModelPersistenceTest {
 
     @Test
     void rejectsDuplicateEmail() {
-        em.persistAndFlush(new User("Aria", "dupe@example.com", "hash"));
+        em.persistAndFlush(new User("aria", "Aria", "dupe@example.com", java.time.LocalDate.of(1990, 1, 15), "hash"));
         em.clear();
 
-        assertThatThrownBy(() -> em.persistAndFlush(new User("Ivo", "dupe@example.com", "hash2"))).hasRootCauseInstanceOf(java.sql.SQLIntegrityConstraintViolationException.class);
+        assertThatThrownBy(() -> em.persistAndFlush(new User("ivo", "Ivo", "dupe@example.com", java.time.LocalDate.of(1988, 5, 20), "hash2"))).hasRootCauseInstanceOf(java.sql.SQLIntegrityConstraintViolationException.class);
+    }
+
+    @Test
+    void rejectsDuplicateUsername() {
+        em.persistAndFlush(new User("same", "Aria", "one@example.com", java.time.LocalDate.of(1990, 1, 15), "hash"));
+        em.clear();
+
+        assertThatThrownBy(() -> em.persistAndFlush(new User("same", "Ivo", "two@example.com", java.time.LocalDate.of(1988, 5, 20), "hash2"))).hasRootCauseInstanceOf(java.sql.SQLIntegrityConstraintViolationException.class);
     }
 
     @Test
