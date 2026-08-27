@@ -1,0 +1,28 @@
+# Build and test the backend on every push/PR to develop
+name: Java CI
+
+on:
+  push:
+    branches: [ "develop" ]
+  pull_request:
+    branches: [ "develop" ]
+
+defaults:
+  run:
+    working-directory: tabletopserv
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up JDK 21
+      uses: actions/setup-java@v4
+      with:
+        java-version: '21'
+        distribution: 'temurin'
+        cache: 'maven'
+    - name: Build and test with Maven
+      run: ./mvnw -B test
