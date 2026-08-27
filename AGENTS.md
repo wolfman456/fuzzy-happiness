@@ -29,7 +29,7 @@ npm run test                # Vitest (no watch; use `npm run test:watch` for wat
 
 ## CI
 
-- `.github/workflows/node.js.yml` — builds/tests the frontend on push/PR to `develop` (Node 20/22, runs in `tabletopweb/`).
+- `.github/workflows/node.js.yml` — builds/tests the frontend on push/PR to `develop` (Node 22/24, `setup-node` caches via `cache-dependency-path: tabletopweb/package-lock.json`, runs in `tabletopweb/`).
 - `.github/workflows/maven.yml` — builds/tests the backend with `./mvnw test` on push/PR to `develop` (JDK 21, runs in `tabletopserv/`).
 - `.github/workflows/maven-publish.yml` — builds and deploys the backend to GitHub Packages on releases (JDK 21); needs a valid GH token and relies on the `distributionManagement` block in the pom.
 
