@@ -1,5 +1,5 @@
-# This workflow will do a clean installation of node dependencies, cache/restore them, build the source code and run tests across different versions of node
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-nodejs
+# Install dependencies, build, lint and test the frontend
+# https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-nodejs
 
 name: Node.js CI
 
@@ -9,6 +9,10 @@ on:
   pull_request:
     branches: [ "develop" ]
 
+defaults:
+  run:
+    working-directory: tabletopweb
+
 jobs:
   build:
 
@@ -16,8 +20,9 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [18.x, 20.x, 22.x]
-        # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
+        node-version: [22.x, 24.x]
+        # Vite 8 requires Node ^20.19.0 || >=22.12.0; Node 20 is deprecated on
+        # GitHub Actions runners, so only 22 and 24 are used.
 
     steps:
     - uses: actions/checkout@v4
@@ -26,7 +31,8 @@ jobs:
       with:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
+        cache-dependency-path: tabletopweb/package-lock.json
     - run: npm ci
-    - run: npm run build --if-present
+    - run: npm run lint
+    - run: npm run build
     - run: npm test
-    
