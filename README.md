@@ -20,6 +20,10 @@ if nothing else.
   table state over a WebSocket.
 - **Games as plug-ins** — an abstract `Character` base holds what translates across games;
   each game (starting with D&D 5e) contributes its own concrete sheet.
+- **Rules data from the 5e SRD API** — the D&D plug-in is backed by the open, no-auth
+  [5e-bits SRD API](https://5e-bits.github.io/docs/introduction) (dnd5eapi.co): races,
+  classes, spells, equipment and more are fetched and cached through the backend, so no
+  rules data is hard-coded into the app.
 - **Discord for voice** — connect your Discord account and jump into a voice channel;
   the web app runs beside it as the shared game table.
 - **Database** — H2 while developing; PostgreSQL once deployed to production.
@@ -28,6 +32,7 @@ if nothing else.
 
 - Frontend: tabletopweb/ — React 19, Vite 8, plain JSX (oxlint, Vitest)
 - Backend: tabletopserv/ — Spring Boot 4.1.1, Java 21, Maven wrapper
+- Rules data: D&D 5e SRD API (5e-bits/dnd5eapi.co), proxied + cached by the backend
 - Persistence: JPA (H2 dev / PostgreSQL prod via Spring profiles)
 
 See `AGENTS.md` for repo layout, commands, and conventions.
