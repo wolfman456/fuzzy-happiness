@@ -37,4 +37,5 @@ npm run test                # Vitest (no watch; use `npm run test:watch` for wat
 
 - Default branch is `develop`; never merge to `develop`/`master` yourself — the maintainer reviews and merges PRs.
 - File feature requests in Wants.md first, framed as: "As a user I want ... so I can ...."
-- Work on topic branches (e.g. `feature/...`).
+- Work on topic branches. When the user asks for a new branch, name it `feature/<short-meaningful-slug>` based on the planned work (e.g. `feature/srd-integration`), e.g. `git checkout -b feature/<slug>`. This will later change to a ticket-number prefix (e.g. `feature/ABC-123-description`) once ticket tracking is set up.
+- Write clear, descriptive commit messages. A commit message should read like a changelog entry: a concise summary line of what was done, then a body listing the key changes and reasoning — so anyone looking back at history can identify exactly what took place and why. Reference the relevant `draft-design.md` section or requirement when a change implements one.
