@@ -5,6 +5,8 @@ import jakarta.persistence.Column;
 import jakarta.persistence.DiscriminatorValue;
 import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.Lob;
 import lombok.Getter;
@@ -40,6 +42,7 @@ public class Dnd5eCharacter extends Character {
     @Column(nullable = false)
     private int level;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "score_source")
     private ScoreSource scoreSource;
 
