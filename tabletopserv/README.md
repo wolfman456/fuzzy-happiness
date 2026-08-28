@@ -32,5 +32,8 @@ Status codes: `400` validation / `401` bad or missing JWT / `403` unverified or 
 - Profiles: `dev` (default — H2, console email, bootstrap admin) and `prod`
   (`application-prod.properties` — PostgreSQL, SMTP, required secrets).
 - Settings overridable via env: see `tabletopserv.*` keys in `application.properties`
-  (JWT secret + expiry, verification TTL + cooldown, bootstrap admin defaults) and the
-  `*_*` env placeholders in `application-prod.properties` (SMTP host/port/user/password).
+  (JWT secret + expiry, verification TTL + cooldown, bootstrap admin defaults, CORS origins)
+  and the `*_*` env placeholders in `application-prod.properties` (SMTP host/port/user/password).
+  `tabletopserv.cors.allowed-origins` (env `CORS_ALLOWED_ORIGINS`, default
+  `http://localhost:5173`) lists the origins allowed to call `/api/**`; the prod profile
+  defaults to an empty list (no cross-origin access) until overridden.

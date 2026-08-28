@@ -1,6 +1,7 @@
 # Fuzzy Happiness — Tabletop Game Platform (Initial Design Draft)
 
-> **Status:** Draft v0.4 — accounts & auth implemented (JWT bearer, roles, email verification).
+> **Status:** Draft v0.5 — accounts & auth implemented end-to-end (backend `feature/spring-security` +
+> web UI in `feature/frontend-auth`).
 > A starting point to iterate on as requirements become clearer.
 > Open questions and things to decide are flagged inline and collected in [Open Questions](#open-questions--open-decisions).
 
@@ -64,7 +65,9 @@ additional games can be plugged in later.
   `spring-boot-starter-webmvc`) for queries/mutations + **STOMP over WebSocket**
   (add `spring-boot-starter-websocket`) for real-time session events.
 - **Frontend:** existing React 19 + Vite app in `tabletopweb/`, plain JSX. Views:
-  login/register, lobby, session (chat + table), character sheets.
+  login/register, lobby, session (chat + table), character sheets. Now running Tailwind CSS v4
+  (via `@tailwindcss/vite`) and `react-router-dom`, pinning Node 24; auth pages + protected
+  dashboard shell implemented in `feature/frontend-auth`.
 - **Real-time:** server-authoritative. Clients send commands; the server updates state
   and broadcasts events to everyone subscribed to that session's topic.
 - **Auth (implemented):** `spring-security` accounts with **JWT bearer** (24h, HS-signed,
@@ -261,7 +264,8 @@ GET    /api/users/me/characters/{id}
 WS     /ws                          STOMP endpoint; topics as in §6
 ```
 
-`✓` = implemented in `feature/spring-security` (Draft v0.4); the rest is pending.
+`✓` = implemented in `feature/spring-security` (Draft v0.4); the web client for auth is done in
+`feature/frontend-auth` (register/login/verify pages + protected dashboard). The rest is pending.
 Unverified users get `403` on login until `/api/auth/verify` confirms their email; the
 `resend` endpoint is intentionally enumeration-safe (always `202`).
 
@@ -271,8 +275,9 @@ Unverified users get `403` on login until `/api/auth/verify` confirms their emai
 |---|---|---|
 | 1. Sessions & chat | accounts, lobby, invite code, join/leave, live chat + presence | group can get in a room and talk |
 
-> Stage 1 status: the **accounts/auth** slice is done (register, login, verify, roles, JWT —
-> Draft v0.4). Remaining: lobby, invite code, join/leave, chat + presence over STOMP.
+> Stage 1 status: the **accounts/auth** slice is done end-to-end (register, login, verify,
+> roles, JWT, web UI + app shell — Draft v0.5). Remaining: lobby, invite code, join/leave,
+> chat + presence over STOMP.
 | 2. Characters | abstract `Character`, registry, D&D sheet model + **generation** (guided wizard + quick-build) backed by the SRD proxy, server compile validation | create a validated level 1–3 D&D character via wizard or quick-build |
 | 3. Game table | dice rolls, initiative/order, shared table state | dice events broadcast to the session |
 | 4. Discord | OAuth connect + deep-link voice | "Connect Discord" flows to voice + table side-by-side |
@@ -287,7 +292,10 @@ levels 1–3, client-draft + pure server compile · **auth (implemented):** logi
 username **or** email, age ≥ 13 at signup, strict password policy (≥ 8 chars with upper,
 lower, digit, special), 24h JWT with no refresh token, single-use 24h email-verification
 tokens with a 60s resend cooldown, roles `USER`/`MODERATOR`/`ADMIN` with a dev-seeded
-bootstrap admin.
+bootstrap admin · **frontend (implemented):** Tailwind CSS v4, react-router, JWT in
+`localStorage` restored via `GET /api/users/me`, Node 24 pinned, backend CORS restricted to
+the configured `tabletopserv.cors.allowed-origins` (default the Vite dev origin); no Vite
+`/api` proxy — the SPA calls the backend cross-origin with `VITE_API_URL`.
 
 - Do we need friends list / permanent groups, or is invite-code enough for now?
 - Should board/map/tokens be a stage after MVP, or explicitly out of scope?
@@ -307,7 +315,11 @@ bootstrap admin.
 
 - Backend: Spring Boot 4.1.1, Java 21, package `com.gamer.fowever.tabletopserv`, JAR
   packaging (no servlet container), `spring-boot-starter-webmvc` / `webflux` present.
-- Frontend: Vite 8 + React 19, plain JSX, oxlint, Vitest.
+- Frontend: Vite 8 + React 19, plain JSX, oxlint, Vitest. Tailwind CSS v4
+  (`@tailwindcss/vite`), react-router, Node 24 (`tabletopweb/.nvmrc`, `engines`, CI).
+- Backend CORS: `CorsConfigurationSource` bean wired into the Security filter chain for
+  `/api/**`, origins from `tabletopserv.cors.allowed-origins`
+  (env `CORS_ALLOWED_ORIGINS`, dev default `http://localhost:5173`, prod default empty).
 - CI: `node.js.yml`, `maven.yml`, `maven-publish.yml` (see `AGENTS.md`).
 - Dice/rolls (incl. the d20 score rolls) use a cryptographically secure RNG
   (server-side `java.security.SecureRandom`).

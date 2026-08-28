@@ -30,9 +30,9 @@ if nothing else.
 
 ## Tech stack
 
-- Frontend: tabletopweb/ — React 19, Vite 8, plain JSX (oxlint, Vitest)
+- Frontend: tabletopweb/ — React 19, Vite 8, plain JSX (oxlint, Vitest), Tailwind CSS v4, react-router, Node 24
 - Backend: tabletopserv/ — Spring Boot 4.1.1, Java 21, Maven wrapper
-- Auth: Spring Security — 24h JWT bearer (jjwt), bcrypt, `USER`/`MODERATOR`/`ADMIN` roles, email verification
+- Auth: Spring Security — 24h JWT bearer (jjwt), bcrypt, `USER`/`MODERATOR`/`ADMIN` roles, email verification; CORS for the Vite dev origin
 - Rules data: D&D 5e SRD API (5e-bits/dnd5eapi.co), proxied + cached by the backend
 - Persistence: JPA (H2 dev / PostgreSQL prod via Spring profiles)
 
@@ -46,8 +46,12 @@ Delivered:
 
 - Core domain model + JPA persistence (users, games, characters, sessions) — `feature/java-start` (PR #9).
 - Accounts & auth — `feature/spring-security`: register / login (username or email), 24h JWT,
-  roles, bcrypt, email verification with resend; bootstrap admin in dev. 58 backend tests,
+  roles, bcrypt, email verification with resend; bootstrap admin in dev. 61 backend tests,
   jacoco line-coverage gate ≥ 90%.
+- Frontend auth slice + app shell — `feature/frontend-auth`: register / login / email-verify
+  pages, protected dashboard with stub session & character cards, auth state in
+  `src/auth/` (localStorage + context), Tailwind UI. Backend CORS added for the dev origin.
+  Node 24 enforced across the frontend (`.nvmrc`, `engines`, CI). 32 frontend tests (Vitest).
 
 Next: real-time sessions (WebSocket/STOMP lobby, invite codes, chat + presence), then
 character generation backed by the 5e SRD proxy, then the game table (dice, initiative).
