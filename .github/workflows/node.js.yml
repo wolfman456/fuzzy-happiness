@@ -20,9 +20,9 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [22.x, 24.x]
-        # Vite 8 requires Node ^20.19.0 || >=22.12.0; Node 20 is deprecated on
-        # GitHub Actions runners, so only 22 and 24 are used.
+        node-version: [24.x]
+        # Standardized on Node 24 (engines + .nvmrc); Node 22 is covered by the
+        # >=22.12 Vite peer range but CI only needs to run the pinned version.
 
     steps:
     - uses: actions/checkout@v4
