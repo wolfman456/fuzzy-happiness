@@ -10,6 +10,7 @@ import {
   moveToken,
   removeToken,
   turnCommand,
+  updateMap,
   updateToken,
 } from './battleMap'
 
@@ -26,6 +27,14 @@ describe('battleMap API helpers', () => {
   it('createMap POSTs a map', () => {
     createMap(7)
     expect(api).toHaveBeenCalledWith('/api/sessions/7/map', { method: 'POST', body: {} })
+  })
+
+  it('updateMap PATCHes a map', () => {
+    updateMap(7, { width: 12, height: 10 })
+    expect(api).toHaveBeenCalledWith('/api/sessions/7/map', {
+      method: 'PATCH',
+      body: { width: 12, height: 10 },
+    })
   })
 
   it('addToken POSTs a token', () => {

@@ -20,6 +20,7 @@ import com.gamer.fowever.tabletopserv.dto.MoveTokenRequest;
 import com.gamer.fowever.tabletopserv.dto.SessionEventDto;
 import com.gamer.fowever.tabletopserv.dto.TurnAction;
 import com.gamer.fowever.tabletopserv.dto.TurnCommandRequest;
+import com.gamer.fowever.tabletopserv.dto.UpdateMapRequest;
 import com.gamer.fowever.tabletopserv.dto.UpdateTokenRequest;
 import com.gamer.fowever.tabletopserv.repository.BattleMapRepository;
 import com.gamer.fowever.tabletopserv.repository.GameSessionRepository;
@@ -115,6 +116,54 @@ public class BattleMapService {
                     user.getId()));
             index++;
         }
+        return broadcastAndPersist(map);
+    }
+
+    @Transactional
+    public BattleMapDto updateMap(User actor, Long sessionId, UpdateMapRequest request) {
+        GameSession session = managedSession(sessionId);
+        requireGm(actor, session);
+        BattleMap map = managedMap(sessionId);
+
+        boolean changed = false;
+        if (request.width() != null && request.height() != null) {
+            validateMapSize(request.width(), request.height());
+        } else if (request.width() != null) {
+            validateMapSize(request.width(), map.getHeight());
+        } else if (request.height() != null) {
+            validateMapSize(map.getWidth(), request.height());
+        }
+        if (request.name() != null && !request.name().isBlank() && !map.getName().equals(request.name())) {
+            map.setName(request.name());
+            changed = true;
+        }
+        if (request.width() != null && request.width() != map.getWidth()) {
+            map.setWidth(request.width());
+            changed = true;
+        }
+        if (request.height() != null && request.height() != map.getHeight()) {
+            map.setHeight(request.height());
+            changed = true;
+        }
+        if (!changed) {
+            return toDto(map);
+        }
+        mapRepository.save(map);
+
+        tokenRepository.findByMapIdOrderByIdAsc(map.getId()).forEach(token -> {
+            boolean dirty = false;
+            if (token.getPosX() >= map.getWidth()) {
+                token.setPosX(Math.max(0, map.getWidth() - 1));
+                dirty = true;
+            }
+            if (token.getPosY() >= map.getHeight()) {
+                token.setPosY(Math.max(0, map.getHeight() - 1));
+                dirty = true;
+            }
+            if (dirty) {
+                tokenRepository.save(token);
+            }
+        });
         return broadcastAndPersist(map);
     }
 

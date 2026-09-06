@@ -6,6 +6,7 @@ import com.gamer.fowever.tabletopserv.dto.BattleMapDto;
 import com.gamer.fowever.tabletopserv.dto.CreateMapRequest;
 import com.gamer.fowever.tabletopserv.dto.MoveTokenRequest;
 import com.gamer.fowever.tabletopserv.dto.TurnCommandRequest;
+import com.gamer.fowever.tabletopserv.dto.UpdateMapRequest;
 import com.gamer.fowever.tabletopserv.dto.UpdateTokenRequest;
 import com.gamer.fowever.tabletopserv.service.BattleMapService;
 import jakarta.validation.Valid;
@@ -50,6 +51,13 @@ public class BattleMapController {
                                                  Authentication authentication) {
         BattleMapDto map = battleMapService.addToken(currentUser(authentication), sessionId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(map);
+    }
+
+    @PatchMapping
+    public BattleMapDto update(@PathVariable Long sessionId,
+                               @Valid @RequestBody UpdateMapRequest request,
+                               Authentication authentication) {
+        return battleMapService.updateMap(currentUser(authentication), sessionId, request);
     }
 
     @PatchMapping("/tokens/{tokenId}")
