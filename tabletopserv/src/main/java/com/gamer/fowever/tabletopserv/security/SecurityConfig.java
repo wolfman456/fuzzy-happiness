@@ -97,6 +97,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/register", "/api/auth/login",
                                 "/api/auth/verify", "/api/auth/resend-verification").permitAll()
                         .requestMatchers("/h2-console/**").permitAll()
+                        .requestMatchers("/ws/**").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);

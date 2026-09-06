@@ -1,6 +1,12 @@
 ## Instructions :
 Please frame all asks as follows :
-* As a user I want ..... so I can .... 
+* As a user I want ..... so I can ....
+
+## Feature Requests
+
+- As a user I want to create a game session (room) and get an invite code so I can invite my friends to play with me. (R2)
+- As a user I want to join a session with an invite code so all of us can be in the same room at the same time. (R3)
+- As a user I want to see who is in the session and chat live so I can interact with the group in real time. (R4) 
 
 After placing the request in this file and commit it, place a pull request and I will review then commit.
 

@@ -40,7 +40,7 @@ See `AGENTS.md` for repo layout, commands, and conventions.
 
 ## Status
 
-Iterative build; design draft in [`draft-design.md`](draft-design.md) (Draft v0.4).
+Iterative build; design draft in [`draft-design.md`](draft-design.md) (Draft v0.6).
 
 Delivered:
 
@@ -52,6 +52,14 @@ Delivered:
   pages, protected dashboard with stub session & character cards, auth state in
   `src/auth/` (localStorage + context), Tailwind UI. Backend CORS added for the dev origin.
   Node 24 enforced across the frontend (`.nvmrc`, `engines`, CI). 32 frontend tests (Vitest).
+- Sessions & live chat — `feature/sessions`: **Stage 1 complete**. Backend: session REST
+  (`POST /api/sessions`, `POST /api/sessions/join`, `POST /api/sessions/{id}/leave`).
+  `GET /api/sessions/{id}` snapshot, `GET /api/games`, and STOMP over `/ws?token=<jwt>` with
+  membership-private topics (`/topic/sessions/{id}`) and `@SubscribeMapping` snapshot replay
+  (`/app/sessions/{id}`). `StompAuthChannelInterceptor` returns STOMP ERROR frames to
+  unauthenticated/non-member clients. 101 backend tests, jacoco gate met. Frontend: lobby
+  (`/sessions`) with create/join-by-invite-code and a live session screen (`/sessions/:id`)
+  with roster, invite code and chat/presence over `@stomp/stompjs` (`src/lib/stomp.js`),
+  Sessions nav enabled. 57 frontend tests (Vitest), oxlint + build clean.
 
-Next: real-time sessions (WebSocket/STOMP lobby, invite codes, chat + presence), then
-character generation backed by the 5e SRD proxy, then the game table (dice, initiative).
+Next: character generation backed by the 5e SRD proxy, then the game table (dice, initiative).

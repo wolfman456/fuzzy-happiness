@@ -12,13 +12,7 @@ export default function ShellLayout() {
             <Link to="/" className="text-lg font-semibold tracking-tight">
               Tabletop
             </Link>
-            <Link
-              to="/sessions"
-              className="text-sm text-zinc-500 hover:text-zinc-900"
-              aria-disabled="true"
-              onClick={(e) => e.preventDefault()}
-              title="Coming soon"
-            >
+            <Link to="/sessions" className="text-sm text-zinc-500 hover:text-zinc-900">
               Sessions
             </Link>
             <Link

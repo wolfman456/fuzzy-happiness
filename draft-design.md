@@ -1,7 +1,8 @@
 # Fuzzy Happiness — Tabletop Game Platform (Initial Design Draft)
 
-> **Status:** Draft v0.5 — accounts & auth implemented end-to-end (backend `feature/spring-security` +
-> web UI in `feature/frontend-auth`).
+> **Status:** Draft v0.6 — accounts/auth end-to-end (backend `feature/spring-security` + web UI
+> in `feature/frontend-auth`) and Stage 1 "Sessions & chat" complete: lobby with invite codes,
+> create/join/leave, live chat + presence over STOMP (`/ws?token=…`), in `feature/sessions`.
 > A starting point to iterate on as requirements become clearer.
 > Open questions and things to decide are flagged inline and collected in [Open Questions](#open-questions--open-decisions).
 
@@ -242,11 +243,11 @@ GET    /api/auth/verify?token=       confirm email (single-use, 24h)         ✓
 POST   /api/auth/resend-verification resend verification (60s cooldown)      ✓
 GET    /api/users/me                 current user profile (JWT)              ✓
 GET    /api/admin/users              admin-only user listing                 ✓
-POST   /api/sessions               create session (returns invite code)
-GET    /api/sessions/{id}          snapshot (participants, game, status)
-POST   /api/sessions/join          join by invite code
-POST   /api/sessions/{id}/leave
-GET    /api/games                  registered games + sheet schemas
+POST   /api/sessions               create session (returns invite code)      ✓
+GET    /api/sessions/{id}          snapshot (participants, game, status)      ✓
+POST   /api/sessions/join          join by invite code                        ✓
+POST   /api/sessions/{id}/leave                                               ✓
+GET    /api/games                  registered games + sheet schemas           ✓
 GET    /api/srd/races              SRD reference lists (proxied + cached, §9)
 GET    /api/srd/races/{index}
 GET    /api/srd/classes            + /classes/{index}
@@ -264,10 +265,38 @@ GET    /api/users/me/characters/{id}
 WS     /ws                          STOMP endpoint; topics as in §6
 ```
 
-`✓` = implemented in `feature/spring-security` (Draft v0.4); the web client for auth is done in
-`feature/frontend-auth` (register/login/verify pages + protected dashboard). The rest is pending.
+`✓` = implemented. Auth landed in `feature/spring-security` (Draft v0.4, web client in
+`feature/frontend-auth`); the sessions slice landed in `feature/sessions` (Draft v0.6).
 Unverified users get `403` on login until `/api/auth/verify` confirms their email; the
 `resend` endpoint is intentionally enumeration-safe (always `202`).
+
+**STOMP surface (sessions slice, implemented):**
+
+```
+SUB   /app/sessions/{id}           @SubscribeMapping → SessionSummary snapshot replay
+SUB   /topic/sessions/{id}         live SessionEventDto broadcast (PRESENCE / CHAT / dice / table)
+SEND  /app/sessions/{id}/chat      POST {text} from a participant → CHAT event on the topic
+CONNECT /ws?token=<jwt>            standard WebSocket handshake; token = JWT auth
+```
+
+The WebSocket handshake (`/ws/**` is `permitAll()` in the security filter chain) is
+authenticated purely by the `token` query param, which `TokenHandshakeHandler` resolves to
+the STOMP principal. A `StompAuthChannelInterceptor` (registered on the **client inbound
+channel**) enforces: a principal must exist (`Authentication required`), the user must be a
+participant of the session for `/topic/sessions/{id}` and `/app/sessions/{id}/*`
+(`You are not a participant of this session`), and only those destinations are subscribable
+(`Unsupported subscription destination`). Rejections surface to clients as **STOMP ERROR
+frames** — which requires (a) running the client inbound channel **inline**
+(`SyncTaskExecutor`) so interceptor exceptions propagate to the `StompSubProtocolHandler`,
+and (b) throwing `MessageDeliveryException` (a `MessagingException`) so
+`AbstractMessageChannel` rethrows the original message instead of wrapping it in the
+generic `Failed to send message to ExecutorSubscribableChannel[clientInboundChannel]` text.
+
+Snapshot replay semantics: subscribing to `/app/sessions/{id}` (the `@SubscribeMapping`)
+returns the current `SessionSummary`; clients treat that as the initial roster + recent
+event history, then apply the `/topic/sessions/{id}` stream on top. Every `SessionEvent`
+(PRESENCE from join/leave, CHAT, and future DICE/TABLE) is persisted and replayed to late
+joiners via `recentEvents`.
 
 ## 13. Phased Roadmap
 
@@ -275,9 +304,10 @@ Unverified users get `403` on login until `/api/auth/verify` confirms their emai
 |---|---|---|
 | 1. Sessions & chat | accounts, lobby, invite code, join/leave, live chat + presence | group can get in a room and talk |
 
-> Stage 1 status: the **accounts/auth** slice is done end-to-end (register, login, verify,
-> roles, JWT, web UI + app shell — Draft v0.5). Remaining: lobby, invite code, join/leave,
-> chat + presence over STOMP.
+> Stage 1 status: **complete** (Draft v0.6). Accounts/auth end-to-end (register, login,
+> verify, roles, JWT, web UI + app shell), plus the sessions slice in `feature/sessions`:
+> lobby with create/join-by-invite-code, session screen with participant roster + live chat
+> and presence over STOMP (private-by-membership topics, snapshot replay on subscribe).
 | 2. Characters | abstract `Character`, registry, D&D sheet model + **generation** (guided wizard + quick-build) backed by the SRD proxy, server compile validation | create a validated level 1–3 D&D character via wizard or quick-build |
 | 3. Game table | dice rolls, initiative/order, shared table state | dice events broadcast to the session |
 | 4. Discord | OAuth connect + deep-link voice | "Connect Discord" flows to voice + table side-by-side |
@@ -295,7 +325,16 @@ tokens with a 60s resend cooldown, roles `USER`/`MODERATOR`/`ADMIN` with a dev-s
 bootstrap admin · **frontend (implemented):** Tailwind CSS v4, react-router, JWT in
 `localStorage` restored via `GET /api/users/me`, Node 24 pinned, backend CORS restricted to
 the configured `tabletopserv.cors.allowed-origins` (default the Vite dev origin); no Vite
-`/api` proxy — the SPA calls the backend cross-origin with `VITE_API_URL`.
+`/api` proxy — the SPA calls the backend cross-origin with `VITE_API_URL` · **sessions &
+live chat (implemented):** STOMP over `/ws` with the JWT in a `?token=` query param
+(handshake principal + channel interceptor), snapshot replay via `@SubscribeMapping` on
+`/app/sessions/{id}` + live `SessionEventDto` broadcasts on `/topic/sessions/{id}`,
+per-membership subscription enforcement (interceptor throws `MessageDeliveryException` with
+the client inbound channel running on `SyncTaskExecutor` so clients receive STOMP ERROR
+frames), invite codes `[A-Z0-9]{6}`, roles `GM`/`PLAYER`/`SPECTATOR` (invite join assigns
+`PLAYER`, creator `GM`), session status `OPEN`/`ACTIVE`/`CLOSED`, `BootstrapGameRunner`
+seeding the `dnd-5e` game, frontend uses `@stomp/stompjs` via `src/lib/stomp.js` with the
+lobby + session screens in `src/pages/LobbyPage.jsx` / `SessionPage.jsx`.
 
 - Do we need friends list / permanent groups, or is invite-code enough for now?
 - Should board/map/tokens be a stage after MVP, or explicitly out of scope?
@@ -332,5 +371,11 @@ the configured `tabletopserv.cors.allowed-origins` (default the Vite dev origin)
   (`ConsoleEmailSender` in dev, SMTP in prod), and a dev-only bootstrap admin
   (credentials from `tabletopserv.admin.*` props, overridable via env). Explicit JSON
   `401`/`403` responses; business errors handled by `GlobalExceptionHandler`.
-- Still to build for stage 1-2 runtime: STOMP broker config + presence/chat wiring, and
-  the SRD `SrdClient` WebClient proxy with the Caffeine cache.
+- **Sessions stack in place:** STOMP over `/ws` (`spring-boot-starter-websocket`), client
+  inbound channel on `SyncTaskExecutor` + `StompAuthChannelInterceptor` (throws
+  `MessageDeliveryException`), `TokenHandshakeHandler` for the `?token=` handshake param,
+  `SessionEventsController` (`@SubscribeMapping` snapshot replay) + `SessionController`
+  (create/join/leave) + `GameController`; `SessionService`/`SessionPresenceService` persist
+  `Session`/`Participant`/`SessionEvent` and broadcast on `/topic/sessions/{id}`.
+- Still to build for stage 2-3 runtime: the SRD `SrdClient` WebClient proxy with the
+  Caffeine cache, and the custom `Character` model + generation ('§8).
