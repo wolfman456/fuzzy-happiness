@@ -55,3 +55,23 @@ export async function api(path, { method = 'GET', body } = {}) {
     return text
   }
 }
+
+export function listGames() {
+  return api('/api/games')
+}
+
+export function createSession({ name, gameSlug }) {
+  return api('/api/sessions', { method: 'POST', body: { name, gameSlug } })
+}
+
+export function getSession(id) {
+  return api(`/api/sessions/${id}`)
+}
+
+export function joinSession(inviteCode) {
+  return api('/api/sessions/join', { method: 'POST', body: { inviteCode } })
+}
+
+export function leaveSession(id) {
+  return api(`/api/sessions/${id}/leave`, { method: 'POST' })
+}

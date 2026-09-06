@@ -1,5 +1,15 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { api, ApiError, setAuthToken, setUnauthorizedHandler } from './api'
+import {
+  api,
+  ApiError,
+  createSession,
+  getSession,
+  joinSession,
+  leaveSession,
+  listGames,
+  setAuthToken,
+  setUnauthorizedHandler,
+} from './api'
 
 const BASE = 'http://localhost:8080'
 
@@ -78,5 +88,43 @@ describe('api', () => {
 
     await expect(api('/api/auth/login', { method: 'POST', body: {} })).rejects.toThrow('Bad credentials')
     expect(handler).not.toHaveBeenCalled()
+  })
+
+  it('listGames GETs /api/games', async () => {
+    mockFetch(200, [{ slug: 'dnd-5e', displayName: 'D&D 5e' }])
+    await expect(listGames()).resolves.toEqual([{ slug: 'dnd-5e', displayName: 'D&D 5e' }])
+    expect(fetch.mock.calls[0][0]).toBe(`${BASE}/api/games`)
+  })
+
+  it('createSession POSTs a name and game slug', async () => {
+    mockFetch(201, { id: 7, name: 'Grumm’s Revenge', inviteCode: 'AB12CD' })
+    const session = await createSession({ name: 'Grumm’s Revenge', gameSlug: 'dnd-5e' })
+    expect(session.id).toBe(7)
+    const [, init] = fetch.mock.calls[0]
+    expect(init.method).toBe('POST')
+    expect(init.body).toBe(JSON.stringify({ name: 'Grumm’s Revenge', gameSlug: 'dnd-5e' }))
+    expect(fetch.mock.calls[0][0]).toBe(`${BASE}/api/sessions`)
+  })
+
+  it('getSession GETs /api/sessions/{id}', async () => {
+    mockFetch(200, { id: 7, name: 'Tower', status: 'OPEN' })
+    await expect(getSession(7)).resolves.toMatchObject({ id: 7, name: 'Tower' })
+    expect(fetch.mock.calls[0][0]).toBe(`${BASE}/api/sessions/7`)
+  })
+
+  it('joinSession POSTs the invite code', async () => {
+    mockFetch(200, { id: 8, inviteCode: 'XYZ789' })
+    const session = await joinSession('  xyz789  ')
+    expect(session.id).toBe(8)
+    const [, init] = fetch.mock.calls[0]
+    expect(init.body).toBe(JSON.stringify({ inviteCode: '  xyz789  ' }))
+  })
+
+  it('leaveSession POSTs /api/sessions/{id}/leave', async () => {
+    mockFetch(202, 'You have left the session')
+    await expect(leaveSession(7)).resolves.toBe('You have left the session')
+    const [url, init] = fetch.mock.calls[0]
+    expect(url).toBe(`${BASE}/api/sessions/7/leave`)
+    expect(init.method).toBe('POST')
   })
 })
