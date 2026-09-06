@@ -40,7 +40,7 @@ See `AGENTS.md` for repo layout, commands, and conventions.
 
 ## Status
 
-Iterative build; design draft in [`draft-design.md`](draft-design.md) (Draft v0.6).
+Iterative build; design draft in [`draft-design.md`](draft-design.md) (Draft v0.7).
 
 Delivered:
 
@@ -61,5 +61,17 @@ Delivered:
   (`/sessions`) with create/join-by-invite-code and a live session screen (`/sessions/:id`)
   with roster, invite code and chat/presence over `@stomp/stompjs` (`src/lib/stomp.js`),
   Sessions nav enabled. 57 frontend tests (Vitest), oxlint + build clean.
+- Game table slice 1 — battle map — `feature/battle-map`: **Stage 3 track 1**. Backend: grid
+  map per session (`GET|POST /api/sessions/{id}/map`), tokens
+  (`POST|PATCH|DELETE /api/sessions/{id}/map/tokens[/{id}]`), movement
+  (`POST …/map/tokens/{id}/move`) enforced server-side against a per-turn budget
+  (`floor(speed/10ft)` squares, Chebyshev diagonal cost), turn control
+  (`POST …/map/turn` — `START|END|NEW_ROUND`), participant auto-tokens, and a new `TABLE`
+  session-event type broadcasting the full map state on `/topic/sessions/{id}`. 131 backend
+  tests, jacoco gate met. Frontend: `src/lib/mapGeometry.js` (race→speed table, reachability),
+  `src/lib/battleMap.js`, and `BattleMapPanel` on the session screen — render grid + tokens,
+  select-to-move with reachable-square overlay, GM add/edit/remove tokens + turn bar, TABLE
+  events kept out of the chat feed and applied to the live map. 88 frontend tests (Vitest),
+  oxlint + build clean.
 
-Next: character generation backed by the 5e SRD proxy, then the game table (dice, initiative).
+Next: character generation backed by the 5e SRD proxy, then the rest of the game table (dice, initiative).

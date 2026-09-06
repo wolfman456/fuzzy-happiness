@@ -24,8 +24,43 @@ Auth endpoints (JSON; business errors via `GlobalExceptionHandler`):
 | `GET /api/users/me` | current user profile (JWT required) |
 | `GET /api/admin/users` | admin-only user listing |
 
+Session endpoints (members only; GM = creator, roles `GM`/`PLAYER`/`SPECTATOR`):
+
+| Method & path | Description |
+|---|---|
+| `GET /api/games` | available games (`dnd-5e`, seeded) |
+| `POST /api/sessions` | create a session (creator becomes GM) → invite code |
+| `POST /api/sessions/join` | join by invite code (assigns `PLAYER`) |
+| `GET /api/sessions/{id}` | session snapshot incl. `recentEvents` |
+| `POST /api/sessions/{id}/leave` | leave the session |
+
+Realtime (STOMP over `/ws?token=<jwt>`, membership-private):
+
+| Destination | Direction | Payload |
+|---|---|---|
+| `/app/sessions/{id}` | subscribe (snapshot) | `SessionSummary` on connect |
+| `/app/sessions/{id}/chat` | publish | `{"text": …}` chat message |
+| `/topic/sessions/{id}` | watch | live `SessionEventDto` (PRESENCE, CHAT, TABLE) |
+
+Battle map endpoints (all under `/api/sessions/{id}/map`; map ops broadcast a `TABLE`
+session event carrying the full `BattleMapDto` state):
+
+| Method & path | Description |
+|---|---|
+| `GET …/map` | current map (or `404` if none) |
+| `POST …/map` | GM: create map (idempotent; auto-tokens non-spectator participants) |
+| `POST …/map/tokens` | GM: add token (defaults `MONSTER_NPC`, 30 ft) |
+| `PATCH …/map/tokens/{tokenId}` | GM: update token (name/color/speedFeet) |
+| `DELETE …/map/tokens/{tokenId}` | GM: remove token |
+| `POST …/map/tokens/{tokenId}/move` | members: move own token (GM: any) within budget (`{"x", "y"}`) |
+| `POST …/map/turn` | GM: `{"action":"START","tokenId":…}｜"END"｜"NEW_ROUND"` |
+
+Map house rules: 10 ft per square, per-turn budget `floor(speedFeet / 10)` squares
+(race table 25/30/35/40 ft), diagonal moves cost Chebyshev distance, budget resets on turn
+`START` / `END` / `NEW_ROUND`, over-budget moves rejected with `400`.
+
 Status codes: `400` validation / `401` bad or missing JWT / `403` unverified or forbidden /
-`409` duplicate username/email / `429` resend cooldown / `500` fallback.
+`404` not found / `409` duplicate / `429` resend cooldown / `500` fallback.
 
 ## Configuration
 

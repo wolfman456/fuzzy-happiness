@@ -10,6 +10,11 @@ const realtime = {
   handlers: {},
 }
 
+const battleMapMock = vi.hoisted(() => ({
+  getMap: vi.fn(),
+  createMap: vi.fn(),
+}))
+
 vi.mock('../lib/api', () => ({
   api: vi.fn(),
   getSession: vi.fn(),
@@ -22,6 +27,8 @@ vi.mock('../lib/stomp', () => ({
     return realtime
   }),
 }))
+
+vi.mock('../lib/battleMap', () => battleMapMock)
 
 vi.mock('../auth/useAuth', () => ({
   useAuth: () => ({ user: { id: 1, username: 'ginger', displayName: 'Ginger' } }),
@@ -61,6 +68,13 @@ function renderSession(initialEntry = '/sessions/7') {
 }
 
 describe('SessionPage', () => {
+  beforeEach(() => {
+    battleMapMock.getMap.mockReset()
+    battleMapMock.getMap.mockRejectedValue({ status: 404, message: 'Battle map not found' })
+    battleMapMock.createMap.mockReset()
+    battleMapMock.createMap.mockResolvedValue({ id: 1, sessionId: 7, name: 'Grumm’s map', width: 24, height: 18, squareFeet: 10, currentTurnTokenId: null, tokens: [] })
+  })
+
   it('renders participants, invite code and connects realtime', async () => {
     api.mockResolvedValue(snapshot)
     renderSession()
@@ -146,5 +160,78 @@ describe('SessionPage', () => {
     })
 
     expect(screen.getByRole('alert')).toHaveTextContent('not a participant')
+  })
+
+  it('renders the battle map from a live TABLE event kept out of the chat feed', async () => {
+    api.mockResolvedValue(snapshot)
+    battleMapMock.getMap.mockResolvedValue({
+      id: 1, sessionId: 7, name: 'Live map', width: 24, height: 18, squareFeet: 10, currentTurnTokenId: null, tokens: [],
+    })
+    renderSession()
+    await screen.findByRole('heading', { name: /Live map/ })
+
+    act(() => {
+      realtime.handlers.onEvent({
+        id: 50,
+        type: 'TABLE',
+        payload: {
+          id: 1,
+          sessionId: 7,
+          name: 'Live map',
+          width: 24,
+          height: 18,
+          squareFeet: 10,
+          currentTurnTokenId: null,
+          tokens: [
+            { id: 11, name: 'Goblin', category: 'MONSTER_NPC', color: '#ef4444', speedFeet: 30, posX: 2, posY: 2, movedFeet: 0, linkedParticipantId: null, linkedUserId: null },
+          ],
+        },
+      })
+    })
+
+    expect(await screen.findByRole('button', { name: /Token Goblin/ })).toBeInTheDocument()
+    expect(screen.getByText('No messages yet.')).toBeInTheDocument()
+  })
+
+  it('hydrates the map from snapshot recentEvents and hides TABLE rows from the feed', async () => {
+    api.mockResolvedValue({
+      ...snapshot,
+      recentEvents: [
+        { id: 1, type: 'CHAT', payload: { sender: { displayName: 'Ginger' }, text: 'Hi' }, createdAt: 'x' },
+        { id: 2, type: 'TABLE', payload: { id: 1, sessionId: 7, name: 'Snapshot map', width: 24, height: 18, squareFeet: 10, currentTurnTokenId: null, tokens: [] }, createdAt: 'y' },
+      ],
+    })
+    battleMapMock.getMap.mockResolvedValue({
+      id: 1, sessionId: 7, name: 'Snapshot map', width: 24, height: 18, squareFeet: 10, currentTurnTokenId: null, tokens: [],
+    })
+    renderSession()
+
+    expect(await screen.findByRole('heading', { name: /Snapshot map/ })).toBeInTheDocument()
+    expect(screen.getByText('Hi')).toBeInTheDocument()
+    expect(screen.queryByText('No messages yet.')).not.toBeInTheDocument()
+  })
+
+  it('lets the GM set up a battle map when none exists', async () => {
+    api.mockResolvedValue(snapshot)
+    renderSession()
+
+    const setup = await screen.findByRole('button', { name: 'Set up battle map' })
+    fireEvent.click(setup)
+
+    expect(await screen.findByRole('heading', { name: /Grumm’s map/ })).toBeInTheDocument()
+    expect(battleMapMock.createMap).toHaveBeenCalledWith('7')
+  })
+
+  it('tells players to ask their GM when no map exists', async () => {
+    api.mockResolvedValue({
+      ...snapshot,
+      participants: [
+        { user: { id: 1, username: 'ginger', displayName: 'Ginger' }, role: 'PLAYER', joinedAt: '2026-01-01T10:00:00' },
+      ],
+    })
+    renderSession()
+
+    expect(await screen.findByText(/ask your GM/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Set up battle map' })).not.toBeInTheDocument()
   })
 })
