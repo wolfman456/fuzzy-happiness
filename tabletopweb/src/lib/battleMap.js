@@ -8,6 +8,10 @@ export function createMap(sessionId, body = {}) {
   return api(`/api/sessions/${sessionId}/map`, { method: 'POST', body })
 }
 
+export function updateMap(sessionId, body) {
+  return api(`/api/sessions/${sessionId}/map`, { method: 'PATCH', body })
+}
+
 export function addToken(sessionId, body) {
   return api(`/api/sessions/${sessionId}/map/tokens`, { method: 'POST', body })
 }

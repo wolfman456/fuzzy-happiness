@@ -19,6 +19,7 @@ import com.gamer.fowever.tabletopserv.dto.MoveTokenRequest;
 import com.gamer.fowever.tabletopserv.dto.SessionEventDto;
 import com.gamer.fowever.tabletopserv.dto.TurnAction;
 import com.gamer.fowever.tabletopserv.dto.TurnCommandRequest;
+import com.gamer.fowever.tabletopserv.dto.UpdateMapRequest;
 import com.gamer.fowever.tabletopserv.dto.UpdateTokenRequest;
 import com.gamer.fowever.tabletopserv.repository.BattleMapRepository;
 import com.gamer.fowever.tabletopserv.repository.GameSessionRepository;
@@ -356,6 +357,67 @@ class BattleMapServiceTest {
         assertThatThrownBy(() -> service.updateToken(gm, SESSION_ID, 1L, new UpdateTokenRequest(" ", null, null)))
                 .isInstanceOf(ApiException.class)
                 .hasMessageContaining("must not be blank");
+    }
+
+    @Test
+    void updateMapResizesAndClipsOutOfBoundsTokens() {
+        User gm = user(1L, "aria");
+        GameSession session = session(gm);
+        coreStubs(gm, session);
+        withGm(gm, session);
+        storedMap(session);
+        storedToken("Goblin", TokenCategory.MONSTER_NPC, "#ef4444", 30, 20, 17, null, null);
+
+        BattleMapDto dto = service.updateMap(gm, SESSION_ID, new UpdateMapRequest(null, 10, 10));
+
+        assertThat(dto.width()).isEqualTo(10);
+        assertThat(dto.height()).isEqualTo(10);
+        assertThat(dto.tokens().getFirst().posX()).isEqualTo(9);
+        assertThat(dto.tokens().getFirst().posY()).isEqualTo(9);
+    }
+
+    @Test
+    void updateMapRenamesAndIsIdempotentForUnchangedValues() {
+        User gm = user(1L, "aria");
+        GameSession session = session(gm);
+        coreStubs(gm, session);
+        withGm(gm, session);
+        storedMap(session);
+
+        BattleMapDto renamed = service.updateMap(gm, SESSION_ID, new UpdateMapRequest("Tower of Grumm", null, null));
+        assertThat(renamed.name()).isEqualTo("Tower of Grumm");
+
+        int eventsBefore = savedEvents.size();
+        service.updateMap(gm, SESSION_ID, new UpdateMapRequest("Tower of Grumm", 24, 18));
+        assertThat(savedEvents).hasSize(eventsBefore);
+    }
+
+    @Test
+    void updateMapRejectsNonGm() {
+        User gm = user(1L, "aria");
+        User player = user(2L, "ivo");
+        GameSession session = session(gm);
+        coreStubs(gm, session);
+        withPlayer(player, session);
+        when(userRepository.findById(2L)).thenReturn(Optional.of(player));
+        storedMap(session);
+
+        assertThatThrownBy(() -> service.updateMap(player, SESSION_ID, new UpdateMapRequest(null, 30, 30)))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("Only the GM");
+    }
+
+    @Test
+    void updateMapRejectsOutOfRangeSizes() {
+        User gm = user(1L, "aria");
+        GameSession session = session(gm);
+        coreStubs(gm, session);
+        withGm(gm, session);
+        storedMap(session);
+
+        assertThatThrownBy(() -> service.updateMap(gm, SESSION_ID, new UpdateMapRequest(null, 300, 5)))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("between 1 and 200");
     }
 
     @Test

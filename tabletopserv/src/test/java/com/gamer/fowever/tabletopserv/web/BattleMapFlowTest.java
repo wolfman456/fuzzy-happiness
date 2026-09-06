@@ -156,6 +156,27 @@ class BattleMapFlowTest {
         assertThat((List<Integer>) JsonPath.read(patched, "$.tokens[?(@.name == 'Goblin Captain')].speedFeet"))
                 .containsExactly(60);
 
+        mvc.perform(patch("/api/sessions/" + session.id() + "/map")
+                        .header("Authorization", "Bearer " + gmJwt)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"width\":12,\"height\":10}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.width").value(12))
+                .andExpect(jsonPath("$.height").value(10));
+
+        mvc.perform(patch("/api/sessions/" + session.id() + "/map")
+                        .header("Authorization", "Bearer " + playerJwt)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"width\":12,\"height\":10}"))
+                .andExpect(status().isForbidden());
+
+        mvc.perform(patch("/api/sessions/" + session.id() + "/map")
+                        .header("Authorization", "Bearer " + gmJwt)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"width\":1,\"height\":1}"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
         mvc.perform(delete("/api/sessions/" + session.id() + "/map/tokens/" + goblinId)
                         .header("Authorization", "Bearer " + gmJwt))
                 .andExpect(status().isNoContent());

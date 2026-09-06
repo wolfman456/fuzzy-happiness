@@ -11,6 +11,7 @@ import {
   moveToken,
   removeToken,
   turnCommand,
+  updateMap,
   updateToken,
 } from '../lib/battleMap'
 
@@ -33,6 +34,9 @@ export default function BattleMapPanel({ sessionId, map, user, isGm, disabled, o
   const [form, setForm] = useState(EMPTY_FORM)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [hoverPos, setHoverPos] = useState(null)
+  const [resizeOpen, setResizeOpen] = useState(false)
+  const [resizeDims, setResizeDims] = useState({ width: map.width, height: map.height })
 
   const selectedToken = useMemo(
     () => map.tokens.find((token) => token.id === selectedId) ?? null,
@@ -168,6 +172,25 @@ export default function BattleMapPanel({ sessionId, map, user, isGm, disabled, o
     }
   }
 
+  async function handleResize(event) {
+    event.preventDefault()
+    if (busy) return
+    setBusy(true)
+    setError('')
+    try {
+      const next = await updateMap(sessionId, {
+        width: Number(resizeDims.width),
+        height: Number(resizeDims.height),
+      })
+      onMapChange(next)
+      setResizeOpen(false)
+    } catch (callError) {
+      setError(callError.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const onTurnName = map.tokens.find(
     (token) => token.id === map.currentTurnTokenId,
   )?.name
@@ -233,10 +256,78 @@ export default function BattleMapPanel({ sessionId, map, user, isGm, disabled, o
               Add token
             </button>
           )}
+        {isGm && (
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={() => {
+                setResizeDims({ width: map.width, height: map.height })
+                setResizeOpen((open) => !open)
+              }}
+              className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
+            >
+              Resize
+            </button>
+          )}
         </div>
       </div>
 
-      {error && (
+      {isGm && resizeOpen && (
+        <form
+          onSubmit={handleResize}
+          className="mt-4 flex flex-wrap items-center gap-3 rounded-lg bg-zinc-50 p-4"
+          data-testid="resize-form"
+        >
+          <label className="text-sm text-zinc-700">
+            Width (1–200)
+            <input
+              type="number"
+              min="1"
+              max="200"
+              required
+              value={resizeDims.width}
+              onChange={(event) =>
+                setResizeDims({ ...resizeDims, width: event.target.value })
+              }
+              className="mt-1 block w-24 rounded-md border border-zinc-300 px-3 py-1.5"
+              data-testid="resize-width"
+            />
+          </label>
+          <label className="text-sm text-zinc-700">
+            Height (1–200)
+            <input
+              type="number"
+              min="1"
+              max="200"
+              required
+              value={resizeDims.height}
+              onChange={(event) =>
+                setResizeDims({ ...resizeDims, height: event.target.value })
+              }
+              className="mt-1 block w-24 rounded-md border border-zinc-300 px-3 py-1.5"
+              data-testid="resize-height"
+            />
+          </label>
+          <div className="flex items-center gap-2">
+            <button
+              type="submit"
+              disabled={busy}
+              className="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
+            >
+              Save
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => setResizeOpen(false)}
+              className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-50"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
+        {error && (
         <p role="alert" className="mt-3 text-sm text-red-700">
           {error}
         </p>
@@ -256,7 +347,38 @@ export default function BattleMapPanel({ sessionId, map, user, isGm, disabled, o
           className="relative cursor-crosshair"
           style={gridBackgroundStyle()}
           onClick={handleGridClick}
+          onMouseMove={(event) => {
+            const rect = event.currentTarget.getBoundingClientRect()
+            const x = Math.floor((event.clientX - rect.left) / SQUARE_PX)
+            const y = Math.floor((event.clientY - rect.top) / SQUARE_PX)
+            setHoverPos(
+              x >= 0 && y >= 0 && x < map.width && y < map.height
+                ? { x, y }
+                : null,
+            )
+          }}
+          onMouseLeave={() => setHoverPos(null)}
         >
+          {Array.from({ length: map.width }, (_, x) => (
+            <span
+              key={`col-${x}`}
+              aria-hidden="true"
+              className="pointer-events-none absolute text-[9px] leading-none text-zinc-300"
+              style={{ left: `${x * SQUARE_PX}px`, top: '2px' }}
+            >
+              {x}
+            </span>
+          ))}
+          {Array.from({ length: map.height }, (_, y) => (
+            <span
+              key={`row-${y}`}
+              aria-hidden="true"
+              className="pointer-events-none absolute text-[9px] leading-none text-zinc-300"
+              style={{ left: '2px', top: `${y * SQUARE_PX}px` }}
+            >
+              {y}
+            </span>
+          ))}
           {reachable.map(({ x, y }) => (
             <button
               type="button"
@@ -282,6 +404,10 @@ export default function BattleMapPanel({ sessionId, map, user, isGm, disabled, o
               token={token}
               selected={token.id === selectedId}
               interactive={!disabled && (isGm || token.linkedUserId === user?.id)}
+              showFeet={
+                token.id === selectedId ||
+                (!disabled && (isGm || token.linkedUserId === user?.id) && token.movedFeet > 0)
+              }
               squarePx={SQUARE_PX}
               onClick={(event) => {
                 event.stopPropagation()
@@ -291,6 +417,13 @@ export default function BattleMapPanel({ sessionId, map, user, isGm, disabled, o
           ))}
         </div>
       </div>
+
+      <p
+        data-testid="square-readout"
+        className="mt-2 text-xs text-zinc-400"
+      >
+        {hoverPos ? `Square (${hoverPos.x}, ${hoverPos.y})` : '\u00a0'}
+      </p>
 
       {(isGm || selectedToken) && (
         <ul className="mt-4 divide-y divide-zinc-100" data-testid="token-list">
@@ -464,7 +597,7 @@ export default function BattleMapPanel({ sessionId, map, user, isGm, disabled, o
   )
 }
 
-function TokenDisc({ token, selected, interactive, squarePx, onClick }) {
+function TokenDisc({ token, selected, interactive, showFeet, squarePx, onClick }) {
   const initials =
     token.name
       .split(/\s+/)
@@ -492,6 +625,14 @@ function TokenDisc({ token, selected, interactive, squarePx, onClick }) {
       }}
     >
       {initials}
+      {showFeet && (
+        <span
+          data-testid={`feet-${token.id}`}
+          className="absolute -bottom-1 -right-1 rounded-full bg-zinc-900 px-1 text-[8px] font-bold text-white"
+        >
+          {remainingFeet(token)}ft
+        </span>
+      )}
     </button>
   )
 }

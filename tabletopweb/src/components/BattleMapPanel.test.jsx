@@ -7,6 +7,7 @@ const battleMapMock = vi.hoisted(() => ({
   moveToken: vi.fn(),
   removeToken: vi.fn(),
   turnCommand: vi.fn(),
+  updateMap: vi.fn(),
   updateToken: vi.fn(),
 }))
 
@@ -53,6 +54,7 @@ beforeEach(() => {
   battleMapMock.turnCommand.mockResolvedValue(makeMap())
   battleMapMock.addToken.mockResolvedValue(makeMap())
   battleMapMock.updateToken.mockResolvedValue(makeMap())
+  battleMapMock.updateMap.mockResolvedValue(makeMap({ width: 12, height: 10 }))
   battleMapMock.removeToken.mockResolvedValue(makeMap({ tokens: [makeMap().tokens[1]] }))
 })
 
@@ -193,5 +195,68 @@ describe('BattleMapPanel', () => {
     expect(screen.getByRole('button', { name: /Token Aria Sol/ })).toBeDisabled()
     expect(screen.queryByRole('button', { name: /Move to square/ })).not.toBeInTheDocument()
     expect(battleMapMock.moveToken).not.toHaveBeenCalled()
+  })
+
+  it('lets the GM resize the map', async () => {
+    const { onMapChange } = renderPanel({ isGm: true })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Resize' }))
+    const form = screen.getByTestId('resize-form')
+    fireEvent.change(within(form).getAllByRole('spinbutton')[0], { target: { value: '12' } })
+    fireEvent.change(within(form).getAllByRole('spinbutton')[1], { target: { value: '10' } })
+
+    fireEvent.click(within(form).getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => expect(battleMapMock.updateMap).toHaveBeenCalledWith('7', { width: 12, height: 10 }))
+    expect(onMapChange).toHaveBeenCalledWith(expect.objectContaining({ width: 12, height: 10 }))
+  })
+
+  it('hides the resize control from players', () => {
+    renderPanel({ isGm: false })
+    expect(screen.queryByRole('button', { name: 'Resize' })).not.toBeInTheDocument()
+  })
+
+  it('shows the hovered square coordinates', () => {
+    renderPanel()
+    const grid = screen.getByTestId('battle-grid')
+    fireEvent.mouseMove(grid, { clientX: 5, clientY: 5 })
+    expect(screen.getByTestId('square-readout')).toHaveTextContent('Square (0, 0)')
+    fireEvent.mouseLeave(grid)
+    expect(screen.getByTestId('square-readout')).not.toHaveTextContent(/Square/)
+  })
+
+  it('renders axis coordinate labels on the grid', () => {
+    renderPanel({ map: makeMap({ width: 2, height: 2 }) })
+    const grid = screen.getByTestId('battle-grid')
+    const cols = within(grid).getAllByText('0')
+    expect(cols.length).toBe(2)
+    expect(within(grid).getAllByText('1').length).toBe(2)
+  })
+
+  it('shows remaining feet on a moved token the player owns', () => {
+    renderPanel({
+      isGm: false,
+      map: makeMap({
+        tokens: [
+          { id: 11, name: 'Aria Sol', category: 'PLAYER', color: '#3b82f6', speedFeet: 30, posX: 1, posY: 1, movedFeet: 20, linkedParticipantId: null, linkedUserId: 1 },
+          ...makeMap().tokens.slice(1),
+        ],
+      }),
+    })
+    expect(screen.getByTestId('feet-11')).toHaveTextContent('10ft')
+  })
+
+  it('does not show remaining feet on tokens the player does not own', () => {
+    renderPanel({
+      isGm: false,
+      map: makeMap({
+        tokens: [
+          { id: 11, name: 'Aria Sol', category: 'PLAYER', color: '#3b82f6', speedFeet: 30, posX: 1, posY: 1, movedFeet: 20, linkedParticipantId: null, linkedUserId: 1 },
+          { id: 12, name: 'Goblin', category: 'MONSTER_NPC', color: '#ef4444', speedFeet: 30, posX: 5, posY: 5, movedFeet: 15, linkedParticipantId: null, linkedUserId: null },
+        ],
+      }),
+    })
+    expect(screen.getByTestId('feet-11')).toBeInTheDocument()
+    expect(screen.queryByTestId('feet-12')).not.toBeInTheDocument()
   })
 })
