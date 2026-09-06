@@ -10,6 +10,10 @@ After placing the request in this file and commit it, place a pull request and I
 - As a Player I want to create a game session (room) and get an invite code so I can invite my friends to play with me. (R2)
 - As a Player I want to join a session with an invite code so all of us can be in the same room at the same time. (R3)
 - As a Player I want to see who is in the session and chat live so I can interact with the group in real time. (R4)
+- As a Player I want to roll dice inside the session (e.g. `2d6+3`) and see the outcome shared with the table so we don't have to trust each other's honour rolls. (R5)
+- As a DM I want to make a secret (GM-only) roll whose result is hidden from the players, so I can fudge perception checks and enemy skill checks without tipping off the party. (R6)
+- As a DM I want to set an initiative order for the current encounter (players, monsters and custom entries, with blank scores auto-rolled by the server) so everyone knows who acts when. (R7)
+- As a DM I want to advance the initiative order on the shared table — re-rolling and removing entries as needed, with each creature's turn activating their movement budget — so combat flows without everybody shouting turn order. (R8)
 
 ## Expectation
 Once we have gathered input from all of you we will create a MVP (Minimum Viable Product). This will be the starting goal and what we design the original architecture to. I Do not plan to do all of this on my own or to hold your hands through this process.

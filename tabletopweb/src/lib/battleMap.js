@@ -39,3 +39,27 @@ export function moveToken(sessionId, tokenId, body) {
 export function turnCommand(sessionId, body) {
   return api(`/api/sessions/${sessionId}/map/turn`, { method: 'POST', body })
 }
+
+export function setInitiative(sessionId, body) {
+  return api(`/api/sessions/${sessionId}/map/initiative`, { method: 'POST', body })
+}
+
+export function rerollInitiative(sessionId, entryId) {
+  return api(`/api/sessions/${sessionId}/map/initiative/${entryId}/reroll`, {
+    method: 'POST',
+  })
+}
+
+export function nextInitiative(sessionId) {
+  return api(`/api/sessions/${sessionId}/map/initiative/next`, { method: 'POST' })
+}
+
+export function removeInitiativeEntry(sessionId, entryId) {
+  return api(`/api/sessions/${sessionId}/map/initiative/${entryId}`, {
+    method: 'DELETE',
+  })
+}
+
+export function rollDice(sessionId, body) {
+  return api(`/api/sessions/${sessionId}/roll`, { method: 'POST', body })
+}

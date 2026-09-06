@@ -9,7 +9,7 @@ export function stompBrokerUrl() {
   return `${base}/ws?token=${encodeURIComponent(stored?.token ?? '')}`
 }
 
-export function createRealtimeClient({ sessionId, onSnapshot, onEvent, onError }) {
+export function createRealtimeClient({ sessionId, onSnapshot, onEvent, onPrivateRoll, onError }) {
   const client = new Client({
     brokerURL: stompBrokerUrl(),
     reconnectDelay: 3000,
@@ -23,6 +23,10 @@ export function createRealtimeClient({ sessionId, onSnapshot, onEvent, onError }
       client.subscribe(`/topic/sessions/${sessionId}`, (frame) => {
         const event = parseJson(frame.body)
         if (event) onEvent?.(event)
+      })
+      client.subscribe('/user/queue/dice', (frame) => {
+        const event = parseJson(frame.body)
+        if (event) onPrivateRoll?.(event)
       })
     },
     onStompError(frame) {

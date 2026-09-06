@@ -4,6 +4,7 @@ import com.gamer.fowever.tabletopserv.domain.User;
 import com.gamer.fowever.tabletopserv.dto.AddTokenRequest;
 import com.gamer.fowever.tabletopserv.dto.BattleMapDto;
 import com.gamer.fowever.tabletopserv.dto.CreateMapRequest;
+import com.gamer.fowever.tabletopserv.dto.InitiativeRequest;
 import com.gamer.fowever.tabletopserv.dto.MoveTokenRequest;
 import com.gamer.fowever.tabletopserv.dto.TurnCommandRequest;
 import com.gamer.fowever.tabletopserv.dto.UpdateMapRequest;
@@ -89,6 +90,33 @@ public class BattleMapController {
                              @Valid @RequestBody TurnCommandRequest request,
                              Authentication authentication) {
         return battleMapService.turnCommand(currentUser(authentication), sessionId, request);
+    }
+
+    @PostMapping("/initiative")
+    public BattleMapDto setInitiative(@PathVariable Long sessionId,
+                                      @Valid @RequestBody InitiativeRequest request,
+                                      Authentication authentication) {
+        return battleMapService.setInitiative(currentUser(authentication), sessionId, request);
+    }
+
+    @PostMapping("/initiative/{entryId}/reroll")
+    public BattleMapDto rerollInitiative(@PathVariable Long sessionId,
+                                         @PathVariable Long entryId,
+                                         Authentication authentication) {
+        return battleMapService.rerollInitiative(currentUser(authentication), sessionId, entryId);
+    }
+
+    @PostMapping("/initiative/next")
+    public BattleMapDto nextInitiative(@PathVariable Long sessionId,
+                                       Authentication authentication) {
+        return battleMapService.nextInitiative(currentUser(authentication), sessionId);
+    }
+
+    @DeleteMapping("/initiative/{entryId}")
+    public BattleMapDto removeInitiativeEntry(@PathVariable Long sessionId,
+                                              @PathVariable Long entryId,
+                                              Authentication authentication) {
+        return battleMapService.removeInitiativeEntry(currentUser(authentication), sessionId, entryId);
     }
 
     private User currentUser(Authentication authentication) {

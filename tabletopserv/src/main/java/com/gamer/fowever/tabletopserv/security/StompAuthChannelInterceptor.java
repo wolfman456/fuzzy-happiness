@@ -55,7 +55,8 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
             if (sessionId != null && !participantRepository.existsBySessionIdAndUserId(sessionId, user.getId())) {
                 throw new MessageDeliveryException("You are not a participant of this session");
             }
-            if (sessionId == null && command == StompCommand.SUBSCRIBE) {
+            if (sessionId == null && command == StompCommand.SUBSCRIBE
+                    && !isUserQueue(accessor.getDestination())) {
                 throw new MessageDeliveryException("Unsupported subscription destination");
             }
         }
@@ -82,7 +83,7 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
             Long userId = jwtService.extractUserId(token);
             User user = userRepository.findById(userId).orElse(null);
             if (user != null && jwtService.isTokenValid(token, user)) {
-                accessor.setUser(new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities()));
+                accessor.setUser(new AuthenticatedUser(user));
                 return user;
             }
             return null;
@@ -114,5 +115,9 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
             return null;
         }
         return Long.valueOf(matcher.group(2));
+    }
+
+    private boolean isUserQueue(String destination) {
+        return destination != null && destination.startsWith("/user/queue/");
     }
 }

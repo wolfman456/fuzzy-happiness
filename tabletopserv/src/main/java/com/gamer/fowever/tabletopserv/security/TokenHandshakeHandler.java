@@ -4,7 +4,6 @@ import com.gamer.fowever.tabletopserv.domain.User;
 import com.gamer.fowever.tabletopserv.repository.UserRepository;
 import io.jsonwebtoken.JwtException;
 import org.springframework.http.server.ServerHttpRequest;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.stereotype.Component;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.socket.WebSocketHandler;
@@ -42,7 +41,7 @@ public class TokenHandshakeHandler extends DefaultHandshakeHandler {
             if (user == null || !jwtService.isTokenValid(token, user)) {
                 return null;
             }
-            return new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities());
+            return new AuthenticatedUser(user);
         } catch (JwtException | IllegalArgumentException ex) {
             return null;
         }
