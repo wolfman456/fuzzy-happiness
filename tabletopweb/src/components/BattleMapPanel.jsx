@@ -14,6 +14,7 @@ import {
   updateMap,
   updateToken,
 } from '../lib/battleMap'
+import InitiativeRail from './InitiativeRail'
 
 const SQUARE_PX = 36
 
@@ -464,6 +465,14 @@ export default function BattleMapPanel({ sessionId, map, user, isGm, disabled, o
           ))}
         </ul>
       )}
+
+      <InitiativeRail
+        sessionId={sessionId}
+        map={map}
+        isGm={isGm}
+        disabled={disabled}
+        onMapChange={onMapChange}
+      />
 
       {isGm && formOpen && (
         <form

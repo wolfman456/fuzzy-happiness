@@ -26,6 +26,7 @@ import { createRealtimeClient, stompBrokerUrl } from './stomp'
 
 const onSnapshot = vi.fn()
 const onEvent = vi.fn()
+const onPrivateRoll = vi.fn()
 const onError = vi.fn()
 
 beforeEach(() => {
@@ -57,7 +58,29 @@ describe('createRealtimeClient', () => {
     const subscriptions = lastClient().subscribe.mock.calls.map(([dest]) => dest)
     expect(subscriptions).toContain('/app/sessions/7')
     expect(subscriptions).toContain('/topic/sessions/7')
+    expect(subscriptions).toContain('/user/queue/dice')
     expect(lastClient().activate).toHaveBeenCalledTimes(1)
+  })
+
+  it('forwards user-queue dice frames to onPrivateRoll', () => {
+    createRealtimeClient({
+      sessionId: 7,
+      onSnapshot,
+      onEvent,
+      onPrivateRoll,
+      onError,
+    }).connect()
+    const config = stompClient.Client.lastConfig
+    config.onConnect()
+
+    const [, queueHandler] = lastClient().subscribe.mock.calls.find(
+      ([d]) => d === '/user/queue/dice',
+    )
+    queueHandler({ body: '{"type":"DICE","payload":{"rollId":"abc","total":14,"hidden":true}}' })
+    expect(onPrivateRoll).toHaveBeenCalledWith({
+      type: 'DICE',
+      payload: { rollId: 'abc', total: 14, hidden: true },
+    })
   })
 
   it('parses snapshot and event payloads into the callbacks', () => {

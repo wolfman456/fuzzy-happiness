@@ -1,10 +1,11 @@
 # Fuzzy Happiness — Tabletop Game Platform (Initial Design Draft)
 
-> **Status:** Draft v0.7 — accounts/auth end-to-end (backend `feature/spring-security` + web UI
+> **Status:** Draft v0.8 — accounts/auth end-to-end (backend `feature/spring-security` + web UI
 > in `feature/frontend-auth`), Stage 1 "Sessions & chat" (lobby with invite codes,
-> create/join/leave, live chat + presence over STOMP, in `feature/sessions`), and the first
+> create/join/leave, live chat + presence over STOMP, in `feature/sessions`), the first
 > slice of Stage 3 "Game table": a **grid battle map** with tokens, movement budget, and turn
-> control in `feature/battle-map`.
+> control in `feature/battle-map`, and the second slice — server-authoritative **dice
+> (public + GM-private)** and a per-map **initiative order** — in `feature/dice-initiative`.
 > A starting point to iterate on as requirements become clearer.
 > Open questions and things to decide are flagged inline and collected in [Open Questions](#open-questions--open-decisions).
 
@@ -272,23 +273,26 @@ WS     /ws                          STOMP endpoint; topics as in §6
 Unverified users get `403` on login until `/api/auth/verify` confirms their email; the
 `resend` endpoint is intentionally enumeration-safe (always `202`).
 
-**STOMP surface (sessions slice, implemented):**
+**STOMP surface (sessions + dice slice, implemented):**
 
 ```
 SUB   /app/sessions/{id}           @SubscribeMapping → SessionSummary snapshot replay
-SUB   /topic/sessions/{id}         live SessionEventDto broadcast (PRESENCE / CHAT / dice / table)
+SUB   /topic/sessions/{id}         live SessionEventDto broadcast (PRESENCE / CHAT / DICE / TABLE)
 SEND  /app/sessions/{id}/chat      POST {text} from a participant → CHAT event on the topic
+SUB   /user/queue/dice             GM-private dice results (full frame, only to the rolling GM)
 CONNECT /ws?token=<jwt>            standard WebSocket handshake; token = JWT auth
 ```
 
 The WebSocket handshake (`/ws/**` is `permitAll()` in the security filter chain) is
 authenticated purely by the `token` query param, which `TokenHandshakeHandler` resolves to
-the STOMP principal. A `StompAuthChannelInterceptor` (registered on the **client inbound
-channel**) enforces: a principal must exist (`Authentication required`), the user must be a
-participant of the session for `/topic/sessions/{id}` and `/app/sessions/{id}/*`
-(`You are not a participant of this session`), and only those destinations are subscribable
-(`Unsupported subscription destination`). Rejections surface to clients as **STOMP ERROR
-frames** — which requires (a) running the client inbound channel **inline**
+the STOMP principal (an `AuthenticatedUser` whose name is the **username**, which user
+destinations like `/user/queue/dice` route on). A `StompAuthChannelInterceptor` (registered
+on the **client inbound** channel) enforces: a principal must exist (`Authentication
+required`), the user must be a participant of the session for `/topic/sessions/{id}` and
+`/app/sessions/{id}/*` (`You are not a participant of this session`), and only those
+destinations plus `/user/queue/*` are subscribable (`Unsupported subscription
+destination`). Rejections surface to clients as **STOMP ERROR frames** — which requires
+(a) running the client inbound channel **inline**
 (`SyncTaskExecutor`) so interceptor exceptions propagate to the `StompSubProtocolHandler`,
 and (b) throwing `MessageDeliveryException` (a `MessagingException`) so
 `AbstractMessageChannel` rethrows the original message instead of wrapping it in the
@@ -297,8 +301,10 @@ generic `Failed to send message to ExecutorSubscribableChannel[clientInboundChan
 Snapshot replay semantics: subscribing to `/app/sessions/{id}` (the `@SubscribeMapping`)
 returns the current `SessionSummary`; clients treat that as the initial roster + recent
 event history, then apply the `/topic/sessions/{id}` stream on top. Every `SessionEvent`
-(PRESENCE from join/leave, CHAT, and future DICE/TABLE) is persisted and replayed to late
-joiners via `recentEvents`.
+(PRESENCE from join/leave, CHAT, and DICE/TABLE) is persisted and replayed to late
+joiners via `recentEvents` — except **GM-private dice**, which are deliberately **not**
+persisted (the GM's full result arrives on `/user/queue/dice`, the table only ever saw the
+hidden frame).
 
 ## 13. Phased Roadmap
 
@@ -312,8 +318,11 @@ joiners via `recentEvents`.
 > and presence over STOMP (private-by-membership topics, snapshot replay on subscribe).
 > Stage 3 (first slice): **complete** (Draft v0.7). The grid battle map lives in
 > `feature/battle-map` — see the "Decided" notes in §14.
+> Stage 3 (second slice, dice + initiative): **complete** (Draft v0.8). Server-authoritative
+> dice (`POST /api/sessions/{id}/roll`) with public + GM-private rolls, and a per-map
+> initiative order (`…/map/initiative`) in `feature/dice-initiative` — see §14.
 | 2. Characters | abstract `Character`, registry, D&D sheet model + **generation** (guided wizard + quick-build) backed by the SRD proxy, server compile validation | create a validated level 1–3 D&D character via wizard or quick-build |
-| 3. Game table | dice rolls, initiative/order, shared table state — battle map track 1 (grid, tokens, per-turn movement budget): see §14 | grid battle map synced to the whole session, tokens for players + monsters, movement capped by race/type speed per turn |
+| 3. Game table | dice rolls ✓, initiative/order ✓, shared table state — battle map track 1 (grid, tokens, per-turn movement budget) ✓: see §14 | grid battle map synced, movement budget, server dice (public + GM-private hidden frames), initiative order with auto d20 |
 | 4. Discord | OAuth connect + deep-link voice | "Connect Discord" flows to voice + table side-by-side |
 | 5. Production | PostgreSQL profile, migrations, deploy | runs on Postgres behind CI |
 
@@ -352,9 +361,31 @@ own linked token, spectators read-only; every mutation persists a `SessionEvent`
 REST surface `GET|POST /api/sessions/{id}/map`, `POST|PATCH|DELETE …/map/tokens[/{tokenId}]`,
 `POST …/map/tokens/{tokenId}/move`, `POST …/map/turn`; implemented in `feature/battle-map`.
 
+**Dice & initiative (implemented):** dice are **server-authoritative** (secure `SecureRandom`
+RNG) over `POST /api/sessions/{id}/roll` with grammar `(\d+)?d(\d{1,3})([+-]\d{1,3})?` — up to
+20 dice, 999 sides, modifier −100..+100; expressions are normalized (lowercased, one-die count
+omitted) before rolling. Public rolls persist a `DICE` `SessionEvent` (id set, `hidden:false`)
+and broadcast the full result on `/topic/sessions/{id}`. **GM-private rolls** (GM-only; the GM
+passes `privateRoll:true`) broadcast a *hidden* frame on the topic (roller, expression, label —
+no `rolls`/`total`) and route a full frame only to the rolling GM's `/user/queue/dice` (via
+`convertAndSendToUser` on the username-based principal); the REST response carries the full
+frame with `id:null` and private rolls are **never persisted**, so late joiners only ever see
+public history. The frontend merges the hidden topic frame + full user-queue frame by `rollId`.
+Initiative is one ordered list per map (`initiative_entries`, `initiativeIndex` on the map,
+`-1` = none current): `POST …/map/initiative` replaces the order from `entries` (`label`
+**xor** `tokenId`, ≤ 30 entries, explicit score 1..999 or blank = auto d20), resetting the
+pointer to `-1`; `POST …/map/initiative/{entryId}/reroll` re-rolls one d20 score;
+`POST …/map/initiative/next` advances the pointer (wrapping) and — when the entry is a token —
+activates it as the current turn (resets its movement budget); `DELETE …/map/initiative/{entryId}`
+removes an entry (pointer clamped). GM-only, GM overrides/rerolls allowed; movement stays
+independent of the order (not time-gated). `BattleMapDto` carries `initiative` + `initiativeIndex`
+and rides the existing `TABLE` broadcasts. Implemented in `feature/dice-initiative`.
+
 - Do we need friends list / permanent groups, or is invite-code enough for now?
 - Exact D&D 5e sheet fields — confirm which sets matter for v1.
-- Dice rolls: server-authoritative only, or allow GM-private rolls with reveal?
+- ~~Dice rolls: server-authoritative only, or allow GM-private rolls with reveal?~~
+  **Decided:** server-authoritative, with GM-private rolls delivering the full result only to
+  the GM (hidden frame for the rest of the table).
 - Deployment target (containers? platform?), and whether Flyway migrations start in
   Stage 5 or earlier.
 - Room persistence: sessions archived/joinable later, or ephemeral?

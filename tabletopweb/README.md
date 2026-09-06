@@ -21,18 +21,23 @@ npm run test             # Vitest (no watch; use npm run test:watch for watch mo
   session/game helpers (`listGames`, `createSession`, `getSession`, `joinSession`, `leaveSession`).
 - `src/lib/stomp.js` — `@stomp/stompjs` wrapper: `stompBrokerUrl()` (Vite base → `ws`, injects
   the JWT as a `?token=` param) and `createRealtimeClient({sessionId, onSnapshot, onEvent,
-  onError})` subscribing to the snapshot destination (`/app/sessions/{id}`) and the live topic
-  (`/topic/sessions/{id}`); returns `{connect, disconnect, sendChat}`.
+  onPrivateRoll, onError})` subscribing to the snapshot destination (`/app/sessions/{id}`),
+  the live topic (`/topic/sessions/{id}`) and the GM-user dice queue
+  (`/user/queue/dice`); returns `{connect, disconnect, sendChat}`.
 - `src/lib/mapGeometry.js` — battle-map math: `RACE_SPEEDS` table (25/30/35/40 ft),
   `squaresFor` (per-turn budget), Chebyshev `distanceInSquares` / `costInFeet`,
   `remainingFeet`/`remainingSquares`, `reachableSquares` (clipped to map edges).
 - `src/lib/battleMap.js` — map API helpers over `api()`: `getMap`, `createMap`, `addToken`,
-  `updateToken`, `removeToken`, `moveToken`, `turnCommand`.
+  `updateToken`, `removeToken`, `moveToken`, `turnCommand`, plus initiative helpers
+  (`setInitiative`, `rerollInitiative`, `nextInitiative`, `removeInitiativeEntry`) and
+  `rollDice` (`POST /api/sessions/{id}/roll`).
 - `src/auth/` — auth store (localStorage key `tt.auth`), `AuthProvider` context, `useAuth`,
   session restore via `GET /api/users/me`.
 - `src/components/` — `ProtectedRoute`, `ShellLayout` (Sessions / Characters nav),
   `BattleMapPanel` (grid + tokens, select-to-move with reachable-square overlay, GM token
-  form + turn bar; controlled via `map`/`onMapChange`).
+  form + turn bar; controlled via `map`/`onMapChange`), `InitiativeRail` (ordered list with
+  current-turn highlight, GM add/reroll/remove + advance), `DiceTray` (expression + label +
+  GM-private roll form on the session screen).
 - `src/pages/` — `LoginPage`, `RegisterPage` (client-side password + age policies),
   `VerifyPage`, `Dashboard`, `LobbyPage`, `SessionPage`.
 - `src/App.jsx` — routes: `/login`, `/register`, `/verify`, `/` (protected), plus
@@ -48,5 +53,11 @@ lobby with create/join by invite code and a live session view with roster, invit
 real-time chat/presence over STOMP. Stage 3 track 1 (battle map): `BattleMapPanel` on the
 session screen — grid, participant + monster tokens, select-to-move with a reachable-square
 overlay, per-turn movement budget, GM token editing and a turn bar; map state streams over
-`TABLE` session events (kept out of the chat feed). Platform plan: see the root `README.md`
+`TABLE` session events (kept out of the chat feed). Stage 3 track 2 (dice + initiative):
+`DiceTray` posts server-authoritative rolls to `POST /api/sessions/{id}/roll`; `DICE` events
+render in the feed — public rolls show dice + total, GM-private rolls show the result only to
+the GM (hidden frame on the topic + full frame on `/user/queue/dice`, merged by `rollId`).
+`InitiativeRail` shows the ordered list with the current turn highlighted; GMs set the order
+from tokens/custom labels (blank score = auto d20), reroll/remove entries and advance turns.
+Platform plan: see the root `README.md`
 and `draft-design.md`; repo conventions in `AGENTS.md`.

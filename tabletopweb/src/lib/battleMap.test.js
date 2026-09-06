@@ -8,7 +8,12 @@ import {
   createMap,
   getMap,
   moveToken,
+  nextInitiative,
+  removeInitiativeEntry,
   removeToken,
+  rerollInitiative,
+  rollDice,
+  setInitiative,
   turnCommand,
   updateMap,
   updateToken,
@@ -71,6 +76,43 @@ describe('battleMap API helpers', () => {
     expect(api).toHaveBeenCalledWith('/api/sessions/7/map/turn', {
       method: 'POST',
       body: { action: 'NEW_ROUND' },
+    })
+  })
+
+  it('setInitiative POSTs an ordered list', () => {
+    setInitiative(7, { entries: [{ label: 'Goblin', score: 14 }] })
+    expect(api).toHaveBeenCalledWith('/api/sessions/7/map/initiative', {
+      method: 'POST',
+      body: { entries: [{ label: 'Goblin', score: 14 }] },
+    })
+  })
+
+  it('rerollInitiative POSTs to an entry', () => {
+    rerollInitiative(7, 42)
+    expect(api).toHaveBeenCalledWith('/api/sessions/7/map/initiative/42/reroll', {
+      method: 'POST',
+    })
+  })
+
+  it('nextInitiative advances the order', () => {
+    nextInitiative(7)
+    expect(api).toHaveBeenCalledWith('/api/sessions/7/map/initiative/next', {
+      method: 'POST',
+    })
+  })
+
+  it('removeInitiativeEntry DELETEs an entry', () => {
+    removeInitiativeEntry(7, 42)
+    expect(api).toHaveBeenCalledWith('/api/sessions/7/map/initiative/42', {
+      method: 'DELETE',
+    })
+  })
+
+  it('rollDice POSTs a roll', () => {
+    rollDice(7, { expression: '2d6+3', label: 'Perception', privateRoll: true })
+    expect(api).toHaveBeenCalledWith('/api/sessions/7/roll', {
+      method: 'POST',
+      body: { expression: '2d6+3', label: 'Perception', privateRoll: true },
     })
   })
 })

@@ -40,7 +40,8 @@ Realtime (STOMP over `/ws?token=<jwt>`, membership-private):
 |---|---|---|
 | `/app/sessions/{id}` | subscribe (snapshot) | `SessionSummary` on connect |
 | `/app/sessions/{id}/chat` | publish | `{"text": …}` chat message |
-| `/topic/sessions/{id}` | watch | live `SessionEventDto` (PRESENCE, CHAT, TABLE) |
+| `/topic/sessions/{id}` | watch | live `SessionEventDto` (PRESENCE, CHAT, DICE, TABLE) |
+| `/user/queue/dice` | watch | GM-private dice result (full frame, only to the rolling GM) |
 
 Battle map endpoints (all under `/api/sessions/{id}/map`; map ops broadcast a `TABLE`
 session event carrying the full `BattleMapDto` state):
@@ -54,6 +55,22 @@ session event carrying the full `BattleMapDto` state):
 | `DELETE …/map/tokens/{tokenId}` | GM: remove token |
 | `POST …/map/tokens/{tokenId}/move` | members: move own token (GM: any) within budget (`{"x", "y"}`) |
 | `POST …/map/turn` | GM: `{"action":"START","tokenId":…}｜"END"｜"NEW_ROUND"` |
+| `POST …/map/initiative` | GM: replace order — `{"entries":[{label｜tokenId, score?}]}` (≤ 30; blank score auto-rolls d20; resets turn pointer to `−1`) |
+| `POST …/map/initiative/{entryId}/reroll` | GM: re-roll one entry's score (d20) |
+| `POST …/map/initiative/next` | GM: advance the turn pointer (wraps); entry with a token becomes the current turn (resets its movement budget) |
+| `DELETE …/map/initiative/{entryId}` | GM: drop an entry (pointer clamped) |
+
+Dice endpoints:
+
+| Method & path | Description |
+|---|---|
+| `POST /api/sessions/{id}/roll` | member: `{"expression":"2d6+3","label":"Perception","privateRoll":true}` — grammar `(\d+)?d(\d{1,3})([+-]\d{1,3})?` (≤ 20 dice, ≤ 999 sides, mod −100..100) |
+
+Dice rules: rolls are server-side `SecureRandom`. Public rolls persist a `DICE` `SessionEvent`
+and broadcast the full result on `/topic/sessions/{id}`. GM-private rolls broadcast a **hidden**
+frame on the topic (roller, expression, label — no rolls/total) and deliver the full frame only
+to the rolling GM on `/user/queue/dice`; the REST response carries the full frame with `id: null`
+(never persisted).
 
 Map house rules: 10 ft per square, per-turn budget `floor(speedFeet / 10)` squares
 (race table 25/30/35/40 ft), diagonal moves cost Chebyshev distance, budget resets on turn

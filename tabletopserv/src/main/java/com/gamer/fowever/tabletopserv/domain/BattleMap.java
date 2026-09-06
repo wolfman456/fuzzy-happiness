@@ -44,6 +44,9 @@ public class BattleMap {
     @Column(name = "current_turn_token_id")
     private Long currentTurnTokenId;
 
+    @Column(name = "initiative_index", nullable = false)
+    private int initiativeIndex = -1;
+
     public BattleMap(GameSession session, String name, int width, int height, int squareFeet) {
         this.session = session;
         this.name = name;

@@ -13,6 +13,7 @@ const realtime = {
 const battleMapMock = vi.hoisted(() => ({
   getMap: vi.fn(),
   createMap: vi.fn(),
+  rollDice: vi.fn(),
 }))
 
 vi.mock('../lib/api', () => ({
@@ -22,8 +23,8 @@ vi.mock('../lib/api', () => ({
 }))
 
 vi.mock('../lib/stomp', () => ({
-  createRealtimeClient: vi.fn().mockImplementation(({ sessionId, onSnapshot, onEvent, onError }) => {
-    realtime.handlers = { sessionId, onSnapshot, onEvent, onError }
+  createRealtimeClient: vi.fn().mockImplementation(({ sessionId, onSnapshot, onEvent, onPrivateRoll, onError }) => {
+    realtime.handlers = { sessionId, onSnapshot, onEvent, onPrivateRoll, onError }
     return realtime
   }),
 }))
@@ -73,6 +74,7 @@ describe('SessionPage', () => {
     battleMapMock.getMap.mockRejectedValue({ status: 404, message: 'Battle map not found' })
     battleMapMock.createMap.mockReset()
     battleMapMock.createMap.mockResolvedValue({ id: 1, sessionId: 7, name: 'Grumm’s map', width: 24, height: 18, squareFeet: 10, currentTurnTokenId: null, tokens: [] })
+    battleMapMock.rollDice.mockReset()
   })
 
   it('renders participants, invite code and connects realtime', async () => {
@@ -122,6 +124,189 @@ describe('SessionPage', () => {
 
     await waitFor(() => expect(realtime.sendChat).toHaveBeenCalledWith('Hello table!'))
     expect(screen.getByPlaceholderText('Type a message…')).toHaveValue('')
+  })
+
+  it('renders public dice rolls into the feed', async () => {
+    api.mockResolvedValue(snapshot)
+    renderSession()
+    await screen.findByRole('heading', { name: 'Grumm’s Revenge' })
+
+    act(() => {
+      realtime.handlers.onEvent({
+        id: null,
+        type: 'DICE',
+        payload: {
+          rollId: 'r-1',
+          rolledBy: { displayName: 'Ivo' },
+          expression: '2d6+3',
+          label: 'Perception',
+          rolls: [3, 5],
+          total: 11,
+          hidden: false,
+        },
+        createdAt: 'y',
+      })
+    })
+
+    expect(await screen.findByText(/Ivo rolls/)).toBeInTheDocument()
+    expect(screen.getByText('2d6+3')).toBeInTheDocument()
+    expect(screen.getByText('(Perception)')).toBeInTheDocument()
+    expect(screen.getByText('→ 3, 5 = 11')).toBeInTheDocument()
+  })
+
+  it('hides the result of a GM-private roll from players', async () => {
+    api.mockResolvedValue(snapshot)
+    renderSession()
+    await screen.findByRole('heading', { name: 'Grumm’s Revenge' })
+
+    act(() => {
+      realtime.handlers.onEvent({
+        id: null,
+        type: 'DICE',
+        payload: {
+          rollId: 'secret-1',
+          rolledBy: { displayName: 'Ginger' },
+          expression: 'd20',
+          label: 'Stealth',
+          hidden: true,
+        },
+        createdAt: 'y',
+      })
+    })
+
+    expect(await screen.findByText('Ginger rolls')).toBeInTheDocument()
+    expect(screen.getByText('d20')).toBeInTheDocument()
+    expect(screen.getByText('d20').closest('li')).toHaveTextContent('secret roll hidden')
+    expect(screen.queryByText(/(GM only)/)).not.toBeInTheDocument()
+  })
+
+  it('reveals the GM-private result to the GM via the user queue', async () => {
+    api.mockResolvedValue(snapshot)
+    renderSession()
+    await screen.findByRole('heading', { name: 'Grumm’s Revenge' })
+
+    act(() => {
+      realtime.handlers.onEvent({
+        id: null,
+        type: 'DICE',
+        payload: {
+          rollId: 'secret-1',
+          rolledBy: { displayName: 'Ginger' },
+          expression: 'd20',
+          label: 'Stealth',
+          hidden: true,
+        },
+        createdAt: 'y',
+      })
+      realtime.handlers.onPrivateRoll({
+        type: 'DICE',
+        payload: {
+          rollId: 'secret-1',
+          rolledBy: { displayName: 'Ginger' },
+          expression: 'd20',
+          label: 'Stealth',
+          rolls: [14],
+          total: 14,
+          hidden: true,
+        },
+      })
+    })
+
+    expect(await screen.findByText('Ginger rolls')).toBeInTheDocument()
+    expect(screen.getByText(/(GM only)/)).toBeInTheDocument()
+    expect(screen.getByText(/secretly →14 = 14/)).toBeInTheDocument()
+  })
+
+  it('posts a roll from the dice tray and clears the form', async () => {
+    api.mockResolvedValue(snapshot)
+    battleMapMock.rollDice.mockResolvedValue({ id: null, type: 'DICE', payload: { rollId: 'r-2' } })
+    renderSession()
+    await screen.findByRole('heading', { name: 'Grumm’s Revenge' })
+
+    fireEvent.change(screen.getByLabelText('Dice expression'), { target: { value: '2d6+3' } })
+    fireEvent.change(screen.getByLabelText('Roll label'), { target: { value: 'Insight' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Roll' }))
+
+    await waitFor(() =>
+      expect(battleMapMock.rollDice).toHaveBeenCalledWith('7', {
+        expression: '2d6+3',
+        label: 'Insight',
+        privateRoll: false,
+      }),
+    )
+    expect(screen.getByLabelText('Dice expression')).toHaveValue('')
+    expect(screen.getByLabelText('Roll label')).toHaveValue('')
+  })
+
+  it('seeds the GM-visible result when the GM rolls privately', async () => {
+    api.mockResolvedValue(snapshot)
+    battleMapMock.rollDice.mockResolvedValue({
+      id: null,
+      type: 'DICE',
+      payload: {
+        rollId: 'secret-9',
+        rolledBy: { displayName: 'Ginger' },
+        expression: 'd100',
+        rolls: [47],
+        total: 47,
+        hidden: true,
+      },
+    })
+    renderSession()
+    await screen.findByRole('heading', { name: 'Grumm’s Revenge' })
+
+    fireEvent.click(screen.getByLabelText('GM private'))
+    fireEvent.change(screen.getByLabelText('Dice expression'), { target: { value: 'd100' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Roll' }))
+
+    await waitFor(() =>
+      expect(battleMapMock.rollDice).toHaveBeenCalledWith('7', {
+        expression: 'd100',
+        label: undefined,
+        privateRoll: true,
+      }),
+    )
+
+    act(() => {
+      realtime.handlers.onEvent({
+        id: null,
+        type: 'DICE',
+        payload: {
+          rollId: 'secret-9',
+          rolledBy: { displayName: 'Ginger' },
+          expression: 'd100',
+          hidden: true,
+        },
+        createdAt: 'y',
+      })
+    })
+
+    expect(await screen.findByText(/secretly →.+47/)).toBeInTheDocument()
+  })
+
+  it('hides the GM-private toggle from players', async () => {
+    api.mockResolvedValue({
+      ...snapshot,
+      participants: [
+        { user: { id: 2, username: 'ivo', displayName: 'Ivo' }, role: 'PLAYER', joinedAt: '2026-01-01T10:05:00' },
+      ],
+    })
+    renderSession()
+    await screen.findByRole('heading', { name: 'Grumm’s Revenge' })
+
+    expect(screen.queryByLabelText('GM private')).not.toBeInTheDocument()
+  })
+
+  it('surfaces roll errors from the dice tray', async () => {
+    api.mockResolvedValue(snapshot)
+    battleMapMock.rollDice.mockRejectedValue(new Error('Unsupported dice expression'))
+    renderSession()
+    await screen.findByRole('heading', { name: 'Grumm’s Revenge' })
+
+    fireEvent.change(screen.getByLabelText('Dice expression'), { target: { value: 'xx' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Roll' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Unsupported dice expression')
   })
 
   it('leave posts to the API and navigates back to the lobby', async () => {

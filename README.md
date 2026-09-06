@@ -40,7 +40,7 @@ See `AGENTS.md` for repo layout, commands, and conventions.
 
 ## Status
 
-Iterative build; design draft in [`draft-design.md`](draft-design.md) (Draft v0.7).
+Iterative build; design draft in [`draft-design.md`](draft-design.md) (Draft v0.8).
 
 Delivered:
 
@@ -73,5 +73,19 @@ Delivered:
   select-to-move with reachable-square overlay, GM add/edit/remove tokens + turn bar, TABLE
   events kept out of the chat feed and applied to the live map. 88 frontend tests (Vitest),
   oxlint + build clean.
+- Game table slice 2 — dice & initiative — `feature/dice-initiative`: **Stage 3 track 2**.
+  Backend: `POST /api/sessions/{id}/roll` with a validated dice grammar (`(\d+)?d(\d{1,3})
+  ([+-]\d{1,3})?`, ≤ 20 dice / 999 sides / mod ±100) — public rolls persist a `DICE`
+  `SessionEvent` broadcasting the full result; GM-private rolls broadcast a hidden frame on
+  the topic and deliver the full frame only to the GM's `/user/queue/dice`. Initiative per
+  map: `POST …/map/initiative` (replace order from labels/tokens, blank score auto-rolls d20),
+  `POST …/map/initiative/{entryId}/reroll`, `POST …/map/initiative/next` (advances the pointer
+  and activates the entry's token), `DELETE …/map/initiative/{entryId}`; `BattleMapDto` now
+  carries `initiativeIndex` + ordered `initiative`. 164 backend tests, jacoco gate met.
+  Frontend: `DiceTray` + `DICE` feed rows (hidden rolls shown fully only to the GM, merged by
+  `rollId`), `InitiativeRail` (GM add/reroll/remove/advance, current-turn highlight on the map
+  DTO), `/user/queue/dice` subscription in `src/lib/stomp.js`. 115 frontend tests (Vitest),
+  oxlint + build clean.
 
-Next: character generation backed by the 5e SRD proxy, then the rest of the game table (dice, initiative).
+Next: character generation backed by the 5e SRD proxy, then battle-map polish beyond what the
+table needs (multi-map, fog of war) and the rest of the game table (turn timers, conditions).

@@ -6,6 +6,7 @@ import tools.jackson.databind.ObjectMapper;
 import com.gamer.fowever.tabletopserv.domain.BattleMap;
 import com.gamer.fowever.tabletopserv.domain.EventType;
 import com.gamer.fowever.tabletopserv.domain.GameSession;
+import com.gamer.fowever.tabletopserv.domain.InitiativeEntry;
 import com.gamer.fowever.tabletopserv.domain.MapToken;
 import com.gamer.fowever.tabletopserv.domain.Participant;
 import com.gamer.fowever.tabletopserv.domain.Role;
@@ -15,6 +16,9 @@ import com.gamer.fowever.tabletopserv.domain.User;
 import com.gamer.fowever.tabletopserv.dto.AddTokenRequest;
 import com.gamer.fowever.tabletopserv.dto.BattleMapDto;
 import com.gamer.fowever.tabletopserv.dto.CreateMapRequest;
+import com.gamer.fowever.tabletopserv.dto.InitiativeEntryDto;
+import com.gamer.fowever.tabletopserv.dto.InitiativeEntryRequest;
+import com.gamer.fowever.tabletopserv.dto.InitiativeRequest;
 import com.gamer.fowever.tabletopserv.dto.MapTokenDto;
 import com.gamer.fowever.tabletopserv.dto.MoveTokenRequest;
 import com.gamer.fowever.tabletopserv.dto.SessionEventDto;
@@ -24,6 +28,7 @@ import com.gamer.fowever.tabletopserv.dto.UpdateMapRequest;
 import com.gamer.fowever.tabletopserv.dto.UpdateTokenRequest;
 import com.gamer.fowever.tabletopserv.repository.BattleMapRepository;
 import com.gamer.fowever.tabletopserv.repository.GameSessionRepository;
+import com.gamer.fowever.tabletopserv.repository.InitiativeEntryRepository;
 import com.gamer.fowever.tabletopserv.repository.MapTokenRepository;
 import com.gamer.fowever.tabletopserv.repository.ParticipantRepository;
 import com.gamer.fowever.tabletopserv.repository.SessionEventRepository;
@@ -33,6 +38,7 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.security.SecureRandom;
 import java.util.List;
 
 @Service
@@ -44,6 +50,11 @@ public class BattleMapService {
     private static final int DEFAULT_SPEED_FEET = 30;
     private static final int MIN_SPEED_FEET = 5;
     private static final int MAX_SPEED_FEET = 240;
+    private static final int MAX_INITIATIVE_ENTRIES = 30;
+    private static final int INITIATIVE_DIE_SIDES = 20;
+    private static final int MIN_INITIATIVE_SCORE = 1;
+    private static final int MAX_INITIATIVE_SCORE = 999;
+    private static final SecureRandom RANDOM = new SecureRandom();
     private static final String TOPIC = "/topic/sessions/%d";
     private static final List<String> COLORS = List.of(
             "#ef4444", "#f97316", "#eab308", "#22c55e",
@@ -51,6 +62,7 @@ public class BattleMapService {
 
     private final BattleMapRepository mapRepository;
     private final MapTokenRepository tokenRepository;
+    private final InitiativeEntryRepository initiativeRepository;
     private final ParticipantRepository participantRepository;
     private final GameSessionRepository sessionRepository;
     private final UserRepository userRepository;
@@ -60,6 +72,7 @@ public class BattleMapService {
 
     public BattleMapService(BattleMapRepository mapRepository,
                             MapTokenRepository tokenRepository,
+                            InitiativeEntryRepository initiativeRepository,
                             ParticipantRepository participantRepository,
                             GameSessionRepository sessionRepository,
                             UserRepository userRepository,
@@ -68,6 +81,7 @@ public class BattleMapService {
                             ObjectMapper objectMapper) {
         this.mapRepository = mapRepository;
         this.tokenRepository = tokenRepository;
+        this.initiativeRepository = initiativeRepository;
         this.participantRepository = participantRepository;
         this.sessionRepository = sessionRepository;
         this.userRepository = userRepository;
@@ -300,6 +314,88 @@ public class BattleMapService {
         return broadcastAndPersist(map);
     }
 
+    @Transactional
+    public BattleMapDto setInitiative(User actor, Long sessionId, InitiativeRequest request) {
+        GameSession session = managedSession(sessionId);
+        requireGm(actor, session);
+        BattleMap map = managedMap(sessionId);
+
+        List<InitiativeEntryRequest> entries = request.entries();
+        if (entries.size() > MAX_INITIATIVE_ENTRIES) {
+            throw ApiException.badRequest("At most " + MAX_INITIATIVE_ENTRIES + " initiative entries");
+        }
+
+        initiativeRepository.deleteAll(orderedInitiative(map.getId()));
+
+        for (InitiativeEntryRequest entry : entries) {
+            boolean hasLabel = entry.label() != null && !entry.label().isBlank();
+            boolean hasToken = entry.tokenId() != null;
+            if (hasLabel == hasToken) {
+                throw ApiException.badRequest("Each initiative entry needs a label or a tokenId, but not both");
+            }
+            MapToken token = hasToken ? managedToken(entry.tokenId(), map.getId()) : null;
+            int score = entry.score() != null ? entry.score() : autoRollInitiative();
+            validateInitiativeScore(score);
+            initiativeRepository.save(
+                    new InitiativeEntry(map, hasLabel ? entry.label().trim() : null, token, score));
+        }
+        map.setInitiativeIndex(-1);
+        mapRepository.save(map);
+        return broadcastAndPersist(map);
+    }
+
+    @Transactional
+    public BattleMapDto rerollInitiative(User actor, Long sessionId, Long entryId) {
+        GameSession session = managedSession(sessionId);
+        requireGm(actor, session);
+        BattleMap map = managedMap(sessionId);
+        InitiativeEntry entry = managedInitiativeEntry(entryId, map.getId());
+        entry.setScore(autoRollInitiative());
+        initiativeRepository.save(entry);
+        return broadcastAndPersist(map);
+    }
+
+    @Transactional
+    public BattleMapDto nextInitiative(User actor, Long sessionId) {
+        GameSession session = managedSession(sessionId);
+        requireGm(actor, session);
+        BattleMap map = managedMap(sessionId);
+        List<InitiativeEntry> entries = orderedInitiative(map.getId());
+        if (entries.isEmpty()) {
+            throw ApiException.badRequest("There is no initiative order yet");
+        }
+        int index = (map.getInitiativeIndex() + 1) % entries.size();
+        map.setInitiativeIndex(index);
+
+        InitiativeEntry current = entries.get(index);
+        if (current.getToken() != null) {
+            MapToken token = current.getToken();
+            token.setMovedFeet(0);
+            tokenRepository.save(token);
+            map.setCurrentTurnTokenId(token.getId());
+        }
+        mapRepository.save(map);
+        return broadcastAndPersist(map);
+    }
+
+    @Transactional
+    public BattleMapDto removeInitiativeEntry(User actor, Long sessionId, Long entryId) {
+        GameSession session = managedSession(sessionId);
+        requireGm(actor, session);
+        BattleMap map = managedMap(sessionId);
+        InitiativeEntry entry = managedInitiativeEntry(entryId, map.getId());
+        initiativeRepository.delete(entry);
+
+        List<InitiativeEntry> remaining = orderedInitiative(map.getId());
+        if (remaining.isEmpty()) {
+            map.setInitiativeIndex(-1);
+        } else if (map.getInitiativeIndex() >= remaining.size()) {
+            map.setInitiativeIndex(remaining.size() - 1);
+        }
+        mapRepository.save(map);
+        return broadcastAndPersist(map);
+    }
+
     private String displayNameOf(User user) {
         return user.getDisplayName() != null && !user.getDisplayName().isBlank()
                 ? user.getDisplayName()
@@ -343,6 +439,17 @@ public class BattleMapService {
         }
     }
 
+    private int autoRollInitiative() {
+        return RANDOM.nextInt(INITIATIVE_DIE_SIDES) + 1;
+    }
+
+    private void validateInitiativeScore(int score) {
+        if (score < MIN_INITIATIVE_SCORE || score > MAX_INITIATIVE_SCORE) {
+            throw ApiException.badRequest("Initiative score must be between "
+                    + MIN_INITIATIVE_SCORE + " and " + MAX_INITIATIVE_SCORE);
+        }
+    }
+
     private void requireInBounds(BattleMap map, int x, int y) {
         if (x < 0 || x >= map.getWidth() || y < 0 || y >= map.getHeight()) {
             throw ApiException.badRequest("Square is outside the map (" + x + ", " + y + ")");
@@ -359,7 +466,18 @@ public class BattleMapService {
     }
 
     private BattleMapDto toDto(BattleMap map) {
-        return BattleMapDto.from(map, tokenRepository.findByMapIdOrderByIdAsc(map.getId()));
+        return BattleMapDto.from(map,
+                tokenRepository.findByMapIdOrderByIdAsc(map.getId()),
+                orderedInitiative(map.getId()));
+    }
+
+    private List<InitiativeEntry> orderedInitiative(Long battleMapId) {
+        return initiativeRepository.findByBattleMapIdOrderByScoreDescIdAsc(battleMapId);
+    }
+
+    private InitiativeEntry managedInitiativeEntry(Long entryId, Long battleMapId) {
+        return initiativeRepository.findByIdAndBattleMapId(entryId, battleMapId)
+                .orElseThrow(() -> ApiException.notFound("Initiative entry not found: " + entryId));
     }
 
     private GameSession managedSession(Long sessionId) {

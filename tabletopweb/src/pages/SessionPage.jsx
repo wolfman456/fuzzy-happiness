@@ -3,8 +3,9 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { api, leaveSession } from '../lib/api'
 import { createRealtimeClient } from '../lib/stomp'
 import { useAuth } from '../auth/useAuth'
-import { createMap, getMap } from '../lib/battleMap'
+import { createMap, getMap, rollDice } from '../lib/battleMap'
 import BattleMapPanel from '../components/BattleMapPanel'
+import DiceTray from '../components/DiceTray'
 
 const ROLE_LABEL = { GM: 'GM', PLAYER: 'Player', SPECTATOR: 'Spectator' }
 
@@ -23,6 +24,7 @@ export default function SessionPage() {
   const [map, setMap] = useState(null)
   const [mapState, setMapState] = useState('loading')
   const [mapError, setMapError] = useState('')
+  const [fullRolls, setFullRolls] = useState({})
 
   useEffect(() => {
     let cancelled = false
@@ -100,15 +102,28 @@ export default function SessionPage() {
     setRealtimeError(message ?? 'Connection lost')
   }, [])
 
+  const onPrivateRoll = useCallback((event) => {
+    const payload = event?.payload
+    if (payload?.rollId) {
+      setFullRolls((previous) => ({ ...previous, [payload.rollId]: payload }))
+    }
+  }, [])
+
   useEffect(() => {
-    const client = createRealtimeClient({ sessionId: id, onSnapshot, onEvent, onError })
+    const client = createRealtimeClient({
+      sessionId: id,
+      onSnapshot,
+      onEvent,
+      onPrivateRoll,
+      onError,
+    })
     clientRef.current = client
     client.connect()
     return () => {
       client.disconnect()
       clientRef.current = null
     }
-  }, [id, onEvent, onError, onSnapshot])
+  }, [id, onEvent, onPrivateRoll, onError, onSnapshot])
 
   async function handleSend(event) {
     event.preventDefault()
@@ -132,6 +147,15 @@ export default function SessionPage() {
     } finally {
       setLeaving(false)
     }
+  }
+
+  async function handleRoll({ expression, label, privateRoll: isPrivate }) {
+    const result = await rollDice(id, { expression, label, privateRoll: isPrivate })
+    if (isPrivate && result?.payload?.rollId) {
+      setFullRolls((previous) => ({ ...previous, [result.payload.rollId]: result.payload }))
+    }
+    setRealtimeError('')
+    return result
   }
 
   async function handleCreateMap() {
@@ -270,13 +294,24 @@ export default function SessionPage() {
           </p>
         )}
         <ul className="mt-3 max-h-72 space-y-3 overflow-y-auto" data-testid="event-feed">
-          {events.map((event, index) => (
-            <EventRow key={`${event.id ?? index}`} event={event} />
-          ))}
+          {events.map((event, index) => {
+            const fullRoll =
+              event.type === 'DICE' && event.payload?.rollId
+                ? fullRolls[event.payload.rollId]
+                : undefined
+            return (
+              <EventRow key={`${event.id ?? index}`} event={event} fullRoll={fullRoll} />
+            )
+          })}
           {events.length === 0 && (
             <li className="text-sm text-zinc-400">No messages yet.</li>
           )}
         </ul>
+        <DiceTray
+          isGm={me?.role === 'GM'}
+          disabled={isClosed}
+          onRoll={handleRoll}
+        />
         <form onSubmit={handleSend} className="mt-4 flex gap-2">
           <input
             type="text"
@@ -299,13 +334,41 @@ export default function SessionPage() {
   )
 }
 
-function EventRow({ event }) {
+function EventRow({ event, fullRoll }) {
   if (event.type === 'PRESENCE') {
     const action = event.payload?.action === 'left' ? 'left' : 'joined'
     const name = event.payload?.sender?.displayName ?? 'Someone'
     return (
       <li className="text-xs text-zinc-400">
         {action === 'left' ? `${name} left the table.` : `${name} joined the table.`}
+      </li>
+    )
+  }
+  if (event.type === 'DICE') {
+    const payload = event.payload ?? {}
+    const name = payload.rolledBy?.displayName ?? 'Unknown'
+    const isHidden = payload.hidden === true
+    const revealed = isHidden ? fullRoll : payload
+    return (
+      <li className="flex flex-wrap items-baseline gap-x-1 text-sm text-zinc-700">
+        <span className="font-medium text-zinc-800">{name} rolls</span>
+        <span className="font-semibold">{payload.expression}</span>
+        {payload.label && <span className="text-zinc-500">({payload.label})</span>}
+        {isHidden ? (
+          revealed ? (
+            <span role="status" className="text-amber-700">
+              secretly →
+              {revealed.rolls?.join(', ')} = {revealed.total}
+              <span className="ml-1 text-xs uppercase text-zinc-400">(GM only)</span>
+            </span>
+          ) : (
+            <span className="text-zinc-400">(secret roll hidden from the table)</span>
+          )
+        ) : (
+          <span role="status">
+            → {payload.rolls?.join(', ')} = {payload.total}
+          </span>
+        )}
       </li>
     )
   }

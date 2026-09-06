@@ -5,7 +5,11 @@ import BattleMapPanel from './BattleMapPanel'
 const battleMapMock = vi.hoisted(() => ({
   addToken: vi.fn(),
   moveToken: vi.fn(),
+  nextInitiative: vi.fn(),
+  removeInitiativeEntry: vi.fn(),
   removeToken: vi.fn(),
+  rerollInitiative: vi.fn(),
+  setInitiative: vi.fn(),
   turnCommand: vi.fn(),
   updateMap: vi.fn(),
   updateToken: vi.fn(),
@@ -24,6 +28,8 @@ function makeMap(overrides = {}) {
     height: 18,
     squareFeet: 10,
     currentTurnTokenId: null,
+    initiativeIndex: -1,
+    initiative: [],
     tokens: [
       { id: 11, name: 'Aria Sol', category: 'PLAYER', color: '#3b82f6', speedFeet: 30, posX: 1, posY: 1, movedFeet: 0, linkedParticipantId: null, linkedUserId: 1 },
       { id: 12, name: 'Goblin', category: 'MONSTER_NPC', color: '#ef4444', speedFeet: 30, posX: 5, posY: 5, movedFeet: 0, linkedParticipantId: null, linkedUserId: null },
@@ -56,6 +62,10 @@ beforeEach(() => {
   battleMapMock.updateToken.mockResolvedValue(makeMap())
   battleMapMock.updateMap.mockResolvedValue(makeMap({ width: 12, height: 10 }))
   battleMapMock.removeToken.mockResolvedValue(makeMap({ tokens: [makeMap().tokens[1]] }))
+  battleMapMock.nextInitiative.mockResolvedValue(makeMap({ initiativeIndex: 1 }))
+  battleMapMock.rerollInitiative.mockResolvedValue(makeMap())
+  battleMapMock.removeInitiativeEntry.mockResolvedValue(makeMap({ initiative: [] }))
+  battleMapMock.setInitiative.mockResolvedValue(makeMap())
 })
 
 describe('BattleMapPanel', () => {
@@ -258,5 +268,129 @@ describe('BattleMapPanel', () => {
     })
     expect(screen.getByTestId('feet-11')).toBeInTheDocument()
     expect(screen.queryByTestId('feet-12')).not.toBeInTheDocument()
+  })
+
+  it('shows the initiative order with the current entry highlighted', () => {
+    renderPanel({
+      isGm: false,
+      map: makeMap({
+        initiativeIndex: 0,
+        initiative: [
+          { id: 31, label: null, tokenId: 11, tokenName: 'Aria Sol', score: 18 },
+          { id: 32, label: 'Goblin', tokenId: null, tokenName: null, score: 12 },
+        ],
+      }),
+    })
+    expect(screen.getByText('Aria Sol')).toBeInTheDocument()
+    expect(screen.getByText('Goblin')).toBeInTheDocument()
+    expect(within(screen.getByTestId('initiative-rail')).getByText('18')).toBeInTheDocument()
+    expect(screen.getByText('Turns: Aria Sol')).toBeInTheDocument()
+    const current = screen.getByTestId('initiative-entry-31')
+    expect(current).toHaveTextContent('Current')
+    expect(screen.queryByRole('button', { name: 'Next turn' })).not.toBeInTheDocument()
+  })
+
+  it('lets the GM advance the order with next turn', async () => {
+    const { onMapChange } = renderPanel({
+      isGm: true,
+      map: makeMap({
+        initiativeIndex: 0,
+        initiative: [{ id: 31, label: 'Goblin', tokenId: null, tokenName: null, score: 12 }],
+      }),
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next turn' }))
+
+    await waitFor(() => expect(battleMapMock.nextInitiative).toHaveBeenCalledWith('7'))
+    expect(onMapChange).toHaveBeenCalledWith(expect.objectContaining({ initiativeIndex: 1 }))
+  })
+
+  it('lets the GM reroll and remove individual entries', async () => {
+    const { onMapChange } = renderPanel({
+      isGm: true,
+      map: makeMap({
+        initiative: [
+          { id: 31, label: 'Goblin', tokenId: null, tokenName: null, score: 12 },
+          { id: 32, label: 'Orc', tokenId: null, tokenName: null, score: 9 },
+        ],
+      }),
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reroll Goblin' }))
+    await waitFor(() => expect(battleMapMock.rerollInitiative).toHaveBeenCalledWith('7', 31))
+    expect(onMapChange).toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Orc' }))
+    await waitFor(() => expect(battleMapMock.removeInitiativeEntry).toHaveBeenCalledWith('7', 32))
+    expect(onMapChange).toHaveBeenCalled()
+  })
+
+  it('lets the GM append an entry to the order', async () => {
+    const { onMapChange } = renderPanel({
+      isGm: true,
+      map: makeMap({
+        initiative: [
+          { id: 31, label: 'Goblin', tokenId: null, tokenName: null, score: 12 },
+          { id: 32, label: null, tokenId: 12, tokenName: 'Goblin', score: 15 },
+        ],
+      }),
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add entry' }))
+    fireEvent.change(screen.getByPlaceholderText('Orc · Strahd · Trap'), { target: { value: 'Orc' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Add to order' }))
+
+    await waitFor(() =>
+      expect(battleMapMock.setInitiative).toHaveBeenCalledWith('7', {
+        entries: [
+          { label: 'Goblin', tokenId: undefined, score: 12 },
+          { label: undefined, tokenId: 12, score: 15 },
+          { label: 'Orc', tokenId: undefined, score: undefined },
+        ],
+      }),
+    )
+    expect(onMapChange).toHaveBeenCalled()
+  })
+
+  it('only offers tokens not already in the order when adding', async () => {
+    renderPanel({
+      isGm: true,
+      map: makeMap({
+        initiative: [{ id: 32, label: null, tokenId: 12, tokenName: 'Goblin', score: 15 }],
+      }),
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add entry' }))
+
+    const options = screen.getAllByRole('option').map((option) => option.textContent)
+    expect(options).toContain('Aria Sol')
+    expect(options).not.toContain('Goblin')
+  })
+
+  it('players cannot add or advance the order', () => {
+    renderPanel({
+      isGm: false,
+      map: makeMap({
+        initiative: [{ id: 31, label: 'Goblin', tokenId: null, tokenName: null, score: 12 }],
+      }),
+    })
+
+    expect(screen.queryByRole('button', { name: 'Add entry' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Reroll Goblin' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Remove Goblin' })).not.toBeInTheDocument()
+  })
+
+  it('surfaces initiative errors', async () => {
+    battleMapMock.nextInitiative.mockRejectedValue(new Error('Initiative order is empty'))
+    renderPanel({
+      isGm: true,
+      map: makeMap({
+        initiative: [{ id: 31, label: 'Goblin', tokenId: null, tokenName: null, score: 12 }],
+      }),
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next turn' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Initiative order is empty')
   })
 })

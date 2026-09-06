@@ -4,6 +4,7 @@ import com.gamer.fowever.tabletopserv.domain.BattleMap;
 import com.gamer.fowever.tabletopserv.domain.EventType;
 import com.gamer.fowever.tabletopserv.domain.Game;
 import com.gamer.fowever.tabletopserv.domain.GameSession;
+import com.gamer.fowever.tabletopserv.domain.InitiativeEntry;
 import com.gamer.fowever.tabletopserv.domain.MapToken;
 import com.gamer.fowever.tabletopserv.domain.Participant;
 import com.gamer.fowever.tabletopserv.domain.Role;
@@ -14,6 +15,9 @@ import com.gamer.fowever.tabletopserv.domain.User;
 import com.gamer.fowever.tabletopserv.dto.AddTokenRequest;
 import com.gamer.fowever.tabletopserv.dto.BattleMapDto;
 import com.gamer.fowever.tabletopserv.dto.CreateMapRequest;
+import com.gamer.fowever.tabletopserv.dto.InitiativeEntryDto;
+import com.gamer.fowever.tabletopserv.dto.InitiativeEntryRequest;
+import com.gamer.fowever.tabletopserv.dto.InitiativeRequest;
 import com.gamer.fowever.tabletopserv.dto.MapTokenDto;
 import com.gamer.fowever.tabletopserv.dto.MoveTokenRequest;
 import com.gamer.fowever.tabletopserv.dto.SessionEventDto;
@@ -23,6 +27,7 @@ import com.gamer.fowever.tabletopserv.dto.UpdateMapRequest;
 import com.gamer.fowever.tabletopserv.dto.UpdateTokenRequest;
 import com.gamer.fowever.tabletopserv.repository.BattleMapRepository;
 import com.gamer.fowever.tabletopserv.repository.GameSessionRepository;
+import com.gamer.fowever.tabletopserv.repository.InitiativeEntryRepository;
 import com.gamer.fowever.tabletopserv.repository.MapTokenRepository;
 import com.gamer.fowever.tabletopserv.repository.ParticipantRepository;
 import com.gamer.fowever.tabletopserv.repository.SessionEventRepository;
@@ -64,6 +69,8 @@ class BattleMapServiceTest {
     @Mock
     private MapTokenRepository tokenRepository;
     @Mock
+    private InitiativeEntryRepository initiativeRepository;
+    @Mock
     private ParticipantRepository participantRepository;
     @Mock
     private GameSessionRepository sessionRepository;
@@ -79,17 +86,20 @@ class BattleMapServiceTest {
     private final List<Participant> savedParticipants = new ArrayList<>();
     private final List<MapToken> savedTokens = new ArrayList<>();
     private final List<SessionEvent> savedEvents = new ArrayList<>();
+    private final List<InitiativeEntry> savedInitiative = new ArrayList<>();
     private BattleMap savedMap;
 
     private BattleMapService service;
 
     @BeforeEach
     void setUp() {
-        service = new BattleMapService(mapRepository, tokenRepository, participantRepository,
-                sessionRepository, userRepository, eventRepository, messagingTemplate, objectMapper);
+        service = new BattleMapService(mapRepository, tokenRepository, initiativeRepository,
+                participantRepository, sessionRepository, userRepository, eventRepository,
+                messagingTemplate, objectMapper);
         savedParticipants.clear();
         savedTokens.clear();
         savedEvents.clear();
+        savedInitiative.clear();
         savedMap = null;
     }
 
@@ -132,7 +142,9 @@ class BattleMapServiceTest {
             if (token.getId() == null) {
                 token.setId((long) savedTokens.size() + 1);
             }
-            savedTokens.add(token);
+            if (!savedTokens.contains(token)) {
+                savedTokens.add(token);
+            }
             return token;
         });
         when(tokenRepository.findByMapIdOrderByIdAsc(anyLong()))
@@ -162,6 +174,34 @@ class BattleMapServiceTest {
             savedEvents.add(event);
             return event;
         });
+        when(initiativeRepository.save(any(InitiativeEntry.class))).thenAnswer(invocation -> {
+            InitiativeEntry entry = invocation.getArgument(0);
+            if (entry.getId() == null) {
+                entry.setId((long) savedInitiative.size() + 1);
+            }
+            if (!savedInitiative.contains(entry)) {
+                savedInitiative.add(entry);
+            }
+            return entry;
+        });
+        when(initiativeRepository.findByBattleMapIdOrderByScoreDescIdAsc(anyLong()))
+                .thenAnswer(invocation -> new ArrayList<>(savedInitiative.stream()
+                        .sorted(java.util.Comparator
+                                .comparingInt(InitiativeEntry::getScore).reversed()
+                                .thenComparing(InitiativeEntry::getId))
+                        .toList()));
+        when(initiativeRepository.findByIdAndBattleMapId(anyLong(), anyLong()))
+                .thenAnswer(invocation -> savedInitiative.stream()
+                        .filter(entry -> entry.getId().equals(invocation.getArgument(0)))
+                        .findFirst());
+        org.mockito.Mockito.doAnswer(invocation -> {
+            savedInitiative.remove(invocation.getArgument(0));
+            return null;
+        }).when(initiativeRepository).delete(any(InitiativeEntry.class));
+        org.mockito.Mockito.doAnswer(invocation -> {
+            ((List<?>) invocation.getArgument(0)).forEach(savedInitiative::remove);
+            return null;
+        }).when(initiativeRepository).deleteAll(any(Iterable.class));
     }
 
     private void withGm(User gm, GameSession session) {
@@ -641,5 +681,232 @@ class BattleMapServiceTest {
         assertThatThrownBy(() -> service.turnCommand(gm, SESSION_ID, new TurnCommandRequest(TurnAction.START, null)))
                 .isInstanceOf(ApiException.class)
                 .hasMessageContaining("tokenId is required");
+    }
+
+    @Test
+    void setInitiativeReplacesEntriesAndAutoRollsMissingScores() {
+        User gm = user(1L, "aria");
+        GameSession session = session(gm);
+        coreStubs(gm, session);
+        withGm(gm, session);
+        storedMap(session);
+        MapToken token = storedToken("Goblin", TokenCategory.MONSTER_NPC, "#ef4444", 30, 2, 2, null, null);
+        storedToken("Aria", TokenCategory.PLAYER, "#3b82f6", 30, 1, 1, 2L, 1L);
+
+        InitiativeRequest request = new InitiativeRequest(List.of(
+                new InitiativeEntryRequest("Goblin", null, 15),
+                new InitiativeEntryRequest(null, token.getId(), null),
+                new InitiativeEntryRequest("Aria", null, 99),
+                new InitiativeEntryRequest("Bob", null, 99)));
+
+        BattleMapDto dto = service.setInitiative(gm, SESSION_ID, request);
+
+        assertThat(dto.initiative()).hasSize(4);
+        assertThat(dto.initiative().get(0).label()).isEqualTo("Aria");
+        assertThat(dto.initiative().get(1).label()).isEqualTo("Bob");
+        InitiativeEntryDto autoRolled = dto.initiative().stream()
+                .filter(entry -> entry.tokenName() != null).findFirst().orElseThrow();
+        assertThat(autoRolled.tokenName()).isEqualTo("Goblin");
+        assertThat(autoRolled.score()).isBetween(1, 20);
+        assertThat(dto.initiative().stream().map(InitiativeEntryDto::label))
+                .containsExactlyInAnyOrder("Aria", "Bob", "Goblin", null);
+        assertThat(dto.initiativeIndex()).isEqualTo(-1);
+    }
+
+    @Test
+    void setInitiativeRejectsEntryWithoutLabelOrToken() {
+        User gm = user(1L, "aria");
+        GameSession session = session(gm);
+        coreStubs(gm, session);
+        withGm(gm, session);
+        storedMap(session);
+        MapToken goblin = storedToken("Goblin", TokenCategory.MONSTER_NPC, "#ef4444", 30, 2, 2, null, null);
+
+        InitiativeRequest request = new InitiativeRequest(
+                List.of(new InitiativeEntryRequest("Goblin", goblin.getId(), null)));
+
+        assertThatThrownBy(() -> service.setInitiative(gm, SESSION_ID, request))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("label or a tokenId");
+    }
+
+    @Test
+    void setInitiativeRejectsEntryWithNeitherLabelNorToken() {
+        User gm = user(1L, "aria");
+        GameSession session = session(gm);
+        coreStubs(gm, session);
+        withGm(gm, session);
+        storedMap(session);
+
+        InitiativeRequest request = new InitiativeRequest(
+                List.of(new InitiativeEntryRequest(null, null, null)));
+
+        assertThatThrownBy(() -> service.setInitiative(gm, SESSION_ID, request))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("label or a tokenId");
+    }
+
+    @Test
+    void setInitiativeRejectsUnknownToken() {
+        User gm = user(1L, "aria");
+        GameSession session = session(gm);
+        coreStubs(gm, session);
+        withGm(gm, session);
+        storedMap(session);
+
+        InitiativeRequest request = new InitiativeRequest(
+                List.of(new InitiativeEntryRequest(null, 999L, null)));
+
+        assertThatThrownBy(() -> service.setInitiative(gm, SESSION_ID, request))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("Map token not found");
+    }
+
+    @Test
+    void setInitiativeRequiresGm() {
+        User gm = user(1L, "aria");
+        User player = user(2L, "ivo");
+        GameSession session = session(gm);
+        coreStubs(gm, session);
+        withGm(gm, session);
+        withPlayer(player, session);
+        when(userRepository.findById(2L)).thenReturn(Optional.of(player));
+        storedMap(session);
+
+        assertThatThrownBy(() ->
+                service.setInitiative(player, SESSION_ID, new InitiativeRequest(List.of())))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("Only the GM");
+    }
+
+    @Test
+    void nextInitiativeAdvancesAndActivatesTheToken() {
+        User gm = user(1L, "aria");
+        GameSession session = session(gm);
+        coreStubs(gm, session);
+        withGm(gm, session);
+        storedMap(session);
+        MapToken goblin = storedToken("Goblin", TokenCategory.MONSTER_NPC, "#ef4444", 30, 2, 2, null, null);
+        goblin.setMovedFeet(20);
+
+        InitiativeRequest request = new InitiativeRequest(List.of(
+                new InitiativeEntryRequest(null, goblin.getId(), 12),
+                new InitiativeEntryRequest("Orc", null, 5)));
+        service.setInitiative(gm, SESSION_ID, request);
+
+        BattleMapDto dto = service.nextInitiative(gm, SESSION_ID);
+
+        assertThat(dto.initiativeIndex()).isEqualTo(0);
+        assertThat(dto.currentTurnTokenId()).isEqualTo(goblin.getId());
+        assertThat(dto.tokens()).filteredOn(t -> t.id().equals(goblin.getId()))
+                .singleElement()
+                .extracting(MapTokenDto::movedFeet)
+                .isEqualTo(0);
+    }
+
+    @Test
+    void nextInitiativeWrapsAround() {
+        User gm = user(1L, "aria");
+        GameSession session = session(gm);
+        coreStubs(gm, session);
+        withGm(gm, session);
+        storedMap(session);
+
+        InitiativeRequest request = new InitiativeRequest(List.of(
+                new InitiativeEntryRequest("Aria", null, 10),
+                new InitiativeEntryRequest("Bob", null, 5)));
+        service.setInitiative(gm, SESSION_ID, request);
+        savedMap.setInitiativeIndex(1);
+
+        BattleMapDto dto = service.nextInitiative(gm, SESSION_ID);
+
+        assertThat(dto.initiativeIndex()).isEqualTo(0);
+        assertThat(dto.currentTurnTokenId()).isNull();
+    }
+
+    @Test
+    void nextInitiativeRejectsEmptyOrder() {
+        User gm = user(1L, "aria");
+        GameSession session = session(gm);
+        coreStubs(gm, session);
+        withGm(gm, session);
+        storedMap(session);
+
+        assertThatThrownBy(() -> service.nextInitiative(gm, SESSION_ID))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("no initiative order");
+    }
+
+    @Test
+    void rerollInitiativeAssignsANewScore() {
+        User gm = user(1L, "aria");
+        GameSession session = session(gm);
+        coreStubs(gm, session);
+        withGm(gm, session);
+        storedMap(session);
+
+        InitiativeRequest request = new InitiativeRequest(
+                List.of(new InitiativeEntryRequest("Orc", null, 15)));
+        service.setInitiative(gm, SESSION_ID, request);
+        InitiativeEntry entry = savedInitiative.get(0);
+
+        BattleMapDto dto = service.rerollInitiative(gm, SESSION_ID, entry.getId());
+
+        assertThat(dto.initiative()).singleElement().extracting(InitiativeEntryDto::score)
+                .isNotNull();
+        assertThat(savedInitiative).singleElement().extracting(InitiativeEntry::getScore)
+                .isEqualTo(dto.initiative().get(0).score());
+    }
+
+    @Test
+    void removeInitiativeEntryClampsTheIndex() {
+        User gm = user(1L, "aria");
+        GameSession session = session(gm);
+        coreStubs(gm, session);
+        withGm(gm, session);
+        storedMap(session);
+
+        InitiativeRequest request = new InitiativeRequest(List.of(
+                new InitiativeEntryRequest("Aria", null, 10),
+                new InitiativeEntryRequest("Bob", null, 5)));
+        service.setInitiative(gm, SESSION_ID, request);
+        savedMap.setInitiativeIndex(1);
+
+        BattleMapDto dto = service.removeInitiativeEntry(gm, SESSION_ID, savedInitiative.get(0).getId());
+
+        assertThat(dto.initiative()).hasSize(1);
+        assertThat(dto.initiativeIndex()).isEqualTo(0);
+    }
+
+    @Test
+    void removeLastInitiativeEntryResetsIndex() {
+        User gm = user(1L, "aria");
+        GameSession session = session(gm);
+        coreStubs(gm, session);
+        withGm(gm, session);
+        storedMap(session);
+
+        InitiativeRequest request = new InitiativeRequest(
+                List.of(new InitiativeEntryRequest("Orc", null, 5)));
+        service.setInitiative(gm, SESSION_ID, request);
+        savedMap.setInitiativeIndex(0);
+
+        BattleMapDto dto = service.removeInitiativeEntry(gm, SESSION_ID, savedInitiative.get(0).getId());
+
+        assertThat(dto.initiative()).isEmpty();
+        assertThat(dto.initiativeIndex()).isEqualTo(-1);
+    }
+
+    @Test
+    void initiativeEntryMustBelongToTheMap() {
+        User gm = user(1L, "aria");
+        GameSession session = session(gm);
+        coreStubs(gm, session);
+        withGm(gm, session);
+        storedMap(session);
+
+        assertThatThrownBy(() -> service.rerollInitiative(gm, SESSION_ID, 999L))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("Initiative entry not found");
     }
 }

@@ -188,6 +188,76 @@ class BattleMapFlowTest {
     }
 
     @Test
+    void initiativeFlowForGmOnly() throws Exception {
+        String gmJwt = registerAndLogin("ginger");
+        String playerJwt = registerAndLogin("ivo");
+        SessionHandle session = createSession(gmJwt, "Order Room");
+        joinSession(playerJwt, session.inviteCode());
+
+        mvc.perform(post("/api/sessions/" + session.id() + "/map")
+                        .header("Authorization", "Bearer " + gmJwt)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Initiative\"}"))
+                .andExpect(status().isCreated());
+
+        String ivoId = String.valueOf(tokenIdByName(gmJwt, session.id(), "ivo"));
+        String gingerId = String.valueOf(tokenIdByName(gmJwt, session.id(), "ginger"));
+
+        mvc.perform(post("/api/sessions/" + session.id() + "/map/initiative")
+                        .header("Authorization", "Bearer " + playerJwt)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"entries\":[]}"))
+                .andExpect(status().isForbidden());
+
+        mvc.perform(post("/api/sessions/" + session.id() + "/map/initiative")
+                        .header("Authorization", "Bearer " + gmJwt)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"entries\":["
+                                + "{\"tokenId\":" + gingerId + ",\"score\":18},"
+                                + "{\"label\":\"Orc\",\"score\":14},"
+                                + "{\"tokenId\":" + ivoId + "}]}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.initiative.length()").value(3))
+                .andExpect(jsonPath("$.initiative[0].tokenName").value("ginger"))
+                .andExpect(jsonPath("$.initiative[0].score").value(18))
+                .andExpect(jsonPath("$.initiative[?(@.label == 'Orc')].score").value(org.hamcrest.Matchers.contains(14)))
+                .andExpect(jsonPath("$.initiative[?(@.tokenName == 'ivo')].score").value(org.hamcrest.Matchers.everyItem(
+                        org.hamcrest.Matchers.greaterThanOrEqualTo(Integer.valueOf(1)))))
+                .andExpect(jsonPath("$.initiative[?(@.tokenName == 'ivo')].score").value(org.hamcrest.Matchers.everyItem(
+                        org.hamcrest.Matchers.lessThanOrEqualTo(Integer.valueOf(20)))));
+
+        String nextBody = mvc.perform(post("/api/sessions/" + session.id() + "/map/initiative/next")
+                        .header("Authorization", "Bearer " + gmJwt))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.initiativeIndex").value(0))
+                .andExpect(jsonPath("$.currentTurnTokenId").value(gingerId))
+                .andReturn().getResponse().getContentAsString();
+        String ivoEntryId = String.valueOf(JsonPath
+                .<List<?>>read(nextBody, "$.initiative[?(@.tokenName == 'ivo')].id").getFirst());
+
+        mvc.perform(post("/api/sessions/" + session.id() + "/map/initiative/" + ivoEntryId + "/reroll")
+                        .header("Authorization", "Bearer " + gmJwt))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.initiative[?(@.id == " + ivoEntryId + ")].score")
+                        .value(org.hamcrest.Matchers.everyItem(
+                                org.hamcrest.Matchers.greaterThanOrEqualTo(Integer.valueOf(1))))
+                        )
+                .andExpect(jsonPath("$.initiative[?(@.id == " + ivoEntryId + ")].score")
+                        .value(org.hamcrest.Matchers.everyItem(
+                                org.hamcrest.Matchers.lessThanOrEqualTo(Integer.valueOf(20))))
+                        );
+
+        mvc.perform(delete("/api/sessions/" + session.id() + "/map/initiative/" + ivoEntryId)
+                        .header("Authorization", "Bearer " + gmJwt))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.initiative.length()").value(2));
+
+        mvc.perform(post("/api/sessions/" + session.id() + "/map/initiative/next")
+                        .header("Authorization", "Bearer " + playerJwt))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     void mapManagementEndpointsRequireGm() throws Exception {
         String gmJwt = registerAndLogin("ginger");
         String playerJwt = registerAndLogin("ivo");
