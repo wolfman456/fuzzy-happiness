@@ -23,9 +23,16 @@ npm run test             # Vitest (no watch; use npm run test:watch for watch mo
   the JWT as a `?token=` param) and `createRealtimeClient({sessionId, onSnapshot, onEvent,
   onError})` subscribing to the snapshot destination (`/app/sessions/{id}`) and the live topic
   (`/topic/sessions/{id}`); returns `{connect, disconnect, sendChat}`.
+- `src/lib/mapGeometry.js` — battle-map math: `RACE_SPEEDS` table (25/30/35/40 ft),
+  `squaresFor` (per-turn budget), Chebyshev `distanceInSquares` / `costInFeet`,
+  `remainingFeet`/`remainingSquares`, `reachableSquares` (clipped to map edges).
+- `src/lib/battleMap.js` — map API helpers over `api()`: `getMap`, `createMap`, `addToken`,
+  `updateToken`, `removeToken`, `moveToken`, `turnCommand`.
 - `src/auth/` — auth store (localStorage key `tt.auth`), `AuthProvider` context, `useAuth`,
   session restore via `GET /api/users/me`.
-- `src/components/` — `ProtectedRoute`, `ShellLayout` (Sessions / Characters nav).
+- `src/components/` — `ProtectedRoute`, `ShellLayout` (Sessions / Characters nav),
+  `BattleMapPanel` (grid + tokens, select-to-move with reachable-square overlay, GM token
+  form + turn bar; controlled via `map`/`onMapChange`).
 - `src/pages/` — `LoginPage`, `RegisterPage` (client-side password + age policies),
   `VerifyPage`, `Dashboard`, `LobbyPage`, `SessionPage`.
 - `src/App.jsx` — routes: `/login`, `/register`, `/verify`, `/` (protected), plus
@@ -38,5 +45,8 @@ dev origin (`http://localhost:5173`) via `tabletopserv.cors.allowed-origins`.
 
 Stage 1 complete: auth UI (register / login / email verification) plus the sessions UI —
 lobby with create/join by invite code and a live session view with roster, invite code and
-real-time chat/presence over STOMP. Platform plan: see the root `README.md` and
-`draft-design.md`; repo conventions in `AGENTS.md`.
+real-time chat/presence over STOMP. Stage 3 track 1 (battle map): `BattleMapPanel` on the
+session screen — grid, participant + monster tokens, select-to-move with a reachable-square
+overlay, per-turn movement budget, GM token editing and a turn bar; map state streams over
+`TABLE` session events (kept out of the chat feed). Platform plan: see the root `README.md`
+and `draft-design.md`; repo conventions in `AGENTS.md`.

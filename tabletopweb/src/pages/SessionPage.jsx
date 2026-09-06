@@ -3,6 +3,8 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { api, leaveSession } from '../lib/api'
 import { createRealtimeClient } from '../lib/stomp'
 import { useAuth } from '../auth/useAuth'
+import { createMap, getMap } from '../lib/battleMap'
+import BattleMapPanel from '../components/BattleMapPanel'
 
 const ROLE_LABEL = { GM: 'GM', PLAYER: 'Player', SPECTATOR: 'Spectator' }
 
@@ -18,6 +20,9 @@ export default function SessionPage() {
   const [sending, setSending] = useState(false)
   const [realtimeError, setRealtimeError] = useState('')
   const [leaving, setLeaving] = useState(false)
+  const [map, setMap] = useState(null)
+  const [mapState, setMapState] = useState('loading')
+  const [mapError, setMapError] = useState('')
 
   useEffect(() => {
     let cancelled = false
@@ -25,7 +30,14 @@ export default function SessionPage() {
       .then((snapshot) => {
         if (cancelled) return
         setSession(snapshot)
-        setEvents(snapshot.recentEvents ?? [])
+        setEvents((snapshot.recentEvents ?? []).filter((event) => event.type !== 'TABLE'))
+        const tableEvent = (snapshot.recentEvents ?? [])
+          .filter((event) => event.type === 'TABLE' && event.payload?.tokens)
+          .at(-1)
+        if (tableEvent) {
+          setMap(tableEvent.payload)
+          setMapState('ready')
+        }
       })
       .catch((error) => {
         if (cancelled) return
@@ -36,14 +48,51 @@ export default function SessionPage() {
     }
   }, [id])
 
+  useEffect(() => {
+    let cancelled = false
+    getMap(id)
+      .then((data) => {
+        if (cancelled) return
+        setMap(data)
+        setMapState('ready')
+      })
+      .catch((error) => {
+        if (cancelled) return
+        if (error.status === 404) {
+          setMap(null)
+          setMapState('none')
+        } else {
+          setMapError(error.message)
+          setMapState('error')
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [id])
+
   const onSnapshot = useCallback((snapshot) => {
     if (snapshot?.id) {
       setSession(snapshot)
-      setEvents(snapshot.recentEvents ?? [])
+      setEvents((snapshot.recentEvents ?? []).filter((event) => event.type !== 'TABLE'))
+      const tableEvent = (snapshot.recentEvents ?? [])
+        .filter((event) => event.type === 'TABLE' && event.payload?.tokens)
+        .at(-1)
+      if (tableEvent) {
+        setMap(tableEvent.payload)
+        setMapState('ready')
+      }
     }
   }, [])
 
   const onEvent = useCallback((event) => {
+    if (event?.type === 'TABLE') {
+      if (event.payload?.tokens) {
+        setMap(event.payload)
+        setMapState('ready')
+      }
+      return
+    }
     if (event?.type) setEvents((previous) => [...previous, event])
   }, [])
 
@@ -82,6 +131,18 @@ export default function SessionPage() {
       navigate('/sessions')
     } finally {
       setLeaving(false)
+    }
+  }
+
+  async function handleCreateMap() {
+    setMapError('')
+    try {
+      const created = await createMap(id)
+      setMap(created)
+      setMapState('ready')
+    } catch (error) {
+      setMapError(error.message)
+      setMapState('error')
     }
   }
 
@@ -156,6 +217,49 @@ export default function SessionPage() {
             </li>
           ))}
         </ul>
+      </section>
+
+      <section className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <h2 className="text-lg font-semibold">Battle map</h2>
+        <div className="mt-3">
+          {mapState === 'loading' && (
+            <p className="text-sm text-zinc-500">Loading battle map…</p>
+          )}
+          {mapState === 'none' &&
+            (me?.role === 'GM' ? (
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-sm text-zinc-500">
+                  No battle map yet for this session.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleCreateMap}
+                  className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
+                >
+                  Set up battle map
+                </button>
+              </div>
+            ) : (
+              <p className="text-sm text-zinc-500">
+                No battle map yet — ask your GM to set one up.
+              </p>
+            ))}
+          {mapState === 'error' && (
+            <p role="alert" className="text-sm text-red-700">
+              {mapError}
+            </p>
+          )}
+          {mapState === 'ready' && map && (
+            <BattleMapPanel
+              sessionId={id}
+              map={map}
+              user={user}
+              isGm={me?.role === 'GM'}
+              disabled={isClosed}
+              onMapChange={setMap}
+            />
+          )}
+        </div>
       </section>
 
       <section className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">

@@ -1,8 +1,10 @@
 # Fuzzy Happiness — Tabletop Game Platform (Initial Design Draft)
 
-> **Status:** Draft v0.6 — accounts/auth end-to-end (backend `feature/spring-security` + web UI
-> in `feature/frontend-auth`) and Stage 1 "Sessions & chat" complete: lobby with invite codes,
-> create/join/leave, live chat + presence over STOMP (`/ws?token=…`), in `feature/sessions`.
+> **Status:** Draft v0.7 — accounts/auth end-to-end (backend `feature/spring-security` + web UI
+> in `feature/frontend-auth`), Stage 1 "Sessions & chat" (lobby with invite codes,
+> create/join/leave, live chat + presence over STOMP, in `feature/sessions`), and the first
+> slice of Stage 3 "Game table": a **grid battle map** with tokens, movement budget, and turn
+> control in `feature/battle-map`.
 > A starting point to iterate on as requirements become clearer.
 > Open questions and things to decide are flagged inline and collected in [Open Questions](#open-questions--open-decisions).
 
@@ -308,8 +310,10 @@ joiners via `recentEvents`.
 > verify, roles, JWT, web UI + app shell), plus the sessions slice in `feature/sessions`:
 > lobby with create/join-by-invite-code, session screen with participant roster + live chat
 > and presence over STOMP (private-by-membership topics, snapshot replay on subscribe).
+> Stage 3 (first slice): **complete** (Draft v0.7). The grid battle map lives in
+> `feature/battle-map` — see the "Decided" notes in §14.
 | 2. Characters | abstract `Character`, registry, D&D sheet model + **generation** (guided wizard + quick-build) backed by the SRD proxy, server compile validation | create a validated level 1–3 D&D character via wizard or quick-build |
-| 3. Game table | dice rolls, initiative/order, shared table state | dice events broadcast to the session |
+| 3. Game table | dice rolls, initiative/order, shared table state — battle map track 1 (grid, tokens, per-turn movement budget): see §14 | grid battle map synced to the whole session, tokens for players + monsters, movement capped by race/type speed per turn |
 | 4. Discord | OAuth connect + deep-link voice | "Connect Discord" flows to voice + table side-by-side |
 | 5. Production | PostgreSQL profile, migrations, deploy | runs on Postgres behind CI |
 
@@ -334,10 +338,21 @@ the client inbound channel running on `SyncTaskExecutor` so clients receive STOM
 frames), invite codes `[A-Z0-9]{6}`, roles `GM`/`PLAYER`/`SPECTATOR` (invite join assigns
 `PLAYER`, creator `GM`), session status `OPEN`/`ACTIVE`/`CLOSED`, `BootstrapGameRunner`
 seeding the `dnd-5e` game, frontend uses `@stomp/stompjs` via `src/lib/stomp.js` with the
-lobby + session screens in `src/pages/LobbyPage.jsx` / `SessionPage.jsx`.
+lobby + session screens in `src/pages/LobbyPage.jsx` / `SessionPage.jsx` · **battle map
+(implemented):** one grid map per session (`BattleMap`, unique `session_id`) at 24×18 by
+default with `squareFeet = 10` per square; auto-token for every non-spectator participant
+(linked by `linkedUserId`, name = display name) when the GM creates the map; GM-added tokens
+default to `MONSTER_NPC` / 30 ft; movement budget per turn = `floor(speedFeet / squareFeet)`
+squares (starter race→speed table: 25/30/35/40 ft), diagonal moves cost Chebyshev distance,
+and a token may only move while `movedFeet + cost ≤ speedFeet` — budget resets on turn
+`START`, `END`, or `NEW_ROUND`; permissions: GM manages any token, players move only their
+own linked token, spectators read-only; every mutation persists a `SessionEvent` of a new
+`TABLE` type carrying the full `BattleMapDto` and broadcasts it on `/topic/sessions/{id}`
+(clients replace map state from the payload; TABLE rows are filtered out of the chat feed);
+REST surface `GET|POST /api/sessions/{id}/map`, `POST|PATCH|DELETE …/map/tokens[/{tokenId}]`,
+`POST …/map/tokens/{tokenId}/move`, `POST …/map/turn`; implemented in `feature/battle-map`.
 
 - Do we need friends list / permanent groups, or is invite-code enough for now?
-- Should board/map/tokens be a stage after MVP, or explicitly out of scope?
 - Exact D&D 5e sheet fields — confirm which sets matter for v1.
 - Dice rolls: server-authoritative only, or allow GM-private rolls with reveal?
 - Deployment target (containers? platform?), and whether Flyway migrations start in

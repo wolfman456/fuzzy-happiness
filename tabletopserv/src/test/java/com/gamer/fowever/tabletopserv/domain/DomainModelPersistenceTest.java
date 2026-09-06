@@ -273,6 +273,54 @@ class DomainModelPersistenceTest {
     }
 
     @Test
+    void persistsBattleMapWithTokens() {
+        User gm = em.find(User.class, persistOwner());
+        em.clear();
+        Game game = em.find(Game.class, persistGame());
+        GameSession session = em.persistAndFlush(sessionWith("invite-map", game, gm));
+        Participant gmParticipation = em.persistAndFlush(new Participant(session, gm, Role.GM));
+
+        BattleMap map = em.persistAndFlush(new BattleMap(session, "Dungeon", 24, 18, 10));
+        MapToken token = em.persistAndFlush(new MapToken(map, "Aria", TokenCategory.PLAYER, "#ef4444", 30,
+                1, 1, gmParticipation.getId(), gm.getId()));
+        em.clear();
+
+        BattleMap reloaded = em.find(BattleMap.class, map.getId());
+        assertThat(reloaded.getName()).isEqualTo("Dungeon");
+        assertThat(reloaded.getWidth()).isEqualTo(24);
+        assertThat(reloaded.getHeight()).isEqualTo(18);
+        assertThat(reloaded.getSquareFeet()).isEqualTo(10);
+        assertThat(reloaded.getCurrentTurnTokenId()).isNull();
+        assertThat(reloaded.getSession().getId()).isEqualTo(session.getId());
+
+        MapToken reloadedToken = em.find(MapToken.class, token.getId());
+        assertThat(reloadedToken.getName()).isEqualTo("Aria");
+        assertThat(reloadedToken.getCategory()).isEqualTo(TokenCategory.PLAYER);
+        assertThat(reloadedToken.getColor()).isEqualTo("#ef4444");
+        assertThat(reloadedToken.getSpeedFeet()).isEqualTo(30);
+        assertThat(reloadedToken.getPosX()).isEqualTo(1);
+        assertThat(reloadedToken.getPosY()).isEqualTo(1);
+        assertThat(reloadedToken.getMovedFeet()).isZero();
+        assertThat(reloadedToken.getLinkedParticipantId()).isEqualTo(gmParticipation.getId());
+        assertThat(reloadedToken.getLinkedUserId()).isEqualTo(gm.getId());
+        assertThat(reloadedToken.getCreatedAt()).isNotNull();
+    }
+
+    @Test
+    void rejectsSecondBattleMapForSameSession() {
+        User gm = em.find(User.class, persistOwner());
+        em.clear();
+        Game game = em.find(Game.class, persistGame());
+        GameSession session = em.persistAndFlush(sessionWith("invite-map-dupe", game, gm));
+        em.persistAndFlush(new BattleMap(session, "First", 24, 18, 10));
+        em.clear();
+
+        GameSession managedSession = em.find(GameSession.class, session.getId());
+        assertThatThrownBy(() -> em.persistAndFlush(new BattleMap(managedSession, "Second", 24, 18, 10)))
+                .hasRootCauseInstanceOf(java.sql.SQLIntegrityConstraintViolationException.class);
+    }
+
+    @Test
     void persistsSpectatorRoleAsString() {
         User gm = em.find(User.class, persistOwner());
         em.clear();
