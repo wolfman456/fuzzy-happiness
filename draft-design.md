@@ -1,12 +1,16 @@
 # Fuzzy Happiness — Tabletop Game Platform (Initial Design Draft)
 
-> **Status:** Draft v0.8 — accounts/auth end-to-end (backend `feature/spring-security` + web UI
+> **Status:** Draft v0.9 — accounts/auth end-to-end (backend `feature/spring-security` + web UI
 > in `feature/frontend-auth`), Stage 1 "Sessions & chat" (lobby with invite codes,
 > create/join/leave, live chat + presence over STOMP, in `feature/sessions`), the first
 > slice of Stage 3 "Game table": a **grid battle map** with tokens, movement budget, and turn
 > control in `feature/battle-map`, and the second slice — server-authoritative **dice
 > (public + GM-private)** and a per-map **initiative order** — in `feature/dice-initiative`.
-> A starting point to iterate on as requirements become clearer.
+> Draft v0.9 adds a **design flush** for three areas under research (no code yet, in
+> `feature/gateway-monster-3d`): homebrew **monster generation** by replicating a deterministic
+> CR→statblock "chassis" math engine (§9b), a dedicated **Express egress gateway** for all
+> outbound/upstream calls (§16), and an optional **3D view** of the battle map via React Three
+> Fiber (§17). A starting point to iterate on as requirements become clearer.
 > Open questions and things to decide are flagged inline and collected in [Open Questions](#open-questions--open-decisions).
 
 ## 1. Overview
@@ -48,19 +52,26 @@ additional games can be plugged in later.
 
 ```
                         ┌──────────────────────────────────────────────┐
-                        │                 Frontend (SPA)              │
-                        │        React 19 + Vite (tabletopweb/)        │
-                        │  Lobby │ Session view │ Sheet editor │ Auth  │
-                        └───────┬──────────────┬──────────────┬───────┘
-                                │ REST (CRUD)  │  WS/STOMP    │
-       ┌──────────┐             ▼              ▼              ▼         ┌────────────────┐
-       │ Discord  │  OAuth /   ┌─────────────────────────────────────┐  │    Database     │
-       │ (voice)  │  deep-link │          Spring Boot Backend        │  │                 │
-       │ client   │◄───────────┤    (tabletopserv/, Java 21, Boot 4) │  │  Profile-based: │
-       │  runs in │            │ REST controllers │ STOMP broker      │  │   dev  → H2     │
-       │ user OS  │            │ SessionService  │ Auth/accounts      │  │   prod → Postgres│
-       └──────────┘            │ Game registry   │ Character service  │  │                 │
-                               └─────────────────────────────────────┘  └─────────────────┘
+                          │                 Frontend (SPA)                │
+                          │        React 19 + Vite (tabletopweb/)         │
+                          │  Lobby │ Session view │ Sheet editor │ Auth   │
+                          │  2D battle map │ (future) 3D viewport (R3F)   │
+                          └───────┬──────────────┬──────────────┬────────┘
+                                  │ REST (CRUD)  │  WS/STOMP    │
+         ┌──────────┐             ▼              ▼              ▼         ┌────────────────┐
+         │ Discord  │  OAuth /   ┌─────────────────────────────────────┐  │    Database     │
+         │ (voice)  │  deep-link │          Spring Boot Backend        │  │                 │
+         │ client   │◄───────────┤    (tabletopserv/, Java 21, Boot 4) │  │  Profile-based: │
+         │  runs in │            │ REST controllers │ STOMP broker      │  │   dev  → H2     │
+         │ user OS  │            │ SessionService  │ Auth/accounts      │  │ prod → Postgres │
+         └──────────┘            │ Game registry   │ Character service  │  └────────────────┘
+                                 └─────────────────────────────────────┘
+                                         │  outbound (server-held keys)
+                                  ┌──────▼───────────────┐
+                                  │  Express egress GW   │   (tabletopgateway/, §16)
+                                  │  SRD │ LLM │ future   │
+                                  └──────┬───────────────┘
+                                         ▼  internet upstreams
 ```
 
 **Decisions:**
@@ -210,6 +221,69 @@ by the [D&D 5e SRD API](https://5e-bits.github.io/docs/introduction) (dnd5eapi.c
 instead of copying rule data; the server validates a sheet's choices against SRD
 resources so characters stay consistent with the rules.
 
+## 9b. Homebrew Monster Generation (CR-driven statblock engine)
+
+**Research note (decided):** the [Cros.land AI statblock generator](https://cros.land/ai-powered-dnd-5e-monster-statblock-generator/)
+was evaluated as a source for homebrew monster generation and **rejected as a direct API
+integration** — it is a client-side tool with **no public REST API**. It saves monsters to
+browser `localStorage`, exposes only exports (Homebrewery markdown, Foundry VTT, Improved
+Initiative JSON, and a Roll20 Chrome extension), gates generation behind a daily limit
+(5 free/24h; $5/mo Patreon), and there is no documented HTTP endpoint a backend proxy could
+call. We therefore **replicate its approach rather than consume it**: implement the same
+deterministic "chassis" math engine server-side, and drive the flavor/ability text through
+**our own LLM** provider, all reached via the egress gateway (§16).
+
+**The math engine (deterministic, non-AI):** given a **Challenge Rating** and a **combat
+role**, every number is computed on curves calibrated against the published SRD monsters —
+the AI never chooses numbers:
+
+- Baselines derived from CR: **Armor Class**, **hit points**, **attack bonus**, and **save
+  DC** follow curves fitted to official monsters; **total damage per round (DPR)** follows
+  the DMG's damage bands.
+- A **multiattack** splits that budget across attacks; an **area effect** gets about half;
+  a once-per-fight **nova** can spend most of it; **legendary** monsters deal ~60% of budget
+  on their own turn and the rest via legendary actions.
+- **Combat roles** shift the baselines while XP stays tied to CR:
+
+  | Role | Math adjustment |
+  |---|---|
+  | Balanced | raw baseline |
+  | Brute | −1 AC, ~+25% HP, harder single hits |
+  | Defender | +2 AC, +HP, −~15% damage, usually a protection reaction |
+  | Skirmisher | baseline + a movement trick (bonus-action disengage, flyby, burrow) |
+  | Artillery | thin defenses, long-range attacks, an escape tool |
+  | Controller | +1 save DC, −~30% damage; restrains/slows/blinds |
+  | Lurker | fragile/weak in a stand-up fight; an opening strike spends the missing damage at once |
+  | Support | buffs/heals/enables; deliberately underperforms CR solo |
+  | Swarm | Tiny mass w/ weapon resistances, +HP, damage that halves below half HP |
+
+  An **Auto** role picks the role from the concept/name (e.g. "tomb guardian" → defender,
+  "dune ambusher" → lurker). Save DCs always derive from `8 + proficiency + ability modifier`.
+
+- **Validation ("linter" + "audit"):** every generated statblock passes an automated review
+  (~90 checks calibrated so no official SRD monster trips them): an area effect that deals
+  damage cannot also stun without a recharge gate; a grapple must carry an escape DC; a
+  restrained condition needs a way out; Prone never takes a duration; a damage rider is extra
+  dice rather than a flat bonus; no entry references an ability that does not exist. The linter
+  stamps in deterministic fixes where possible; the audit must **quote exact text** for each
+  finding (a hallucinated complaint is thrown away), and remaining issues go back to the LLM as
+  a short, specific problem list.
+
+**2014 vs 2024:** one math engine produces identical numbers for both editions; only the
+*wording/layout* differs (2024 prints Initiative on the block, an ability MOD/SAVE grid, merged
+immunities, Bonus Action section, "Emanation"/"Bloodied" vocabulary). We render the statblock
+in the classic 2014 layout first, with a 2024 toggle later.
+
+**Persistence & reuse (R11):** homebrew monsters are persisted as a `Monster` entity (CR, role,
+edition, SRD `index` references, cached display snapshot) owned by the creating GM, reusable
+across encounters/sessions.
+
+**Surface (via the gateway, §16):**
+```
+POST /api/monsters/generate    {name?, cr, role|auto, edition?, concept?} -> statblock
+GET  /api/monsters/mine        my homebrew monsters
+```
+
 ## 10. Discord VoIP Integration
 
 **Reality check:** Discord exposes no public API that lets an application join or drop
@@ -265,13 +339,17 @@ POST   /api/characters/generate    random quick-build (valid draft + preview)
 GET    /api/users/me/characters
 POST   /api/users/me/characters    create character (game + sheet payload)
 GET    /api/users/me/characters/{id}
+POST   /api/monsters/generate      homebrew statblock from CR + role (via gateway, §9b)
+GET    /api/monsters/mine          my homebrew monsters
 WS     /ws                          STOMP endpoint; topics as in §6
 ```
 
 `✓` = implemented. Auth landed in `feature/spring-security` (Draft v0.4, web client in
 `feature/frontend-auth`); the sessions slice landed in `feature/sessions` (Draft v0.6).
 Unverified users get `403` on login until `/api/auth/verify` confirms their email; the
-`resend` endpoint is intentionally enumeration-safe (always `202`).
+`resend` endpoint is intentionally enumeration-safe (always `202`). All outbound SRD +
+monster-generation calls exit the backend via the Express egress gateway (§16) — the
+`/api/srd/*` and `/api/monsters/*` controllers are frontends for gateway-backed data.
 
 **STOMP surface (sessions + dice slice, implemented):**
 
@@ -321,8 +399,11 @@ hidden frame).
 > Stage 3 (second slice, dice + initiative): **complete** (Draft v0.8). Server-authoritative
 > dice (`POST /api/sessions/{id}/roll`) with public + GM-private rolls, and a per-map
 > initiative order (`…/map/initiative`) in `feature/dice-initiative` — see §14.
+> Draft v0.9: **design flush** (no code) in `feature/gateway-monster-3d` for the Express
+> egress gateway (§16), homebrew monster generation (§9b), and the optional 3D viewport (§17).
 | 2. Characters | abstract `Character`, registry, D&D sheet model + **generation** (guided wizard + quick-build) backed by the SRD proxy, server compile validation | create a validated level 1–3 D&D character via wizard or quick-build |
-| 3. Game table | dice rolls ✓, initiative/order ✓, shared table state — battle map track 1 (grid, tokens, per-turn movement budget) ✓: see §14 | grid battle map synced, movement budget, server dice (public + GM-private hidden frames), initiative order with auto d20 |
+| 3. Game table | dice rolls ✓, initiative/order ✓, shared table state — battle map track 1 (grid, tokens, per-turn movement budget) ✓: see §14; 3D viewport (R3F) is a later enhancement to this stage (§17) | grid battle map synced, movement budget, server dice (public + GM-private hidden frames), initiative order with auto d20 |
+| 3b. Gateway + monsters | Express egress gateway (SRD all calls exit through it) + homebrew monster generation (§9b) — **enables** Stage 2's SRD-backed wizard | all outbound calls flow through the gateway; CR+role → valid statblock, persisted `Monster` reused across sessions (R9-R11) |
 | 4. Discord | OAuth connect + deep-link voice | "Connect Discord" flows to voice + table side-by-side |
 | 5. Production | PostgreSQL profile, migrations, deploy | runs on Postgres behind CI |
 
@@ -380,6 +461,18 @@ activates it as the current turn (resets its movement budget); `DELETE …/map/i
 removes an entry (pointer clamped). GM-only, GM overrides/rerolls allowed; movement stays
 independent of the order (not time-gated). `BattleMapDto` carries `initiative` + `initiativeIndex`
 and rides the existing `TABLE` broadcasts. Implemented in `feature/dice-initiative`.
+**Monster generation (decided, §9b):** replicate the Cros.land "chassis" approach server-side
+(deterministic CR→statblock math engine calibrated to the SRD + combat-role variants, an
+LLM only for flavor/abilities, a linter + quote-verbatim audit), persisted `Monster` entity
+owned by the creating GM, exposed via `POST /api/monsters/generate` (not a direct Cros.land
+integration — it has no public API) · **egress gateway (decided, §16):** a dedicated Express
+service (`tabletopgateway/`, Node 24, `http-proxy-middleware`) sits **behind** Spring as the
+only path out to upstreams (SRD, monster-gen LLM, future integrations); curated route table,
+deny-by-default, server-held keys, SSRF guard, timeouts, correlation IDs; the backend's own
+`SrdClient`/`GatewayClient` calls it · **3D rendering (decided, §17):** React Three Fiber +
+drei as an optional viewport sharing the existing 2D `BattleMapDto` state (same
+server-authoritative tokens/movement), glTF models for avatars/monsters, WebGL2 now with the
+WebGPU renderer as the future path.
 
 - Do we need friends list / permanent groups, or is invite-code enough for now?
 - Exact D&D 5e sheet fields — confirm which sets matter for v1.
@@ -395,6 +488,10 @@ and rides the existing `TABLE` broadcasts. Implemented in `feature/dice-initiati
 - Score sources: add standard array / point-buy / 4d6 alongside the house-rule d20?
 - House-rule d20: always on, or a configurable table/room option?
 - Beyond level 3: leveling up existing characters (not just creating at 1–3)?
+- Monster-generation LLM provider: which vendor/key to standardize on for the gateway (§9b)?
+- Monster generation: build the "chassis" curves from SRD ourselves, or vendor an off-the-shelf
+  statblock math library?
+- 3D: which glTF asset source/style for avatars/monsters, and do we ship a bundled starter pack (§17)?
 
 ## 15. Tech Notes (existing repo context)
 
@@ -423,5 +520,78 @@ and rides the existing `TABLE` broadcasts. Implemented in `feature/dice-initiati
   `SessionEventsController` (`@SubscribeMapping` snapshot replay) + `SessionController`
   (create/join/leave) + `GameController`; `SessionService`/`SessionPresenceService` persist
   `Session`/`Participant`/`SessionEvent` and broadcast on `/topic/sessions/{id}`.
-- Still to build for stage 2-3 runtime: the SRD `SrdClient` WebClient proxy with the
-  Caffeine cache, and the custom `Character` model + generation ('§8).
+- Still to build (Stage 2-3 runtime): the Express egress gateway + `GatewayClient` (§16),
+  the SRD proxy path rewired through it, the custom `Character` model + generation (§8),
+  homebrew monster generation (§9b), and the optional 3D viewport (§17).
+
+## 16. Egress API Gateway (Express)
+
+**Why:** every external/upstream call — the SRD proxy (§9), monster-generation LLM (§9b), and
+future integrations (Discord OAuth, image/3D asset services) — leaves the backend. Instead of
+letting the Spring backend open connections to arbitrary hosts, all outbound traffic flows
+through a dedicated gateway that enforces allowlisting, secrets, and timeouts in **one** place.
+
+**Decision:** a new **egress proxy service** sits **behind** the Spring backend
+(`tabletopgateway/`, Express + Node 24 + `http-proxy-middleware`), on the *outbound* path:
+
+```
+Frontend (React SPA)
+      │  REST /api/**  +  STOMP /ws?token=…    (unchanged)
+      ▼
+Spring Boot backend (authoritative: auth, sessions, SRD allowlists, character/monster logic)
+      │  server-to-server, server-held API keys
+      ▼
+Express egress gateway  ──►  internet upstreams
+   • dnd5eapi.co SRD
+   • LLM provider (monster-gen flavor/abilities)
+   • future: Discord OAuth, asset/image services
+```
+
+- The gateway **does not see client traffic** — only the Spring backend calls it, so only
+  server-held credentials/keys are present there. (Ingress stays as today: SPA → Spring
+  directly; no Vite `/api` proxy, cross-origin via `VITE_API_URL`.)
+- **Curated route table:** each upstream is a named route with its target URL; anything not in
+  the table is refused (deny-by-default).
+- **Per-route controls:** allowlisted paths, API key / header injection (server supplies the
+  secret), response timeout, retry policy, response size cap, and optional response
+  caching (Caffeine moves server-side to the gateway for SRD list endpoints, or stays in
+  Spring — either way, one cache owner).
+- **SSRF protection:** the gateway validates target hostnames against the route table and
+  blocks private/link-local/metadata IP ranges.
+- **Observability:** structured request/response logs + correlation ID per forwarded call so a
+  chain (client → Spring → gateway → upstream) is trailable.
+- Spring keeps a thin `GatewayClient` (WebClient) that forwards curated requests and maps
+  gateway errors to the same `GlobalExceptionHandler` shapes.
+
+**Recommended package:** `http-proxy-middleware` (RFC-compatible, Express middleware, supports
+path rewrite + `onProxyReq`/`onProxyRes` hooks + WebSocket upgrade for future needs). Replace
+the current direct `SrdClient` WebClient→dnd5eapi.co path so **all** outbound calls use the
+gateway — including the SRD proxy and monster-gen LLM.
+
+## 17. 3D Rendering (avatars, board, monsters)
+
+**Decision:** React Three Fiber (R3F) + drei, wrapping Three.js declaratively to match the
+existing React 19 + plain JSX stack. Added as an **optional 3D viewport** sharing the exact
+same state as the existing 2D grid map (same `BattleMapDto`, tokens, movement, turn) — the 3D
+layer is a camera/view on the same server-authoritative state, not a parallel system.
+
+- **Dependencies:** `three`, `@react-three/fiber`, `@react-three/drei` (Node 24, plain JSX,
+  matching the existing frontend; no TypeScript).
+- **Renderer:** WebGL2 today (covers ~97%+ browsers); Three.js r182+ makes
+  `WebGPURenderer` the recommended renderer with automatic WebGL fallback — wire WebGPU via
+  R3F's async `gl` prop when our needs justify it (later slice).
+- **Scene content:**
+  - **Player avatars** — a low-poly character mesh per player token (drawn from the same
+    token list; reuse the existing auto-token name/`linkedUserId` mapping).
+  - **Game board** — a rendered floor plane derived from the `BattleMap` grid (24×18 default,
+    `squareFeet` scale), walls/obstacles later.
+  - **Monsters** — meshes for monster/NPC tokens.
+- **Models:** standard glTF/GLB assets (free packs; e.g. a shared asset library in
+  `tabletopweb/public/models/`), loaded via drei's `useGLTF`, cached across components.
+- **Interaction:** drei `OrbitControls` for the camera; selection/movement gestures mapped to
+  the existing `POST …/map/tokens/{tokenId}/move` (server still authoritative). No client-side
+  physics in v1.
+- **Level of detail (LOD):** drei performance controls to keep 60fps on weak devices; the 2D
+  map remains the guaranteed playable path with the 3D view as an enhancement.
+- **Roadmap fit:** a later slice ("3D battle-map viewport") on Stage 3, *after* the SRD proxy
+  (gateway) and character/monster generation land — see §13.

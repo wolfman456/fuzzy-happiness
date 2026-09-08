@@ -40,7 +40,7 @@ See `AGENTS.md` for repo layout, commands, and conventions.
 
 ## Status
 
-Iterative build; design draft in [`draft-design.md`](draft-design.md) (Draft v0.8).
+Iterative build; design draft in [`draft-design.md`](draft-design.md) (Draft v0.9).
 
 Delivered:
 
@@ -86,6 +86,12 @@ Delivered:
   `rollId`), `InitiativeRail` (GM add/reroll/remove/advance, current-turn highlight on the map
   DTO), `/user/queue/dice` subscription in `src/lib/stomp.js`. 115 frontend tests (Vitest),
   oxlint + build clean.
+- Design flush (no code) — `feature/gateway-monster-3d`: Draft v0.9 documents three researched
+  areas in `draft-design.md`: homebrew **monster generation** (§9b — replicate the Cros.land
+  CR-driven "chassis" math engine + our own LLM; the original has no public API), a dedicated
+  **Express egress gateway** (§16 — `tabletopgateway/`, all outbound SRD/LLM calls route
+  through it), and an optional **3D battle-map viewport** via React Three Fiber + drei (§17).
 
-Next: character generation backed by the 5e SRD proxy, then battle-map polish beyond what the
-table needs (multi-map, fog of war) and the rest of the game table (turn timers, conditions).
+Next: build the Express egress gateway + SRD proxy through it, then character generation
+backed by the SRD, homebrew monster generation, and finally the optional 3D viewport and the
+rest of the game table (multi-map, fog of war, turn timers, conditions).
