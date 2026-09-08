@@ -29,7 +29,7 @@ if nothing else.
   map. Stats come from an official DMG CR curve so the "AI" never picks numbers (§9b).
 - **Discord for voice** — connect your Discord account and jump into a voice channel;
   the web app runs beside it as the shared game table.
-- **Database** — H2 while developing; PostgreSQL once deployed to production.
+- **Database** — H2 while developing; **PostgreSQL** (Railway-managed) in production (§19).
 
 ## Tech stack
 
@@ -47,7 +47,7 @@ See `AGENTS.md` for repo layout, commands, and conventions.
 
 ## Status
 
-Iterative build; design draft in [`draft-design.md`](draft-design.md) (Draft v0.11).
+Iterative build; design draft in [`draft-design.md`](draft-design.md) (Draft v0.12).
 
 Delivered:
 
@@ -111,12 +111,57 @@ Delivered:
   flavor) in `tabletopservice`; a `Monster` JPA entity owned by the creating GM; `POST
   /api/monsters/generate` (201) + `GET /api/monsters/mine` (interfaces in `tabletopapi`).
   Generation is fully local — the deferred LLM flavor is the only gateway-backed piece. 199
-  backend tests, jacoco gate met. Frontend: `src/lib/monsters.js` (CR/role/edition constants +
-  API helpers) and a GM-only `MonsterGenerator` panel on the session screen — pick CR/role/
-  edition, give it a name/concept, preview the statblock, "Add to map" as a `MONSTER_NPC`
-  token, and reuse any saved monster from "My monsters". 127 frontend tests (Vitest),
-  oxlint + build clean.
+backend tests, jacoco gate met. Frontend: `src/lib/monsters.js` (CR/role/edition constants +
+   API helpers) and a GM-only `MonsterGenerator` panel on the session screen — pick CR/role/
+   edition, give it a name/concept, preview the statblock, "Add to map" as a `MONSTER_NPC`
+   token, and reuse any saved monster from "My monsters". 127 frontend tests (Vitest),
+   oxlint + build clean.
+- **Railway deploy scaffold** — `feature/railway-deploy` (Draft v0.12, §19). Decision: the MVP
+  runs on **Railway** (Hobby plan, Railway-provided `*.up.railway.app` domains, manual CLI
+  deploys, Infrastructure-as-Code via `.railway/railway.ts` — Railway's legacy `railway.toml`
+  is deprecated with a 2026-12-01 cutoff). Backend gains a `prod` profile wired for
+  Railway-managed Postgres (`server.port=${PORT:8080}`, datasource from `PGHOST/PGPORT/
+  PGDATABASE/PGUSER/PGPASSWORD`, `ddl-auto: validate`) and an Actuator `/actuator/health`
+  health-check endpoint (`permitAll`). The gateway binds `PORT` → `GATEWAY_PORT` → 3001 and
+  `0.0.0.0` when a container `PORT` exists (`resolveListenConfig`); the web app ships as nginx
+  serving the Vite build behind a React-Router SPA fallback. Dockerfiles for `tabletopserv/`
+  and `tabletopweb/`, plus [Deployment](#deployment-railway) docs.
 
 Next: character generation backed by the SRD (Stage 2) and the optional 3D viewport (§17)
 plus the rest of the game table (multi-map, fog of war, turn timers, conditions). The out-of-MVP
 list lives in [Wants.md](Wants.md).
+
+## Deployment (Railway)
+
+One project, three services + managed Postgres, connected over **private networking**
+(`<service>.railway.internal` — the gateway keeps **no public domain**). Full spec in
+[draft-design.md §19](draft-design.md#19-deployment-railway).
+
+| Service | App dir | Build | Health check |
+|---|---|---|---|
+| `backend` | `tabletopserv/` | `Dockerfile` (Maven → temurin JRE) | `/actuator/health` |
+| `gateway` | `tabletopgateway/` | Railpack (Node 24) | `/health` |
+| `web` | `tabletopweb/` | `Dockerfile` (node build → nginx) | `/` |
+| `postgres` | managed | Railway Postgres | — |
+
+Lifecycle: `railway login` → `railway link` → `railway config plan`/`config apply`
+(scaffolds Postgres + services from `.railway/railway.ts`) → set dashboard secrets per
+service → `cd tabletopgateway && railway up`, `cd tabletopserv && railway up`,
+`cd tabletopweb && railway up` (gateway first — the backend needs `GATEWAY_URL` to resolve).
+
+### Variables
+
+Dashboard secrets per service; `.railway/railway.ts` marks them `preserve()` so `config apply`
+never clobbers them.
+
+- **backend:** `SPRING_PROFILES_ACTIVE=prod`, `JWT_SECRET`, `ADMIN_PASSWORD`,
+  `SMTP_HOST` `SMTP_PORT` `SMTP_USER` `SMTP_PASSWORD`, `CORS_ALLOWED_ORIGINS` (the web
+  service's public URL), `GATEWAY_URL` (`http://gateway.railway.internal`),
+  `GATEWAY_TOKEN`; datasource `PGHOST` `PGPORT` `PGDATABASE` `PGUSER` `PGPASSWORD`
+  (referenced from the Postgres service).
+- **gateway:** `GATEWAY_TOKEN` (same value as backend).
+- **web:** `VITE_API_URL` (backend public URL) — read at **build time**, so change it and
+  redeploy.
+
+Local dev keeps its defaults: `tabletopserv.*` env overrides (`CORS_ALLOWED_ORIGINS`,
+`GATEWAY_URL`, `GATEWAY_TOKEN`, …) per `application.properties`.

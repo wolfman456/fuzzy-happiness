@@ -20,6 +20,12 @@
 > owned by the creating GM, `POST /api/monsters/generate` (201) + `GET /api/monsters/mine`, and a
 > GM-only generator panel on the session screen (statblock preview + add-to-map + "my monsters"
 > reuse). Flavor is templated server-side; the LLM flavor route stays deferred (§9b).
+> Draft v0.12 (in `feature/railway-deploy`) locks the **production target (Railway)** and aligns
+> **character generation with the 2014 Player's Handbook**: three-service topology + managed
+> Postgres with private networking (§19), prod port/datasource wiring, a health-check endpoint,
+> Dockerfiles + **Infrastructure-as-Code** (`.railway/railway.ts`), and the PHB-standard ability-
+> score sources (standard array default; point-buy and 4d6-drop-lowest selectable; the 6×d20
+> house rule demoted to an optional score source — §8/§14).
 > Open questions and things to decide are flagged inline and collected in [Open Questions](#open-questions--open-decisions).
 
 ## 1. Overview
@@ -106,6 +112,9 @@ additional games can be plugged in later.
   channel** — see [§10 Discord VoIP Integration](#10-discord-voip-integration).
 - **Rules data:** the D&D plug-in consumes the open 5e-bits SRD API — **through the egress
   gateway** (§16) with caching — see [§9 D&D 5e SRD Integration](#9-dd-5e-srd-integration-5e-bits--dnd5eapico).
+- **Deployment target (decided):** [Railway](https://railway.com) — three services (backend,
+  egress gateway, static web) plus a managed **Postgres** database in one project, connected
+  over private networking; see [§19 Deployment (Railway)](#19-deployment-railway).
 
 ## 5. Core Domain Model
 
@@ -179,14 +188,18 @@ sheet with derived stats.
   (random scores/race/class/subclass/background, permitted skill & spell picks) and
   returns a preview; the user can push it into the wizard to edit, or save as-is.
 
-**Ability scores (v1 house rule):** the server rolls **6 × d20** (server-side, for
-trust) and returns an **unassigned set**; the player assigns the values to
-STR/DEX/CON/INT/WIS/CHA. This is a deliberate table house rule; standard array, point
-buy, and 4d6-drop-lowest are noted as future "score source" strategies.
+**Ability scores (score sources):** the **2014 PHB standard array is the v1 default**
+(15, 14, 13, 12, 10, 8 — PHB p.13). The following alternatives are selectable as
+**score sources**: 27-point **point-buy** (scores 8–15 per the PHB cost table) and
+**4d6-drop-lowest** rolled six times. The existing table house rule — the server rolls
+**6 × d20** (server-side, for trust) and returns an **unassigned set** the player assigns
+to STR/DEX/CON/INT/WIS/CHA — is retained as a fourth, optional score source. Whenever a
+score source rolls dice, rolls are server-authoritative (`SecureRandom`).
 
-**Starting level:** configurable **1–3** at creation. HP = class hit die + CON per
-level (MVP simplification: max each level's roll); subclass timing and spell slots
-follow the chosen class's rules (some subclasses start at class level 1, others at 3).
+**Starting level:** configurable **1–3** at creation. **Hit points follow the PHB (p.15):**
+level 1 = max hit die + CON modifier, then the hit die + CON per level. **Proficiency
+bonus is +2** (the PHB value across levels 1–4). Subclass timing and spell slots follow the
+chosen class's rules (some subclasses start at class level 1, others at 3).
 
 **Server compile (`POST /api/characters/compile`)** — a pure, idempotent step that
 
@@ -239,6 +252,12 @@ by the [D&D 5e SRD API](https://5e-bits.github.io/docs/introduction) (dnd5eapi.c
 `raceIndex`, `classIndex`, `subclassIndex`, `spellIndexes[]`, `featureIndexes[]`)
 instead of copying rule data; the server validates a sheet's choices against SRD
 resources so characters stay consistent with the rules.
+
+**PHB authority vs SRD data:** the **2014 Player's Handbook** is the *rules authority* we
+align mechanics to (§8, page-referenced); the SRD API is the *data feed*. The SRD covers
+most PHB options but **not every subclass/feature** — v1 chargen offers only SRD-backed
+choices rather than guessing at non-SRD data. We reference rule mechanics and page numbers
+but never embed rulebook text (licensing; see §14).
 
 ## 9b. Homebrew Monster Generation (CR-driven statblock engine)
 
@@ -300,7 +319,9 @@ the AI never chooses numbers:
 **2014 vs 2024:** one math engine produces identical numbers for both editions; only the
 *wording/layout* differs (2024 prints Initiative on the block, an ability MOD/SAVE grid, merged
 immunities, Bonus Action section, "Emanation"/"Bloodied" vocabulary). We render the statblock
-in the classic 2014 layout first, with a 2024 toggle later.
+in the classic 2014 layout first, with a 2024 toggle later. Statblock numbers stay consistent
+with **2014 PHB conventions** for player-facing values (HP, AC, ability modifiers, and the
++2 proficiency bonus for levels 1–3 PCs) while CR math follows the DMG curves above.
 
 **Persistence & reuse (R11):** implemented. Homebrew monsters persist as a `Monster` entity (CR,
 role, edition, cached statblock snapshot) owned by the creating GM (`monsters` table, `owner_id`),
@@ -334,10 +355,12 @@ This is an acceptable MVP trade-off and keeps the platform out of the voice busi
 - **JPA entities** as in §5.
 - **Spring profiles:**
   - `dev` (default): in-memory/file **H2**, `ddl-auto: update`, sample seed data.
-  - `prod`: **PostgreSQL**, `ddl-auto: validate + Flyway migrations` (add later as a
-    tracked, deliberate step), credentials via env vars, never in-repo.
-- **Dependencies to add:** `com.h2database:h2` (runtime), `org.postgresql:postgresql`
-  (runtime).
+  - `prod`: **PostgreSQL** — on Railway a **managed Postgres service** reached over the
+    private network (credentials from `PGHOST`/`PGPORT`/`PGDATABASE`/`PGUSER`/`PGPASSWORD`,
+    never in-repo), `ddl-auto: validate` with **Flyway migrations** added in Stage 5 as a
+    tracked, deliberate step (§19).
+- **Dependencies to add:** `com.h2database:h2` (runtime, present), `org.postgresql:postgresql`
+  (runtime, present).
 - Schema migrations deferred until the model stabilizes; until then H2 update mode is
   fine for iteration.
 
@@ -444,7 +467,7 @@ hidden frame).
 | 3. Game table | dice rolls ✓, initiative/order ✓, shared table state — battle map track 1 (grid, tokens, per-turn movement budget) ✓: see §14; 3D viewport (R3F) is a later enhancement to this stage (§17) | grid battle map synced, movement budget, server dice (public + GM-private hidden frames), initiative order with auto d20 |
 | 3b. Gateway + monsters | Express egress gateway ✓ (SRD flows through it, §16) + homebrew monster generation ✓ (deterministic engine, §9b — LLM flavor deferred) | all outbound calls flow through the gateway; CR+role → valid statblock, persisted `Monster` reused across sessions (R9-R11) |
 | 4. Discord | OAuth connect + deep-link voice | "Connect Discord" flows to voice + table side-by-side |
-| 5. Production | PostgreSQL profile, migrations, deploy | runs on Postgres behind CI |
+| 5. Production | Railway deploy: managed Postgres (private network), three services, health checks, env via dashboard, Flyway migrations (§19) | runs on Railway behind CI |
 
 ## 14. Open Questions / Open Decisions
 
@@ -525,13 +548,30 @@ through an allowlisted route table with `X-Gateway-Token`, TTL cache and `502 {s
 on upstream failure; the Spring side routes `/api/srd/*` through it via `GatewayClient`/`SrdClient`
 (config `tabletopserv.gateway.url`/`.token`, env `GATEWAY_URL`/`GATEWAY_TOKEN`).
 
+- **Deployment target (decided):** **Railway** (§19) — one project: a managed **Postgres**
+  database plus three services (**backend** Spring Boot JAR via `tabletopserv/Dockerfile`,
+  **egress gateway** Node via Railpack, **web** static SPA via the nginx `tabletopweb/Dockerfile`
+  with React-Router fallback). Services talk over **private networking**
+  (`<service>.railway.internal`) so the gateway keeps **no public domain**; WebSockets/STOMP
+  are supported. Secrets live in the dashboard per service (`.railway/railway.ts` marks them
+  `preserve()` so `config apply` never clobbers them); deploys are **manual CLI**:
+  `railway up` from each app directory. Done on the **Hobby** plan with Railway-provided
+  `*.up.railway.app` domains. Railway's legacy `railway.toml` config-as-code is **deprecated
+  (cutoff 2026-12-01)**, so we use **Infrastructure-as-Code** (`.railway/railway.ts` + a root
+  `railway` devDependency).
+- **Chargen rules (decided, 2014 PHB):** the PHB is the rules authority and the SRD is the
+  data feed (§8/§9); standard array is the default score source with point-buy and
+  4d6-drop-lowest selectable; the 6×d20 house rule becomes an optional score source; HP = max
+  at level 1 + CON per level; proficiency bonus +2 for levels 1–3. The 2024 ruleset stays
+  deferred alongside the SRD `/api/2024` upgrade path.
+
 - Do we need friends list / permanent groups, or is invite-code enough for now?
 - Exact D&D 5e sheet fields — confirm which sets matter for v1.
 - ~~Dice rolls: server-authoritative only, or allow GM-private rolls with reveal?~~
   **Decided:** server-authoritative, with GM-private rolls delivering the full result only to
   the GM (hidden frame for the rest of the table).
-- Deployment target (containers? platform?), and whether Flyway migrations start in
-  Stage 5 or earlier.
+- ~~Deployment target (containers? platform?)~~ **Decided:** Railway (§19); Flyway migrations
+  begin in Stage 5 alongside the Railway Postgres wiring.
 - Room persistence: sessions archived/joinable later, or ephemeral?
 - SRD: keep the live proxy, or eventually mirror 5e-bits data into our own DB?
 - SRD version pinning: stay on `2014` — when to consider the `2024` ruleset?
@@ -581,6 +621,15 @@ on upstream failure; the Spring side routes `/api/srd/*` through it via `Gateway
 - **Outbound stack (landed):** `GatewayClient` (WebClient → `tabletopserv.gateway.url`,
   `X-Gateway-Token` + correlation id) and `SrdClient`, backing `SrdControllerImpl`
   (`GET /api/srd/{collection}[/{index}]`, curated query passthrough).
+- **Deployment surface (added, §19):** the backend prod profile binds `server.port=${PORT:8080}`
+  (`application-prod.properties`), wires a Postgres datasource from
+  `PGHOST`/`PGPORT`/`PGDATABASE`/`PGUSER`/`PGPASSWORD`, `ddl-auto: validate`, and exposes
+  Spring Actuator's `/actuator/health` (`permitAll` in the security chain) for health checks.
+  The gateway binds `PORT` → `GATEWAY_PORT` → 3001 and binds `0.0.0.0` when a container `PORT`
+  is present (`resolveListenConfig`). The web app ships as nginx serving the Vite `dist/` with
+  a React-Router SPA fallback (`tabletopweb/nginx.conf.template`) and a `VITE_API_URL` build
+  arg. `tabletopserv/Dockerfile` (Maven build → temurin JRE), `tabletopweb/Dockerfile`, and
+  `.railway/railway.ts` (+ root `railway` devDependency) define the Railway project.
 - Still to build (Stage 2-3 runtime): the custom `Character` model + generation (§8) and the
   optional 3D viewport (§17) — homebrew monster generation (§9b) landed in
   `feature/monster-generation`.
@@ -609,8 +658,9 @@ Express egress gateway ──►  internet upstreams
    • Discord OAuth (future) / asset services (future)
 ```
 
-- **Not client-facing.** Only the Spring backend calls it (loopback bind in dev), so only
-  server-held credentials/keys are present there. Ingress stays as today: SPA → Spring
+- **Not client-facing.** Only the Spring backend calls it (loopback bind in dev, or **private
+  networking with no public domain** on Railway — §19), so only server-held credentials/keys
+  are present there. Ingress stays as today: SPA → Spring
   directly (no Vite `/api` proxy, cross-origin via `VITE_API_URL`).
 - **Route table (deny-by-default):** `src/routes.js` maps a named route (`srd`, future
   `llm-monsters`, …) to a fixed target base URL and an **allowlisted set of path prefixes**
@@ -696,3 +746,94 @@ the way a browser/API client would, without polluting the service module's cover
 - **When:** the module is scaffolded when the first functional suite is needed (Stage 2
   character journeys and gateway-backed SRD flows). Until then the plan, tooling, and module
   placeholder live here.
+
+## 19. Deployment (Railway)
+
+**Decision (Draft v0.12):** host the MVP on **Railway** — one project with a managed
+**Postgres** database and three deployable services. Config is **Infrastructure-as-Code**
+(`.railway/railway.ts`, evaluated/ applied by the Railway CLI) because Railway's legacy
+`railway.toml` config-as-code is deprecated (hard cutoff **2026-12-01**). Deploys are
+**manual CLI** (`railway up`) per app directory; there is **no GitHub integration** and no CI
+deploy step for now.
+
+```
+                    ┌──────────────────────────────────────────────┐
+                    │  Railway project "fuzzy-happiness" (Hobby)    │
+                    │                                              │
+                    │  web (public *.up.railway.app)  nginx + dist │
+                    │        │ REST /api/** + STOMP /ws?token=      │
+                    │        ▼                                     │
+                    │  backend  ──►  gateway          <service>.railway.internal
+                    │  (Spring   │   (Node, egress-  │   private network, no public
+                    │   JAR)     │    only)          │   domain for gateway
+                    │        │   │        │          │
+                    │        ▼   ▼        ▼           ▼
+                    │  Postgres (managed, private DB connection)
+                    └──────────────────────────────────────────────┘
+```
+
+### Services
+
+| Service | App dir | Build | Runtime | Health check |
+|---|---|---|---|---|
+| `backend` | `tabletopserv/` | `Dockerfile` (Maven → temurin JRE) | `java -jar app.jar`, `SPRING_PROFILES_ACTIVE=prod` | `/actuator/health` |
+| `gateway` | `tabletopgateway/` | Railpack (Node 24) | `node src/index.js` on `$PORT` | `/health` |
+| `web` | `tabletopweb/` | `Dockerfile` (node build → nginx) | nginx SPA fallback on `$PORT` | `/` |
+| `postgres` | managed | Railway Postgres | private network | — |
+
+### Networking
+
+- Services in the same project reach each other over the **private network** at
+  `<service>.railway.internal`; traffic never egresses. The backend's `GATEWAY_URL` points at
+  `http://gateway.railway.internal` (`${{gateway.RAILWAY_PRIVATE_DOMAIN}}`).
+- Only **web** and **backend** get public Railway-provided `*.up.railway.app` domains (custom
+  domains later, Hobby allows 2). The **gateway gets none** — it stays egress-only by
+  construction.
+- WebSockets/STOMP work on Railway as plain HTTP upgrades; no proxy config needed.
+
+### Ports & binds
+
+- Backend: `server.port = ${PORT:8080}` (`application-prod.properties`) — Railway injects
+  `PORT`.
+- Gateway: `resolveListenConfig()` binds `PORT` → `GATEWAY_PORT` → 3001 and picks `0.0.0.0`
+  when a container `PORT` is present (loopback stays the local-dev default).
+- Web: official nginx entrypoint renders `/etc/nginx/templates/default.conf.template` via
+  `envsubst`, binding `listen ${PORT}` (default 8080) with `try_files` SPA fallback so
+  react-router routes deep-link.
+
+### Variables (per service, dashboard)
+
+Backend needs (prod profile refuses to boot clean without them): `SPRING_PROFILES_ACTIVE=prod`,
+`JWT_SECRET`, `ADMIN_PASSWORD`, `SMTP_HOST`/`SMTP_PORT`/`SMTP_USER`/`SMTP_PASSWORD`,
+`CORS_ALLOWED_ORIGINS` (the web service's public URL), `GATEWAY_URL`, `GATEWAY_TOKEN`, and the
+datasource `PGHOST`/`PGPORT`/`PGDATABASE`/`PGUSER`/`PGPASSWORD` (referenced from the Postgres
+service). The gateway needs the **same** `GATEWAY_TOKEN`. The web service needs `VITE_API_URL`
+(backend public URL) set **before** its build, then a redeploy. `.railway/railway.ts` marks the
+secrets `preserve()` so a later `railway config apply` never overwrites dashboard values.
+
+### Lifecycle
+
+```
+railway login
+railway link                 # link repo ↔ project
+railway config plan          # preview IaC diff (safe)
+railway config apply         # create Postgres + 3 services
+# per app: cd <dir> && railway up
+```
+
+Set the dashboard secrets above, give the backend a public domain (or set `CORS_ALLOWED_ORIGINS`
+to the generated URL), then deploy **gateway → backend → web** (the bearer token must match and
+`GATEWAY_URL` must resolve first). Rollback = one-click previous deploy; PR preview environments
+are available if later wanted.
+
+### Database & migrations
+
+`ddl-auto: validate` in prod; **Flyway** migrations arrive in Stage 5 (first tracked schema
+change set). Managed Postgres has automated backups; connect over the private network
+(`DATABASE_URL` or the `PG*` variables) to avoid egress charges.
+
+### Cost posture
+
+**Hobby** plan ($5/mo, includes $5 of usage; up to 2 custom domains, 6 replicas, 5 GB volumes).
+Keep internal traffic private and the gateway port-less to stay inside the included usage;
+upgrade to **Pro** only if real traffic demands it.

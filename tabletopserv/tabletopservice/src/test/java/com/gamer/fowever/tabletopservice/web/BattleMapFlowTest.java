@@ -215,7 +215,7 @@ class BattleMapFlowTest {
                         .content("{\"entries\":["
                                 + "{\"tokenId\":" + gingerId + ",\"score\":18},"
                                 + "{\"label\":\"Orc\",\"score\":14},"
-                                + "{\"tokenId\":" + ivoId + "}]}"))
+                                + "{\"tokenId\":" + ivoId + ",\"score\":9}]}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.initiative.length()").value(3))
                 .andExpect(jsonPath("$.initiative[0].tokenName").value("ginger"))
