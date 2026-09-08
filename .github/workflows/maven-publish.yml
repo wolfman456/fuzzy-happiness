@@ -33,6 +33,6 @@ jobs:
       run: ./mvnw -B package
 
     - name: Publish to GitHub Packages Apache Maven
-      run: ./mvnw deploy -s ${{ github.workspace }}/tabletopserv/settings.xml
+      run: ./mvnw deploy -pl tabletopservice -am -s ${{ github.workspace }}/tabletopserv/settings.xml
       env:
         GITHUB_TOKEN: ${{ github.token }}
