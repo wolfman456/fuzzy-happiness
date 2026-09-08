@@ -22,25 +22,29 @@ if nothing else.
   each game (starting with D&D 5e) contributes its own concrete sheet.
 - **Rules data from the 5e SRD API** — the D&D plug-in is backed by the open, no-auth
   [5e-bits SRD API](https://5e-bits.github.io/docs/introduction) (dnd5eapi.co): races,
-  classes, spells, equipment and more are fetched and cached through the backend, so no
-  rules data is hard-coded into the app.
+  classes, spells, equipment and more are fetched through the **egress gateway** (single
+  outbound path) and cached, so no rules data is hard-coded into the app.
 - **Discord for voice** — connect your Discord account and jump into a voice channel;
   the web app runs beside it as the shared game table.
 - **Database** — H2 while developing; PostgreSQL once deployed to production.
 
 ## Tech stack
 
-- Frontend: tabletopweb/ — React 19, Vite 8, plain JSX (oxlint, Vitest), Tailwind CSS v4, react-router, Node 24
-- Backend: tabletopserv/ — Spring Boot 4.1.1, Java 21, Maven wrapper
+- Frontend: `tabletopweb/` — React 19, Vite 8, plain JSX (oxlint, Vitest), Tailwind CSS v4, react-router, Node 24
+- Backend: `tabletopserv/` — Spring Boot 4.1.1, Java 21, **multi-module Maven reactor**
+  - `tabletopapi` — inbound REST contract only (interfaces + DTOs, `com.gamer.fowever.tabletopapi`)
+  - `tabletopservice` — implementations, domain, repos, security, STOMP glue, runnable JAR (`com.gamer.fowever.tabletopservice`)
+  - `tabletopfunctionaltest` — blank / commented out; future functional/E2E suites (§18)
+- Gateway: `tabletopgateway/` — Express 5, Node 24, ESM; egress-only proxy with a native `fetch`-based forwarder (SRD + future LLM, deny-by-default, `X-Gateway-Token`, TTL cache + stale fallback)
 - Auth: Spring Security — 24h JWT bearer (jjwt), bcrypt, `USER`/`MODERATOR`/`ADMIN` roles, email verification; CORS for the Vite dev origin
-- Rules data: D&D 5e SRD API (5e-bits/dnd5eapi.co), proxied + cached by the backend
+- Rules data: D&D 5e SRD API (5e-bits/dnd5eapi.co) → **gateway** (`/api/srd/*`) → Spring; cached at the gateway (long TTL on lists)
 - Persistence: JPA (H2 dev / PostgreSQL prod via Spring profiles)
 
 See `AGENTS.md` for repo layout, commands, and conventions.
 
 ## Status
 
-Iterative build; design draft in [`draft-design.md`](draft-design.md) (Draft v0.9).
+Iterative build; design draft in [`draft-design.md`](draft-design.md) (Draft v0.10).
 
 Delivered:
 
@@ -91,7 +95,14 @@ Delivered:
   CR-driven "chassis" math engine + our own LLM; the original has no public API), a dedicated
   **Express egress gateway** (§16 — `tabletopgateway/`, all outbound SRD/LLM calls route
   through it), and an optional **3D battle-map viewport** via React Three Fiber + drei (§17).
+- **Backend restructure + gateway + SRD rewire** — `feature/backend-modules-gateway`
+  (Draft v0.10, §18): `tabletopserv/` is now a **multi-module Maven reactor** — `tabletopapi`
+  (interfaces + DTOs) on top of `tabletopservice` (implementations + runnable; jacoco ≥ 90%
+  on service only). The **Express egress gateway** (`tabletopgateway/`) is the only outbound
+  path (SSRF guard, `X-Gateway-Token`, SRD TTL cache, `502 {status,message}` on upstream
+  failure). SRD data now flows `Spring → gateway → dnd5eapi.co`: `GET /api/srd/{collection}[/{index}]`
+  with curated query passthrough.
 
-Next: build the Express egress gateway + SRD proxy through it, then character generation
-backed by the SRD, homebrew monster generation, and finally the optional 3D viewport and the
-rest of the game table (multi-map, fog of war, turn timers, conditions).
+Next: character generation backed by the SRD (Stage 2), homebrew monster generation (§9b),
+and the optional 3D viewport (§17) plus the rest of the game table (multi-map, fog of war,
+turn timers, conditions).

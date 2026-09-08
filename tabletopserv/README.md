@@ -1,14 +1,23 @@
 # tabletopserv
 
-Spring Boot 4 (Java 21) backend for fuzzy-happiness. Builds as an executable JAR with
-embedded Tomcat. Source package: `com.gamer.fowever.tabletopserv`.
+Spring Boot 4 (Java 21) backend for fuzzy-happiness. **Multi-module Maven reactor** that
+builds as an executable JAR with embedded Tomcat.
+
+## Modules
+
+| Module | Package | What it is |
+|---|---|---|
+| `tabletopapi` | `com.gamer.fowever.tabletopapi` | Inbound REST contract — controller **interfaces** + DTOs + shared error types. No business logic. |
+| `tabletopservice` | `com.gamer.fowever.tabletopservice` | `*ControllerImpl implements *Api` + services, domain, repos, security, config, STOMP glue, `application*.properties`, runnable JAR. jacoco ≥ 90% line gate here. |
+| `tabletopfunctionaltest` | *(blank)* | Future functional/E2E suites (§18) — commented out of parent `<modules>` until first suite is written. |
 
 ## Commands (run from this directory)
 
 ```sh
-./mvnw spring-boot:run   # dev server (dev profile is default: in-memory H2, bootstrap admin)
-./mvnw test              # tests + jacoco line-coverage gate (>= 90%)
-./mvnw package           # builds target/tabletopserv-0.0.1-SNAPSHOT.jar
+./mvnw test                                           # build + test all modules, jacoco gate (service only ≥ 90%)
+./mvnw -pl tabletopservice -am spring-boot:run         # dev server (dev profile: in-memory H2, bootstrap admin)
+./mvnw -pl tabletopapi -am package                     # build just the API library
+./mvnw package                                        # package the whole reactor
 ```
 
 ## Implemented API
@@ -33,6 +42,14 @@ Session endpoints (members only; GM = creator, roles `GM`/`PLAYER`/`SPECTATOR`):
 | `POST /api/sessions/join` | join by invite code (assigns `PLAYER`) |
 | `GET /api/sessions/{id}` | session snapshot incl. `recentEvents` |
 | `POST /api/sessions/{id}/leave` | leave the session |
+
+SRD endpoints (routed through the **gateway** — see `draft-design.md` §9/§16):
+
+| Method & path | Description |
+|---|---|
+| `GET /api/srd/{collection}` | list — allowlisted collections: races, classes, subclasses, subraces, ability-scores, skills, proficiencies, equipment, equipment-categories, spells, features, traits, feats, conditions, languages, monsters |
+| `GET /api/srd/{collection}/{index}` | detail by SRD index |
+| `GET /api/srd/spells?level=&school=` | spells with optional curated query passthrough |
 
 Realtime (STOMP over `/ws?token=<jwt>`, membership-private):
 
@@ -84,8 +101,12 @@ Status codes: `400` validation / `401` bad or missing JWT / `403` unverified or 
 - Profiles: `dev` (default — H2, console email, bootstrap admin) and `prod`
   (`application-prod.properties` — PostgreSQL, SMTP, required secrets).
 - Settings overridable via env: see `tabletopserv.*` keys in `application.properties`
-  (JWT secret + expiry, verification TTL + cooldown, bootstrap admin defaults, CORS origins)
-  and the `*_*` env placeholders in `application-prod.properties` (SMTP host/port/user/password).
-  `tabletopserv.cors.allowed-origins` (env `CORS_ALLOWED_ORIGINS`, default
+  (JWT secret + expiry, verification TTL + cooldown, bootstrap admin defaults, CORS origins,
+  gateway URL/token) and the `*_*` env placeholders in `application-prod.properties`
+  (SMTP host/port/user/password).
+- Gateway keys: `tabletopserv.gateway.url` (env `GATEWAY_URL`, default
+  `http://localhost:3001`) and `tabletopserv.gateway.token` (env `GATEWAY_TOKEN`,
+  sent as `X-Gateway-Token`).
+- `tabletopserv.cors.allowed-origins` (env `CORS_ALLOWED_ORIGINS`, default
   `http://localhost:5173`) lists the origins allowed to call `/api/**`; the prod profile
   defaults to an empty list (no cross-origin access) until overridden.

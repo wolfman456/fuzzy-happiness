@@ -1,16 +1,20 @@
 # Fuzzy Happiness — Tabletop Game Platform (Initial Design Draft)
 
-> **Status:** Draft v0.9 — accounts/auth end-to-end (backend `feature/spring-security` + web UI
+> **Status:** Draft v0.10 — accounts/auth end-to-end (backend `feature/spring-security` + web UI
 > in `feature/frontend-auth`), Stage 1 "Sessions & chat" (lobby with invite codes,
 > create/join/leave, live chat + presence over STOMP, in `feature/sessions`), the first
 > slice of Stage 3 "Game table": a **grid battle map** with tokens, movement budget, and turn
 > control in `feature/battle-map`, and the second slice — server-authoritative **dice
 > (public + GM-private)** and a per-map **initiative order** — in `feature/dice-initiative`.
-> Draft v0.9 adds a **design flush** for three areas under research (no code yet, in
-> `feature/gateway-monster-3d`): homebrew **monster generation** by replicating a deterministic
-> CR→statblock "chassis" math engine (§9b), a dedicated **Express egress gateway** for all
-> outbound/upstream calls (§16), and an optional **3D view** of the battle map via React Three
-> Fiber (§17). A starting point to iterate on as requirements become clearer.
+> Draft v0.9 added a **design flush** (in `feature/gateway-monster-3d`): homebrew **monster
+> generation** by replicating a deterministic CR→statblock "chassis" math engine (§9b), a
+> dedicated **Express egress gateway** for all outbound/upstream calls (§16), and an optional
+> **3D view** of the battle map via React Three Fiber (§17).
+> Draft v0.10 (in `feature/backend-modules-gateway`) ships a **backend restructuring** — the single
+> Spring module becomes a **multi-module Maven reactor** (`tabletopapi` = inbound REST interfaces +
+> DTOs only, `tabletopservice` = implementations + runtime, `tabletopfunctionaltest` blank, §18) —
+> plus the first outbound integration: a **Node egress gateway** (`tabletopgateway/`, §16) and the
+> **SRD rewire** through it (§9). A starting point to iterate on as requirements become clearer.
 > Open questions and things to decide are flagged inline and collected in [Open Questions](#open-questions--open-decisions).
 
 ## 1. Overview
@@ -60,11 +64,12 @@ additional games can be plugged in later.
                                   │ REST (CRUD)  │  WS/STOMP    │
          ┌──────────┐             ▼              ▼              ▼         ┌────────────────┐
          │ Discord  │  OAuth /   ┌─────────────────────────────────────┐  │    Database     │
-         │ (voice)  │  deep-link │          Spring Boot Backend        │  │                 │
-         │ client   │◄───────────┤    (tabletopserv/, Java 21, Boot 4) │  │  Profile-based: │
-         │  runs in │            │ REST controllers │ STOMP broker      │  │   dev  → H2     │
-         │ user OS  │            │ SessionService  │ Auth/accounts      │  │ prod → Postgres │
-         └──────────┘            │ Game registry   │ Character service  │  └────────────────┘
+         │ (voice)  │  deep-link │      Spring Boot Backend (multi-    │  │                 │
+         │ client   │◄───────────┤  module tabletopserv/, Java 21,     │  │  Profile-based: │
+         │  runs in │            │  Boot 4) — tabletopapi (interfaces  │  │   dev  → H2     │
+         │ user OS  │            │  + DTOs) on top of tabletopservice  │  │ prod → Postgres │
+         └──────────┘            │  (impls, domain, repos, security,   │  └────────────────┘
+                                 │  STOMP). REST + STOMP broker        │
                                  └─────────────────────────────────────┘
                                          │  outbound (server-held keys)
                                   ┌──────▼───────────────┐
@@ -76,9 +81,12 @@ additional games can be plugged in later.
 
 **Decisions:**
 
-- **Backend:** Spring Boot 4 (Java 21), existing `tabletopserv/`. REST (via
-  `spring-boot-starter-webmvc`) for queries/mutations + **STOMP over WebSocket**
-  (add `spring-boot-starter-websocket`) for real-time session events.
+- **Backend:** Spring Boot 4 (Java 21), existing `tabletopserv/` as a **multi-module Maven
+  reactor**: `tabletopapi` (inbound REST interfaces + DTOs, package
+  `com.gamer.fowever.tabletopapi`) and `tabletopservice` (implementations + domain + runtime,
+  `com.gamer.fowever.tabletopservice`). REST (via `spring-boot-starter-webmvc`) for
+  queries/mutations + **STOMP over WebSocket** (`spring-boot-starter-websocket`) for real-time
+  session events. See **§18** for the future functional-test module.
 - **Frontend:** existing React 19 + Vite app in `tabletopweb/`, plain JSX. Views:
   login/register, lobby, session (chat + table), character sheets. Now running Tailwind CSS v4
   (via `@tailwindcss/vite`) and `react-router-dom`, pinning Node 24; auth pages + protected
@@ -91,8 +99,8 @@ additional games can be plugged in later.
   `feature/spring-security` — see [§12 API Surface](#12-proposed-api-surface-initial).
 - **Discord VoIP:** Discord has **no public API to programmatically join a voice
   channel** — see [§10 Discord VoIP Integration](#10-discord-voip-integration).
-- **Rules data:** the D&D plug-in consumes the open 5e-bits SRD API through a backend
-  proxy with caching — see [§9 D&D 5e SRD Integration](#9-dd-5e-srd-integration-5e-bits--dnd5eapico).
+- **Rules data:** the D&D plug-in consumes the open 5e-bits SRD API — **through the egress
+  gateway** (§16) with caching — see [§9 D&D 5e SRD Integration](#9-dd-5e-srd-integration-5e-bits--dnd5eapico).
 
 ## 5. Core Domain Model
 
@@ -204,17 +212,23 @@ by the [D&D 5e SRD API](https://5e-bits.github.io/docs/introduction) (dnd5eapi.c
   `spells` (filter by `level` / `school`), `features`, `traits`, `feats`, `conditions`,
   `languages`, and `monsters` (GM table later).
 
-**Integration approach (decided): live proxy + cache over REST.**
+**Integration approach (decided): live proxy + cache over REST, through the gateway (§16).**
 
-- **Backend only:** a `SrdClient` service (Spring `WebClient` — `webflux` already
-  present) proxies a curated, allowlisted set of endpoints. The frontend never calls
-  dnd5eapi.co directly (no CORS, single place to cache/validate).
-- **Caching:** Spring Cache + Caffeine; long TTL on list endpoints (races, classes,
-  ability scores, skills, spells, equipment). Sheet options stay fast after first fetch.
-- **Fallback:** if the SRD API is unreachable, serve the cached copy; if the cache is
-  cold, return a clear "rules data unavailable" error instead of a partial sheet.
-- **Security:** no raw URL forwarding — only curated paths and allowlisted indexes are
-  exposed to clients.
+- **Backend only:** a `SrdClient` service (Spring `WebClient` — `webflux` already present in
+  `tabletopservice`) calls the **egress gateway** (`tabletopgateway/`, §16), which forwards a
+  curated, allowlisted set of endpoints to dnd5eapi.co. The frontend never calls dnd5eapi.co
+  directly, and the backend never opens a raw connection to the internet (single place to
+  cache/validate, one egress owner). `GatewayClient` carries the shared WebClient +
+  `X-Gateway-Token`/correlation-id plumbing; `SrdClient` maps gateway errors to `ApiException`.
+- **Caching:** the **gateway owns the SRD TTL cache** (long TTL on list endpoints — races,
+  classes, ability scores, skills, spells, equipment). Sheet options stay fast after first
+  fetch; Spring-side Caffeine remains for other uses (one cache owner).
+- **Fallback:** if the gateway can't reach the SRD API, it serves the cold-cache-clear error
+  `502 {status,message}`; the backend maps that to a "rules data unavailable" shape instead of
+  a partial sheet.
+- **Security:** no raw URL forwarding — the gateway route table only allows curated SRD
+  collections and query params (`level`/`school`/`name`); `SrdClient` forwards only allowlisted
+  paths and params upstream.
 
 **Model linkage:** `Dnd5eCharacter` stores **SRD `index` references** (e.g.
 `raceIndex`, `classIndex`, `subclassIndex`, `spellIndexes[]`, `featureIndexes[]`)
@@ -325,7 +339,7 @@ GET    /api/sessions/{id}          snapshot (participants, game, status)      �
 POST   /api/sessions/join          join by invite code                        ✓
 POST   /api/sessions/{id}/leave                                               ✓
 GET    /api/games                  registered games + sheet schemas           ✓
-GET    /api/srd/races              SRD reference lists (proxied + cached, §9)
+GET    /api/srd/races              SRD reference lists (gateway-proxied + cached, §9/§16) ✓
 GET    /api/srd/races/{index}
 GET    /api/srd/classes            + /classes/{index}
 GET    /api/srd/ability-scores
@@ -345,11 +359,13 @@ WS     /ws                          STOMP endpoint; topics as in §6
 ```
 
 `✓` = implemented. Auth landed in `feature/spring-security` (Draft v0.4, web client in
-`feature/frontend-auth`); the sessions slice landed in `feature/sessions` (Draft v0.6).
-Unverified users get `403` on login until `/api/auth/verify` confirms their email; the
-`resend` endpoint is intentionally enumeration-safe (always `202`). All outbound SRD +
-monster-generation calls exit the backend via the Express egress gateway (§16) — the
-`/api/srd/*` and `/api/monsters/*` controllers are frontends for gateway-backed data.
+`feature/frontend-auth`); the sessions slice landed in `feature/sessions` (Draft v0.6); the
+SRD slice landed in `feature/backend-modules-gateway` (Draft v0.10 — `/api/srd/*` now routes
+through the egress gateway, §16). Unverified users get `403` on login until
+`/api/auth/verify` confirms their email; the `resend` endpoint is intentionally
+enumeration-safe (always `202`). All outbound SRD + monster-generation calls exit the backend
+via the Express egress gateway (§16) — the `/api/srd/*` and `/api/monsters/*` controllers are
+frontends (api interfaces in `tabletopapi`, impls in `tabletopservice`) for gateway-backed data.
 
 **STOMP surface (sessions + dice slice, implemented):**
 
@@ -401,9 +417,13 @@ hidden frame).
 > initiative order (`…/map/initiative`) in `feature/dice-initiative` — see §14.
 > Draft v0.9: **design flush** (no code) in `feature/gateway-monster-3d` for the Express
 > egress gateway (§16), homebrew monster generation (§9b), and the optional 3D viewport (§17).
+> Stage 2 foundation: **complete** (Draft v0.10) — the backend is now a **multi-module Maven
+> reactor** (`tabletopapi` interfaces/DTOs + `tabletopservice` runtime, see §18), and the
+> outbound path lands: **Express egress gateway** (`tabletopgateway/`) + the **SRD rewire**
+> through it (`/api/srd/*` via `GatewayClient`/`SrdClient`), in `feature/backend-modules-gateway`.
 | 2. Characters | abstract `Character`, registry, D&D sheet model + **generation** (guided wizard + quick-build) backed by the SRD proxy, server compile validation | create a validated level 1–3 D&D character via wizard or quick-build |
 | 3. Game table | dice rolls ✓, initiative/order ✓, shared table state — battle map track 1 (grid, tokens, per-turn movement budget) ✓: see §14; 3D viewport (R3F) is a later enhancement to this stage (§17) | grid battle map synced, movement budget, server dice (public + GM-private hidden frames), initiative order with auto d20 |
-| 3b. Gateway + monsters | Express egress gateway (SRD all calls exit through it) + homebrew monster generation (§9b) — **enables** Stage 2's SRD-backed wizard | all outbound calls flow through the gateway; CR+role → valid statblock, persisted `Monster` reused across sessions (R9-R11) |
+| 3b. Gateway + monsters | Express egress gateway ✓ (SRD flows through it, §16) + homebrew monster generation (§9b) — **enables** Stage 2's SRD-backed wizard | all outbound calls flow through the gateway; CR+role → valid statblock, persisted `Monster` reused across sessions (R9-R11) |
 | 4. Discord | OAuth connect + deep-link voice | "Connect Discord" flows to voice + table side-by-side |
 | 5. Production | PostgreSQL profile, migrations, deploy | runs on Postgres behind CI |
 
@@ -466,13 +486,23 @@ and rides the existing `TABLE` broadcasts. Implemented in `feature/dice-initiati
 LLM only for flavor/abilities, a linter + quote-verbatim audit), persisted `Monster` entity
 owned by the creating GM, exposed via `POST /api/monsters/generate` (not a direct Cros.land
 integration — it has no public API) · **egress gateway (decided, §16):** a dedicated Express
-service (`tabletopgateway/`, Node 24, `http-proxy-middleware`) sits **behind** Spring as the
+service (`tabletopgateway/`, Node 24, native `fetch`-based forwarder) sits **behind** Spring as the
 only path out to upstreams (SRD, monster-gen LLM, future integrations); curated route table,
 deny-by-default, server-held keys, SSRF guard, timeouts, correlation IDs; the backend's own
 `SrdClient`/`GatewayClient` calls it · **3D rendering (decided, §17):** React Three Fiber +
 drei as an optional viewport sharing the existing 2D `BattleMapDto` state (same
 server-authoritative tokens/movement), glTF models for avatars/monsters, WebGL2 now with the
 WebGPU renderer as the future path.
+**Backend structure (decided, §18):** `tabletopserv` becomes a **multi-module Maven reactor** —
+`tabletopapi` holds the inbound REST contract (controller interfaces + DTOs + shared error
+types, package `com.gamer.fowever.tabletopapi`) and `tabletopservice` holds the implementations,
+domain, repositories, security, config, STOMP glue and the runnable app (package
+`com.gamer.fowever.tabletopservice`); the jacoco ≥ 90% line gate applies to `tabletopservice`
+only. · **egress gateway (landed, §16):** `tabletopgateway/` (Express 5, Node 24, ESM,
+Vitest+supertest) is now the only outbound path; SRD forwards to `https://www.dnd5eapi.co/api/2014`
+through an allowlisted route table with `X-Gateway-Token`, TTL cache and `502 {status,message}`
+on upstream failure; the Spring side routes `/api/srd/*` through it via `GatewayClient`/`SrdClient`
+(config `tabletopserv.gateway.url`/`.token`, env `GATEWAY_URL`/`GATEWAY_TOKEN`).
 
 - Do we need friends list / permanent groups, or is invite-code enough for now?
 - Exact D&D 5e sheet fields — confirm which sets matter for v1.
@@ -495,20 +525,26 @@ WebGPU renderer as the future path.
 
 ## 15. Tech Notes (existing repo context)
 
-- Backend: Spring Boot 4.1.1, Java 21, package `com.gamer.fowever.tabletopserv`, JAR
-  packaging (no servlet container), `spring-boot-starter-webmvc` / `webflux` present.
+- Backend: Spring Boot 4.1.1, Java 21, **multi-module Maven reactor** rooted at
+  `tabletopserv/` (`packaging pom` parent; `<modules>` = `tabletopapi`, `tabletopservice`,
+  `tabletopfunctionaltest` commented out). REST APIs live as interfaces in
+  `com.gamer.fowever.tabletopapi`; implementations + domain +
+  runtime in `com.gamer.fowever.tabletopservice` (executable JAR, no servlet container,
+  `spring-boot-starter-webmvc` / `webflux` present).
 - Frontend: Vite 8 + React 19, plain JSX, oxlint, Vitest. Tailwind CSS v4
   (`@tailwindcss/vite`), react-router, Node 24 (`tabletopweb/.nvmrc`, `engines`, CI).
+- Gateway: `tabletopgateway/`, Express 5 + native `fetch`-based forwarder, Node 24, ESM,
+  plain JS, Vitest + supertest; the only outbound path (see §16).
 - Backend CORS: `CorsConfigurationSource` bean wired into the Security filter chain for
   `/api/**`, origins from `tabletopserv.cors.allowed-origins`
   (env `CORS_ALLOWED_ORIGINS`, dev default `http://localhost:5173`, prod default empty).
-- CI: `node.js.yml`, `maven.yml`, `maven-publish.yml` (see `AGENTS.md`).
+- CI: `gateway.yml`, `node.js.yml`, `maven.yml`, `maven-publish.yml` (see `AGENTS.md`).
 - Dice/rolls (incl. the d20 score rolls) use a cryptographically secure RNG
   (server-side `java.security.SecureRandom`).
-- **Dependencies now present:** JPA (+ `-test`), JDBC, security (+ `security-test`),
-  validation, mail, webflux/webmvc (+ test starters), websocket, cache + caffeine,
-  H2 + PostgreSQL (runtime), jjwt 0.12.6 (JWT signing), and jacoco with a ≥ 90% line
-  coverage gate on the `test` phase.
+- **Dependencies now present (service module):** JPA (+ `-test`), JDBC, security
+  (+ `security-test`), validation, mail, webflux/webmvc (+ test starters), websocket,
+  cache + caffeine, H2 + PostgreSQL (runtime), jjwt 0.12.6 (JWT signing), and jacoco with a
+  ≥ 90% line coverage gate on the `test` phase (service module only).
 - **Auth stack in place:** stateless JWT filter chain, BCrypt, roles
   `USER`/`MODERATOR`/`ADMIN` on `User`, email verification via `EmailVerificationToken`
   (`ConsoleEmailSender` in dev, SMTP in prod), and a dev-only bootstrap admin
@@ -517,11 +553,14 @@ WebGPU renderer as the future path.
 - **Sessions stack in place:** STOMP over `/ws` (`spring-boot-starter-websocket`), client
   inbound channel on `SyncTaskExecutor` + `StompAuthChannelInterceptor` (throws
   `MessageDeliveryException`), `TokenHandshakeHandler` for the `?token=` handshake param,
-  `SessionEventsController` (`@SubscribeMapping` snapshot replay) + `SessionController`
-  (create/join/leave) + `GameController`; `SessionService`/`SessionPresenceService` persist
-  `Session`/`Participant`/`SessionEvent` and broadcast on `/topic/sessions/{id}`.
-- Still to build (Stage 2-3 runtime): the Express egress gateway + `GatewayClient` (§16),
-  the SRD proxy path rewired through it, the custom `Character` model + generation (§8),
+  `SessionEventsController` (`@SubscribeMapping` snapshot replay) + the `tabletopapi`
+  interfaces implemented by `*ControllerImpl` in `tabletopservice`;
+  `SessionService`/`SessionPresenceService` persist `Session`/`Participant`/`SessionEvent`
+  and broadcast on `/topic/sessions/{id}`.
+- **Outbound stack (landed):** `GatewayClient` (WebClient → `tabletopserv.gateway.url`,
+  `X-Gateway-Token` + correlation id) and `SrdClient`, backing `SrdControllerImpl`
+  (`GET /api/srd/{collection}[/{index}]`, curated query passthrough).
+- Still to build (Stage 2-3 runtime): the custom `Character` model + generation (§8),
   homebrew monster generation (§9b), and the optional 3D viewport (§17).
 
 ## 16. Egress API Gateway (Express)
@@ -529,44 +568,59 @@ WebGPU renderer as the future path.
 **Why:** every external/upstream call — the SRD proxy (§9), monster-generation LLM (§9b), and
 future integrations (Discord OAuth, image/3D asset services) — leaves the backend. Instead of
 letting the Spring backend open connections to arbitrary hosts, all outbound traffic flows
-through a dedicated gateway that enforces allowlisting, secrets, and timeouts in **one** place.
+through a dedicated gateway that enforces allowlisting, secrets, timeouts, and caching in
+**one** place.
 
-**Decision:** a new **egress proxy service** sits **behind** the Spring backend
-(`tabletopgateway/`, Express + Node 24 + `http-proxy-middleware`), on the *outbound* path:
+**Decision (landed):** an **egress proxy service** sits **behind** the Spring backend
+(`tabletopgateway/`, Express 5 + Node 24 + a native `fetch`-based forwarder), on the *outbound* path:
 
 ```
 Frontend (React SPA)
       │  REST /api/**  +  STOMP /ws?token=…    (unchanged)
       ▼
 Spring Boot backend (authoritative: auth, sessions, SRD allowlists, character/monster logic)
-      │  server-to-server, server-held API keys
+      │  server-to-server, server-held keys (X-Gateway-Token)
       ▼
-Express egress gateway  ──►  internet upstreams
-   • dnd5eapi.co SRD
-   • LLM provider (monster-gen flavor/abilities)
-   • future: Discord OAuth, asset/image services
+Express egress gateway ──►  internet upstreams
+   • dnd5eapi.co SRD          (route `srd` → https://www.dnd5eapi.co/api/2014)
+   • LLM provider (future)    (route `llm-monsters`, disabled until keys exist)
+   • Discord OAuth (future) / asset services (future)
 ```
 
-- The gateway **does not see client traffic** — only the Spring backend calls it, so only
-  server-held credentials/keys are present there. (Ingress stays as today: SPA → Spring
-  directly; no Vite `/api` proxy, cross-origin via `VITE_API_URL`.)
-- **Curated route table:** each upstream is a named route with its target URL; anything not in
-  the table is refused (deny-by-default).
-- **Per-route controls:** allowlisted paths, API key / header injection (server supplies the
-  secret), response timeout, retry policy, response size cap, and optional response
-  caching (Caffeine moves server-side to the gateway for SRD list endpoints, or stays in
-  Spring — either way, one cache owner).
-- **SSRF protection:** the gateway validates target hostnames against the route table and
-  blocks private/link-local/metadata IP ranges.
-- **Observability:** structured request/response logs + correlation ID per forwarded call so a
-  chain (client → Spring → gateway → upstream) is trailable.
-- Spring keeps a thin `GatewayClient` (WebClient) that forwards curated requests and maps
-  gateway errors to the same `GlobalExceptionHandler` shapes.
-
-**Recommended package:** `http-proxy-middleware` (RFC-compatible, Express middleware, supports
-path rewrite + `onProxyReq`/`onProxyRes` hooks + WebSocket upgrade for future needs). Replace
-the current direct `SrdClient` WebClient→dnd5eapi.co path so **all** outbound calls use the
-gateway — including the SRD proxy and monster-gen LLM.
+- **Not client-facing.** Only the Spring backend calls it (loopback bind in dev), so only
+  server-held credentials/keys are present there. Ingress stays as today: SPA → Spring
+  directly (no Vite `/api` proxy, cross-origin via `VITE_API_URL`).
+- **Route table (deny-by-default):** `src/routes.js` maps a named route (`srd`, future
+  `llm-monsters`, …) to a fixed target base URL and an **allowlisted set of path prefixes**
+  and **query params**. Any path/query/route outside the table returns `403`.
+  - SRD allowlist mirrors the curated collections in §9: `races`, `classes`, `subclasses`,
+    `subraces`, `ability-scores`, `skills`, `proficiencies`, `equipment`,
+    `equipment-categories`, `spells`, `features`, `traits`, `feats`, `conditions`,
+    `languages`, `monsters` — each `[/{index}]`; allowed query params `level`, `school`,
+    `name`, `index`.
+- **Auth:** Spring sends `X-Gateway-Token` (env `GATEWAY_TOKEN`, server-held) on every call;
+  the gateway rejects requests without it (`401`) so the egress is not an open proxy.
+- **Caching (single owner):** the gateway TTL-caches SRD **GET** responses (long TTL on list
+  endpoints — races, classes, ability scores, skills, spells, equipment) keyed on
+  path + query; Spring keeps its Caffeine for other uses. Provides cached-copy fallback if
+  the upstream blips (per §9 fallback).
+- **Reliability:** per-route **timeout** + **response-size cap**, one retry for idempotent
+  GETs on `5xx`/network errors, `X-Correlation-Id` pass-through + structured request/response
+  logs so a chain (client → Spring → gateway → upstream) is trailable.
+- **SSRF defense-in-depth:** targets are fixed in the route table (no dynamic hostname from
+  requests); the gateway additionally resolves and rejects private/link-local/metadata
+  address ranges.
+- **Error shape:** upstream unreachable → `502 {"status":502,"message":"upstream unavailable: <route>"}`;
+  gateway errors keep the same `{status,message}` contract Spring's `GlobalExceptionHandler` emits.
+- **Health:** `GET /health` returns `200 {status:"ok"}` for dev/CI checks.
+- **Spring side:** `GatewayClient` (WebClient; base `tabletopserv.gateway.url`, default
+  `http://localhost:3001`; token `tabletopserv.gateway.token`, env `GATEWAY_TOKEN`, sent as
+  `X-Gateway-Token`; + `X-Correlation-Id`) is the only outbound WebClient. `SrdClient` builds
+  curated `/api/srd/…` calls on it and maps failures to the usual `{status,message}` shapes.
+  No other raw WebClient goes to the internet (AGENTS.md rule).
+- **Package:** Express 5 + a native `fetch`-based forwarder (no `http-proxy-middleware`) —
+  full response buffering is needed for the TTL-cached stale fallback, the response-size cap
+  and the single retry. Tests: Vitest + supertest. SRD route mounted at **`/api/srd`**.
 
 ## 17. 3D Rendering (avatars, board, monsters)
 
@@ -595,3 +649,28 @@ layer is a camera/view on the same server-authoritative state, not a parallel sy
   map remains the guaranteed playable path with the 3D view as an enhancement.
 - **Roadmap fit:** a later slice ("3D battle-map viewport") on Stage 3, *after* the SRD proxy
   (gateway) and character/monster generation land — see §13.
+
+## 18. Testing Strategy (unit → slice → functional)
+
+**Why:** unit tests (≥ 90% jacoco line gate on `tabletopservice`) already cover the domain; a
+separate module gives us a home for **functional/E2E** suites that exercise the running app
+the way a browser/API client would, without polluting the service module's coverage gate.
+
+| Layer | Where | Tools | Scope |
+|---|---|---|---|
+| Unit | `tabletopservice` | JUnit 5 + Mockito/MockMvc (existing) | domain logic, services, controllers; ≥ 90% line gate |
+| Slice/integration | `tabletopservice` | `@SpringBootTest` + `@AutoConfigureMockMvc`, slice tests | app wiring, security filter chain, STOMP sessions, outbound gateway mocks |
+| Functional/E2E | `tabletopfunctionaltest` (blank, commented out of parent `<modules>`) | JUnit 5 + Testcontainers (Postgres) + REST Assured vs the executable JAR; optional Playwright for the web UI | end-to-end API/user journeys against a real runtime + real DB — auth → session → battle map → dice; gateway-wrapped SRD flows |
+
+- **Module rules:** `tabletopfunctionaltest` has **no jacoco gate**; it depends on the
+  packaged `tabletopservice` and runs against a started server, so it never feeds the covered
+  code's gate. Kept out of the parent reactor until the first suite is written (avoid
+  breaking `./mvnw test`).
+- **Coverage philosophy:** unit + slice coverage stays in `tabletopservice`; functional tests
+  are **journey coverage**, not branch coverage.
+- **VSC (versioned) contract:** the SRD/gateway DTO shape is pinned by the API module and
+  verified by both the service tests (against a mocked gateway) and functional tests (against
+  the real gateway + upstream, or a recorded fixture).
+- **When:** the module is scaffolded when the first functional suite is needed (Stage 2
+  character journeys and gateway-backed SRD flows). Until then the plan, tooling, and module
+  placeholder live here.
