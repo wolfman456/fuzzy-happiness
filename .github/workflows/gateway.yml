@@ -1,0 +1,36 @@
+# Install dependencies, lint and test the egress gateway
+# https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-nodejs
+
+name: Gateway CI
+
+on:
+  push:
+    branches: [ "develop" ]
+  pull_request:
+    branches: [ "develop" ]
+
+defaults:
+  run:
+    working-directory: tabletopgateway
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [24.x]
+        # Node 24 pinned (.nvmrc + engines); the gateway runs with no build step.
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+        cache-dependency-path: tabletopgateway/package-lock.json
+    - run: npm ci
+    - run: npm run lint
+    - run: npm test
