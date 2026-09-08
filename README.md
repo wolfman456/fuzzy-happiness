@@ -35,7 +35,7 @@ if nothing else.
   - `tabletopapi` — inbound REST contract only (interfaces + DTOs, `com.gamer.fowever.tabletopapi`)
   - `tabletopservice` — implementations, domain, repos, security, STOMP glue, runnable JAR (`com.gamer.fowever.tabletopservice`)
   - `tabletopfunctionaltest` — blank / commented out; future functional/E2E suites (§18)
-- Gateway: `tabletopgateway/` — Express 5, Node 24, ESM; egress-only proxy (SRD + future LLM, deny-by-default, `X-Gateway-Token`)
+- Gateway: `tabletopgateway/` — Express 5, Node 24, ESM; egress-only proxy with a native `fetch`-based forwarder (SRD + future LLM, deny-by-default, `X-Gateway-Token`, TTL cache + stale fallback)
 - Auth: Spring Security — 24h JWT bearer (jjwt), bcrypt, `USER`/`MODERATOR`/`ADMIN` roles, email verification; CORS for the Vite dev origin
 - Rules data: D&D 5e SRD API (5e-bits/dnd5eapi.co) → **gateway** (`/api/srd/*`) → Spring; cached at the gateway (long TTL on lists)
 - Persistence: JPA (H2 dev / PostgreSQL prod via Spring profiles)

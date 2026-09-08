@@ -52,7 +52,7 @@ npm run lint                # oxlint
 
 ## Gateway gotchas
 
-- Node 24, ESM (`"type": "module"`), plain JS (no TypeScript), Express 5 + `http-proxy-middleware`. Tests are Vitest + supertest.
+- Node 24, ESM (`"type": "module"`), plain JS (no TypeScript), Express 5 + a native `fetch`-based forwarder (no `http-proxy-middleware` — full response buffering is needed for the TTL-cached stale fallback, response-size cap and single retry). Tests are Vitest + supertest.
 - Deny-by-default: every upstream is a named route in `src/routes.js` with an allowlisted set of path prefixes and query params; anything unmatched returns `403`. The SRD route forwards to `https://www.dnd5eapi.co/api/2014`.
 - The gateway is egress-only: it binds where Spring can reach it (loopback by default in dev), enforces `X-Gateway-Token`, performs SSRF defense-in-depth (no dynamic hosts, private-range blocking), TTL-caches SRD GETs, and returns `502 {status,message}` when an upstream is unreachable.
 

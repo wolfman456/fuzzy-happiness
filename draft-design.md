@@ -486,7 +486,7 @@ and rides the existing `TABLE` broadcasts. Implemented in `feature/dice-initiati
 LLM only for flavor/abilities, a linter + quote-verbatim audit), persisted `Monster` entity
 owned by the creating GM, exposed via `POST /api/monsters/generate` (not a direct Cros.land
 integration — it has no public API) · **egress gateway (decided, §16):** a dedicated Express
-service (`tabletopgateway/`, Node 24, `http-proxy-middleware`) sits **behind** Spring as the
+service (`tabletopgateway/`, Node 24, native `fetch`-based forwarder) sits **behind** Spring as the
 only path out to upstreams (SRD, monster-gen LLM, future integrations); curated route table,
 deny-by-default, server-held keys, SSRF guard, timeouts, correlation IDs; the backend's own
 `SrdClient`/`GatewayClient` calls it · **3D rendering (decided, §17):** React Three Fiber +
@@ -533,8 +533,8 @@ on upstream failure; the Spring side routes `/api/srd/*` through it via `Gateway
   `spring-boot-starter-webmvc` / `webflux` present).
 - Frontend: Vite 8 + React 19, plain JSX, oxlint, Vitest. Tailwind CSS v4
   (`@tailwindcss/vite`), react-router, Node 24 (`tabletopweb/.nvmrc`, `engines`, CI).
-- Gateway: `tabletopgateway/`, Express 5 + `http-proxy-middleware`, Node 24, ESM, plain JS,
-  Vitest + supertest; the only outbound path (see §16).
+- Gateway: `tabletopgateway/`, Express 5 + native `fetch`-based forwarder, Node 24, ESM,
+  plain JS, Vitest + supertest; the only outbound path (see §16).
 - Backend CORS: `CorsConfigurationSource` bean wired into the Security filter chain for
   `/api/**`, origins from `tabletopserv.cors.allowed-origins`
   (env `CORS_ALLOWED_ORIGINS`, dev default `http://localhost:5173`, prod default empty).
@@ -572,7 +572,7 @@ through a dedicated gateway that enforces allowlisting, secrets, timeouts, and c
 **one** place.
 
 **Decision (landed):** an **egress proxy service** sits **behind** the Spring backend
-(`tabletopgateway/`, Express 5 + Node 24 + `http-proxy-middleware`), on the *outbound* path:
+(`tabletopgateway/`, Express 5 + Node 24 + a native `fetch`-based forwarder), on the *outbound* path:
 
 ```
 Frontend (React SPA)
@@ -618,8 +618,9 @@ Express egress gateway ──►  internet upstreams
   `X-Gateway-Token`; + `X-Correlation-Id`) is the only outbound WebClient. `SrdClient` builds
   curated `/api/srd/…` calls on it and maps failures to the usual `{status,message}` shapes.
   No other raw WebClient goes to the internet (AGENTS.md rule).
-- **Package:** `http-proxy-middleware` (Express middleware, path rewrite +
-  `onProxyReq`/`onProxyRes` hooks). Tests: Vitest + supertest.
+- **Package:** Express 5 + a native `fetch`-based forwarder (no `http-proxy-middleware`) —
+  full response buffering is needed for the TTL-cached stale fallback, the response-size cap
+  and the single retry. Tests: Vitest + supertest. SRD route mounted at **`/api/srd`**.
 
 ## 17. 3D Rendering (avatars, board, monsters)
 
