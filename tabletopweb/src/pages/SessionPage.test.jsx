@@ -31,6 +31,16 @@ vi.mock('../lib/stomp', () => ({
 
 vi.mock('../lib/battleMap', () => battleMapMock)
 
+const monstersMock = vi.hoisted(() => ({
+  generateMonster: vi.fn(),
+  listMyMonsters: vi.fn().mockResolvedValue([]),
+  MONSTER_CRS: ['1', '2', '3'],
+  MONSTER_ROLES: ['AUTO', 'BALANCED'],
+  MONSTER_EDITIONS: ['SRD_2014', 'SRD_2024'],
+}))
+
+vi.mock('../lib/monsters', () => monstersMock)
+
 vi.mock('../auth/useAuth', () => ({
   useAuth: () => ({ user: { id: 1, username: 'ginger', displayName: 'Ginger' } }),
 }))
@@ -75,6 +85,9 @@ describe('SessionPage', () => {
     battleMapMock.createMap.mockReset()
     battleMapMock.createMap.mockResolvedValue({ id: 1, sessionId: 7, name: 'Grumm’s map', width: 24, height: 18, squareFeet: 10, currentTurnTokenId: null, tokens: [] })
     battleMapMock.rollDice.mockReset()
+    monstersMock.generateMonster.mockReset()
+    monstersMock.listMyMonsters.mockReset()
+    monstersMock.listMyMonsters.mockResolvedValue([])
   })
 
   it('renders participants, invite code and connects realtime', async () => {
@@ -418,5 +431,26 @@ describe('SessionPage', () => {
 
     expect(await screen.findByText(/ask your GM/)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Set up battle map' })).not.toBeInTheDocument()
+  })
+
+  it('shows the monster generator to the GM', async () => {
+    api.mockResolvedValue(snapshot)
+    renderSession()
+    await screen.findByRole('heading', { name: 'Grumm’s Revenge' })
+
+    expect(screen.getByTestId('monster-generator')).toBeInTheDocument()
+  })
+
+  it('hides the monster generator from players', async () => {
+    api.mockResolvedValue({
+      ...snapshot,
+      participants: [
+        { user: { id: 2, username: 'ivo', displayName: 'Ivo' }, role: 'PLAYER', joinedAt: '2026-01-01T10:05:00' },
+      ],
+    })
+    renderSession()
+    await screen.findByRole('heading', { name: 'Grumm’s Revenge' })
+
+    expect(screen.queryByTestId('monster-generator')).not.toBeInTheDocument()
   })
 })

@@ -2,6 +2,8 @@ package com.gamer.fowever.tabletopservice.domain;
 
 import com.gamer.fowever.tabletopapi.AuthRole;
 import com.gamer.fowever.tabletopapi.EventType;
+import com.gamer.fowever.tabletopapi.MonsterEdition;
+import com.gamer.fowever.tabletopapi.MonsterRole;
 import com.gamer.fowever.tabletopapi.Role;
 import com.gamer.fowever.tabletopapi.SessionStatus;
 import com.gamer.fowever.tabletopapi.TokenCategory;
@@ -221,6 +223,34 @@ class DomainModelPersistenceTest {
         assertThat(reloaded.getSkillPickIndexes()).containsExactly("athletics");
         assertThat(reloaded.getSpellIndexes()).containsExactly("expeditious-retreat");
         assertThat(reloaded.getEquipmentIndexes()).containsExactly("chain-mail");
+        assertThat(reloaded.getCreatedAt()).isNotNull();
+        assertThat(reloaded.getOwner().getId()).isEqualTo(owner.getId());
+    }
+
+    @Test
+    void persistsMonsterWithOwnerAndStatblockJson() {
+        User owner = em.find(User.class, persistOwner());
+
+        Monster monster = new Monster(owner, "Gravetusk", "7", MonsterRole.BRUTE,
+                MonsterEdition.SRD_2014,
+                "{\"name\":\"Gravetusk\",\"cr\":\"7\",\"xp\":2900}", java.time.Instant.now());
+        em.persistAndFlush(monster);
+        Long id = monster.getId();
+
+        assertThat(em.getEntityManager().createNativeQuery("""
+                        select combat_role from monsters where id = :id
+                        """).setParameter("id", id).getSingleResult()).isEqualTo("BRUTE");
+        assertThat(em.getEntityManager().createNativeQuery("""
+                        select edition from monsters where id = :id
+                        """).setParameter("id", id).getSingleResult()).isEqualTo("SRD_2014");
+        em.clear();
+
+        Monster reloaded = em.find(Monster.class, id);
+        assertThat(reloaded.getName()).isEqualTo("Gravetusk");
+        assertThat(reloaded.getCr()).isEqualTo("7");
+        assertThat(reloaded.getCombatRole()).isEqualTo(MonsterRole.BRUTE);
+        assertThat(reloaded.getEdition()).isEqualTo(MonsterEdition.SRD_2014);
+        assertThat(reloaded.getStatblockJson()).contains("\"name\":\"Gravetusk\"");
         assertThat(reloaded.getCreatedAt()).isNotNull();
         assertThat(reloaded.getOwner().getId()).isEqualTo(owner.getId());
     }

@@ -6,6 +6,7 @@ import { useAuth } from '../auth/useAuth'
 import { createMap, getMap, rollDice } from '../lib/battleMap'
 import BattleMapPanel from '../components/BattleMapPanel'
 import DiceTray from '../components/DiceTray'
+import MonsterGenerator from '../components/MonsterGenerator'
 
 const ROLE_LABEL = { GM: 'GM', PLAYER: 'Player', SPECTATOR: 'Spectator' }
 
@@ -242,6 +243,15 @@ export default function SessionPage() {
           ))}
         </ul>
       </section>
+
+      {me?.role === 'GM' && (
+        <MonsterGenerator
+          sessionId={id}
+          map={map}
+          disabled={isClosed}
+          onMapChange={setMap}
+        />
+      )}
 
       <section className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
         <h2 className="text-lg font-semibold">Battle map</h2>
