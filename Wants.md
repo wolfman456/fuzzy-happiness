@@ -16,9 +16,9 @@ Status key: ✅ landed · 🔨 in progress · ⏭ deferred (post-MVP)
 - As a DM I want to make a secret (GM-only) roll whose result is hidden from the players, so I can fudge perception checks and enemy skill checks without tipping off the party. (R6) ✅ landed
 - As a DM I want to set an initiative order for the current encounter (players, monsters and custom entries, with blank scores auto-rolled by the server) so everyone knows who acts when. (R7) ✅ landed
 - As a DM I want to advance the initiative order on the shared table — re-rolling and removing entries as needed, with each creature's turn activating their movement budget — so combat flows without everybody shouting turn order. (R8) ✅ landed
-- As a DM I want to generate a homebrew monster statblock from a Challenge Rating and a combat role so I can drop custom creatures into my encounters without hand-drawing every number. (R9) 🔨 in progress (draft-design §9b)
+- As a DM I want to generate a homebrew monster statblock from a Challenge Rating and a combat role so I can drop custom creatures into my encounters without hand-drawing every number. (R9) ✅ landed (draft-design §9b, PR #25)
 - As a DM I want all external data and generation calls (SRD lookups, monster generation, future integrations) to route through a single secure Express gateway so our backend only talks to vetted, allowlisted upstream services. (R10) ✅ landed
-- As a DM I want to create homebrew content (e.g. monsters) that my GM tooling can persist and reuse across sessions. (R11) 🔨 in progress (ships with R9)
+- As a DM I want to create homebrew content (e.g. monsters) that my GM tooling can persist and reuse across sessions. (R11) ✅ landed (ships with R9)
 - As a Player I want an optional 3D view of the battle map with player avatars and monster minis so the table feels more immersive alongside the existing 2D grid. (R12) ⏭ deferred (post-MVP, draft-design §17)
 - As a Player I want to create a D&D character through a guided wizard or a "surprise me" quick-build so I can bring a legal level 1–3 hero to my sessions. (R13) 🔨 in progress (draft-design §8)
 - As a DM I want the platform to run on a production database behind CI so we can actually play with friends online. (R14) 🔨 in progress (draft-design §11/§13 Stage 5)
