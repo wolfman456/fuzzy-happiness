@@ -24,6 +24,9 @@ if nothing else.
   [5e-bits SRD API](https://5e-bits.github.io/docs/introduction) (dnd5eapi.co): races,
   classes, spells, equipment and more are fetched through the **egress gateway** (single
   outbound path) and cached, so no rules data is hard-coded into the app.
+- **Deterministic monster builder** — GMs generate a full homebrew statblock from a Challenge
+  Rating and a combat role (or `auto`, inferred from a concept), then drop it onto the battle
+  map. Stats come from an official DMG CR curve so the "AI" never picks numbers (§9b).
 - **Discord for voice** — connect your Discord account and jump into a voice channel;
   the web app runs beside it as the shared game table.
 - **Database** — H2 while developing; PostgreSQL once deployed to production.
@@ -44,7 +47,7 @@ See `AGENTS.md` for repo layout, commands, and conventions.
 
 ## Status
 
-Iterative build; design draft in [`draft-design.md`](draft-design.md) (Draft v0.10).
+Iterative build; design draft in [`draft-design.md`](draft-design.md) (Draft v0.11).
 
 Delivered:
 
@@ -102,7 +105,18 @@ Delivered:
   path (SSRF guard, `X-Gateway-Token`, SRD TTL cache, `502 {status,message}` on upstream
   failure). SRD data now flows `Spring → gateway → dnd5eapi.co`: `GET /api/srd/{collection}[/{index}]`
   with curated query passthrough.
+- **Homebrew monster generation** — `feature/monster-generation` (Draft v0.11, §9b).
+  Backend: the deterministic `MonsterMathEngine` (official DMG CR curve 0–30 incl. fractions,
+  §9b combat-role shifts + Auto keyword resolution, size ladder, templated traits/actions and
+  flavor) in `tabletopservice`; a `Monster` JPA entity owned by the creating GM; `POST
+  /api/monsters/generate` (201) + `GET /api/monsters/mine` (interfaces in `tabletopapi`).
+  Generation is fully local — the deferred LLM flavor is the only gateway-backed piece. 199
+  backend tests, jacoco gate met. Frontend: `src/lib/monsters.js` (CR/role/edition constants +
+  API helpers) and a GM-only `MonsterGenerator` panel on the session screen — pick CR/role/
+  edition, give it a name/concept, preview the statblock, "Add to map" as a `MONSTER_NPC`
+  token, and reuse any saved monster from "My monsters". 127 frontend tests (Vitest),
+  oxlint + build clean.
 
-Next: character generation backed by the SRD (Stage 2), homebrew monster generation (§9b),
-and the optional 3D viewport (§17) plus the rest of the game table (multi-map, fog of war,
-turn timers, conditions).
+Next: character generation backed by the SRD (Stage 2) and the optional 3D viewport (§17)
+plus the rest of the game table (multi-map, fog of war, turn timers, conditions). The out-of-MVP
+list lives in [Wants.md](Wants.md).

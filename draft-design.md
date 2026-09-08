@@ -15,6 +15,11 @@
 > DTOs only, `tabletopservice` = implementations + runtime, `tabletopfunctionaltest` blank, §18) —
 > plus the first outbound integration: a **Node egress gateway** (`tabletopgateway/`, §16) and the
 > **SRD rewire** through it (§9). A starting point to iterate on as requirements become clearer.
+> Draft v0.11 (in `feature/monster-generation`) ships **homebrew monster generation (R9/R11, §9b)**:
+> a deterministic CR→statblock **math engine** (`MonsterMathEngine`), a persisted `Monster` entity
+> owned by the creating GM, `POST /api/monsters/generate` (201) + `GET /api/monsters/mine`, and a
+> GM-only generator panel on the session screen (statblock preview + add-to-map + "my monsters"
+> reuse). Flavor is templated server-side; the LLM flavor route stays deferred (§9b).
 > Open questions and things to decide are flagged inline and collected in [Open Questions](#open-questions--open-decisions).
 
 ## 1. Overview
@@ -237,15 +242,24 @@ resources so characters stay consistent with the rules.
 
 ## 9b. Homebrew Monster Generation (CR-driven statblock engine)
 
+**Status: implemented** in `feature/monster-generation` (Draft v0.11). The deterministic
+`MonsterMathEngine` (CR table + combat-role shifts, §9b) lives in
+`tabletopservice/.../service/monster/`, monsters persist as a `Monster` JPA entity owned by the
+creating GM, and the web generator is a GM-only panel on the session screen. The **LLM
+flavor/abilities piece is deferred** for MVP — the engine emits templated, deterministic flavor
+(description, traits, actions) locally, so generation is **fully local and requires no gateway
+call**; when the LLM route arrives it will flow through the egress gateway (§16). More detail in
+the "Decided" notes in §14.
+
 **Research note (decided):** the [Cros.land AI statblock generator](https://cros.land/ai-powered-dnd-5e-monster-statblock-generator/)
 was evaluated as a source for homebrew monster generation and **rejected as a direct API
 integration** — it is a client-side tool with **no public REST API**. It saves monsters to
 browser `localStorage`, exposes only exports (Homebrewery markdown, Foundry VTT, Improved
 Initiative JSON, and a Roll20 Chrome extension), gates generation behind a daily limit
 (5 free/24h; $5/mo Patreon), and there is no documented HTTP endpoint a backend proxy could
-call. We therefore **replicate its approach rather than consume it**: implement the same
-deterministic "chassis" math engine server-side, and drive the flavor/ability text through
-**our own LLM** provider, all reached via the egress gateway (§16).
+call. We therefore **replicate its approach rather than consume it**: the deterministic
+"chassis" math engine is implemented server-side in Spring, and (future) flavor/ability text
+goes through **our own LLM** provider behind the egress gateway (§16).
 
 **The math engine (deterministic, non-AI):** given a **Challenge Rating** and a **combat
 role**, every number is computed on curves calibrated against the published SRD monsters —
@@ -288,15 +302,17 @@ the AI never chooses numbers:
 immunities, Bonus Action section, "Emanation"/"Bloodied" vocabulary). We render the statblock
 in the classic 2014 layout first, with a 2024 toggle later.
 
-**Persistence & reuse (R11):** homebrew monsters are persisted as a `Monster` entity (CR, role,
-edition, SRD `index` references, cached display snapshot) owned by the creating GM, reusable
-across encounters/sessions.
+**Persistence & reuse (R11):** implemented. Homebrew monsters persist as a `Monster` entity (CR,
+role, edition, cached statblock snapshot) owned by the creating GM (`monsters` table, `owner_id`),
+reusable across encounters/sessions via the generator's "My monsters" list.
 
-**Surface (via the gateway, §16):**
+**Surface:**
 ```
-POST /api/monsters/generate    {name?, cr, role|auto, edition?, concept?} -> statblock
-GET  /api/monsters/mine        my homebrew monsters
+POST /api/monsters/generate    {name?, cr, role|auto, edition?, concept?, seed?} -> statblock   (201) ✓
+GET  /api/monsters/mine        my homebrew monsters                                                  ✓
 ```
+Generation runs **locally in `tabletopservice`** (deterministic engine, no outbound call). The
+future LLM flavor request will be the gateway-backed piece.
 
 ## 10. Discord VoIP Integration
 
@@ -353,19 +369,22 @@ POST   /api/characters/generate    random quick-build (valid draft + preview)
 GET    /api/users/me/characters
 POST   /api/users/me/characters    create character (game + sheet payload)
 GET    /api/users/me/characters/{id}
-POST   /api/monsters/generate      homebrew statblock from CR + role (via gateway, §9b)
-GET    /api/monsters/mine          my homebrew monsters
+POST   /api/monsters/generate      homebrew statblock from CR + role (deterministic, §9b) ✓
+GET    /api/monsters/mine          my homebrew monsters                            ✓
 WS     /ws                          STOMP endpoint; topics as in §6
 ```
 
 `✓` = implemented. Auth landed in `feature/spring-security` (Draft v0.4, web client in
 `feature/frontend-auth`); the sessions slice landed in `feature/sessions` (Draft v0.6); the
 SRD slice landed in `feature/backend-modules-gateway` (Draft v0.10 — `/api/srd/*` now routes
-through the egress gateway, §16). Unverified users get `403` on login until
+through the egress gateway, §16); the monster slice landed in `feature/monster-generation`
+(Draft v0.11 — §9b). Unverified users get `403` on login until
 `/api/auth/verify` confirms their email; the `resend` endpoint is intentionally
-enumeration-safe (always `202`). All outbound SRD + monster-generation calls exit the backend
-via the Express egress gateway (§16) — the `/api/srd/*` and `/api/monsters/*` controllers are
-frontends (api interfaces in `tabletopapi`, impls in `tabletopservice`) for gateway-backed data.
+enumeration-safe (always `202`). Outbound SRD calls exit the backend via the Express egress
+gateway (§16) — the `/api/srd/*` controllers are frontends (api interfaces in `tabletopapi`,
+impls in `tabletopservice`) for gateway-backed data; the `/api/monsters/*` endpoints are
+fully local (deterministic engine in `tabletopservice`), with the future LLM flavor route as
+the gateway-backed piece.
 
 **STOMP surface (sessions + dice slice, implemented):**
 
@@ -423,7 +442,7 @@ hidden frame).
 > through it (`/api/srd/*` via `GatewayClient`/`SrdClient`), in `feature/backend-modules-gateway`.
 | 2. Characters | abstract `Character`, registry, D&D sheet model + **generation** (guided wizard + quick-build) backed by the SRD proxy, server compile validation | create a validated level 1–3 D&D character via wizard or quick-build |
 | 3. Game table | dice rolls ✓, initiative/order ✓, shared table state — battle map track 1 (grid, tokens, per-turn movement budget) ✓: see §14; 3D viewport (R3F) is a later enhancement to this stage (§17) | grid battle map synced, movement budget, server dice (public + GM-private hidden frames), initiative order with auto d20 |
-| 3b. Gateway + monsters | Express egress gateway ✓ (SRD flows through it, §16) + homebrew monster generation (§9b) — **enables** Stage 2's SRD-backed wizard | all outbound calls flow through the gateway; CR+role → valid statblock, persisted `Monster` reused across sessions (R9-R11) |
+| 3b. Gateway + monsters | Express egress gateway ✓ (SRD flows through it, §16) + homebrew monster generation ✓ (deterministic engine, §9b — LLM flavor deferred) | all outbound calls flow through the gateway; CR+role → valid statblock, persisted `Monster` reused across sessions (R9-R11) |
 | 4. Discord | OAuth connect + deep-link voice | "Connect Discord" flows to voice + table side-by-side |
 | 5. Production | PostgreSQL profile, migrations, deploy | runs on Postgres behind CI |
 
@@ -481,10 +500,12 @@ activates it as the current turn (resets its movement budget); `DELETE …/map/i
 removes an entry (pointer clamped). GM-only, GM overrides/rerolls allowed; movement stays
 independent of the order (not time-gated). `BattleMapDto` carries `initiative` + `initiativeIndex`
 and rides the existing `TABLE` broadcasts. Implemented in `feature/dice-initiative`.
-**Monster generation (decided, §9b):** replicate the Cros.land "chassis" approach server-side
-(deterministic CR→statblock math engine calibrated to the SRD + combat-role variants, an
-LLM only for flavor/abilities, a linter + quote-verbatim audit), persisted `Monster` entity
-owned by the creating GM, exposed via `POST /api/monsters/generate` (not a direct Cros.land
+**Monster generation (implemented, §9b):** the deterministic "chassis" CR→statblock
+`MonsterMathEngine` is implemented server-side in `tabletopservice` (official DMG CR curve
+0–30 incl. fractions, role shifts + Auto keyword resolution per the §9b table, size ladder,
+templated traits/actions with **deterministic templated flavor** — the LLM flavor/abilities
+piece is **deferred**), persisted `Monster` entity owned by the creating GM, exposed via
+`POST /api/monsters/generate` (returns 201) and `GET /api/monsters/mine` (not a direct Cros.land
 integration — it has no public API) · **egress gateway (decided, §16):** a dedicated Express
 service (`tabletopgateway/`, Node 24, native `fetch`-based forwarder) sits **behind** Spring as the
 only path out to upstreams (SRD, monster-gen LLM, future integrations); curated route table,
@@ -518,9 +539,9 @@ on upstream failure; the Spring side routes `/api/srd/*` through it via `Gateway
 - Score sources: add standard array / point-buy / 4d6 alongside the house-rule d20?
 - House-rule d20: always on, or a configurable table/room option?
 - Beyond level 3: leveling up existing characters (not just creating at 1–3)?
-- Monster-generation LLM provider: which vendor/key to standardize on for the gateway (§9b)?
-- Monster generation: build the "chassis" curves from SRD ourselves, or vendor an off-the-shelf
-  statblock math library?
+- Monster-generation **LLM provider**: which vendor/key to standardize on for the gateway (§9b)?
+  The deterministic chassis math is **decided + implemented** — only the deferred
+  flavor/abilities LLM remains open.
 - 3D: which glTF asset source/style for avatars/monsters, and do we ship a bundled starter pack (§17)?
 
 ## 15. Tech Notes (existing repo context)
@@ -560,8 +581,9 @@ on upstream failure; the Spring side routes `/api/srd/*` through it via `Gateway
 - **Outbound stack (landed):** `GatewayClient` (WebClient → `tabletopserv.gateway.url`,
   `X-Gateway-Token` + correlation id) and `SrdClient`, backing `SrdControllerImpl`
   (`GET /api/srd/{collection}[/{index}]`, curated query passthrough).
-- Still to build (Stage 2-3 runtime): the custom `Character` model + generation (§8),
-  homebrew monster generation (§9b), and the optional 3D viewport (§17).
+- Still to build (Stage 2-3 runtime): the custom `Character` model + generation (§8) and the
+  optional 3D viewport (§17) — homebrew monster generation (§9b) landed in
+  `feature/monster-generation`.
 
 ## 16. Egress API Gateway (Express)
 
