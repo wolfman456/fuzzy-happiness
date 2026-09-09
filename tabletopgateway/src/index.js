@@ -1,7 +1,7 @@
 import { createApp } from './app.js';
+import { resolveListenConfig } from './listenConfig.js';
 
-const port = Number(process.env.GATEWAY_PORT ?? 3001);
-const host = process.env.GATEWAY_HOST ?? '127.0.0.1';
+const { port, host } = resolveListenConfig();
 
 const app = createApp();
 app.listen(port, host, () => {

@@ -2,7 +2,7 @@
 
 ## Repo layout
 
-Three independent apps at the repo root inside their own directories. There is **no root `package.json` or `pom.xml`** — all commands run from the subdirectory.
+Three independent apps at the repo root inside their own directories. There is **no root `pom.xml`** — all Java/Node commands run from the subdirectory. One root `package.json` exists **only** for the Railway infras-as-code CLI (`railway` devDependency, used by `.railway/railway.ts`); it is not an app.
 
 - `tabletopserv/` — Spring Boot 4.1.1 (Java 21) backend, Maven wrapper (`./mvnw`). Now a **multi-module Maven build** (parent aggregator pom + modules):
   - `tabletopapi/` — the **inbound REST API as interfaces + DTOs** (package `com.gamer.fowever.tabletopapi`). No domain/repository/business logic — the contract the service implements.
@@ -55,6 +55,15 @@ npm run lint                # oxlint
 - Node 24, ESM (`"type": "module"`), plain JS (no TypeScript), Express 5 + a native `fetch`-based forwarder (no `http-proxy-middleware` — full response buffering is needed for the TTL-cached stale fallback, response-size cap and single retry). Tests are Vitest + supertest.
 - Deny-by-default: every upstream is a named route in `src/routes.js` with an allowlisted set of path prefixes and query params; anything unmatched returns `403`. The SRD route forwards to `https://www.dnd5eapi.co/api/2014`.
 - The gateway is egress-only: it binds where Spring can reach it (loopback by default in dev), enforces `X-Gateway-Token`, performs SSRF defense-in-depth (no dynamic hosts, private-range blocking), TTL-caches SRD GETs, and returns `502 {status,message}` when an upstream is unreachable.
+
+## Deploy (Railway)
+
+- **Target:** one Railway project on the **Hobby** plan — managed **Postgres** + three services (`backend`, `gateway`, `web`) wired via **Infrastructure-as-Code** in `.railway/railway.ts` (Railway's legacy `railway.toml` config-as-code is deprecated, cutoff 2026-12-01). Deploys are **manual CLI** (`railway up` from the app dir) — there is **no GitHub integration and no CI deploy step**; documented in `draft-design.md` §19.
+- **Ports/binds:** the backend prod profile reads `server.port=${PORT:8080}` and a Postgres JDBC URL built from `PGHOST`/`PGPORT`/`PGDATABASE`/`PGUSER`/`PGPASSWORD` (`application-prod.properties`). The gateway's `resolveListenConfig()` binds `PORT` → `GATEWAY_PORT` → 3001 and uses `0.0.0.0` when a container `PORT` is present (loopback stays the dev default). The web nginx image renders `listen ${PORT}` via the official envsubst entrypoint.
+- **Priv network:** services reference each other as `<service>.railway.internal`; the gateway gets **no public domain**. Backend needs `GATEWAY_URL=http://gateway.railway.internal` and `GATEWAY_TOKEN` echoed in the gateway's own env. CORS: set `CORS_ALLOWED_ORIGINS` on the backend to the web service's public URL.
+- **Build-time var:** web `VITE_API_URL` is baked at build — change the dashboard var and **redeploy** the web service. Recent deploys: with `railway up` the local working tree builds; the dashboard var must be set before the build.
+- **Secrets:** per-service dashboard vars; `.railway/railway.ts` marks them `preserve()` so `railway config apply` never overwrites. `ddl-auto` is `validate` in prod — schema migrations (Flyway) are a planned Stage 5 step; until then, no DDL changes may run against a Railway Postgres that has drifted.
+- Run the IaC SDK commands from the repo root with Node 24: `npx railway@latest login/link/config plan/config apply` (the root `package.json` pins the `railway` devDependency). `railway config plan` is safe; `config apply` creates the scaffolded resources and needs explicit user go-ahead.
 
 ## CI
 
