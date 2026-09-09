@@ -1,0 +1,103 @@
+package com.gamer.fowever.tabletopfunctionaltest.auth;
+
+import com.gamer.fowever.tabletopfunctionaltest.FunctionalTestBase;
+import com.gamer.fowever.tabletopfunctionaltest.support.Api;
+import org.junit.jupiter.api.Test;
+import tools.jackson.databind.JsonNode;
+
+import java.util.Map;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+class AuthJourneyIT extends FunctionalTestBase {
+
+    private static final String WEAK = "short";
+
+    @Test
+    void fullRegisterVerifyLoginFlow() throws Exception {
+        String username = "itagm";
+        String email = username + "@example.com";
+        Api.requireStatus(Api.post(baseUrl() + "/api/auth/register", null,
+                Api.body(Map.of("displayName", "Aria", "email", email,
+                        "dateOfBirth", "1990-01-15", "username", username, "password", PASSWORD))),
+                201, "register");
+
+        Api.Response preVerify = Api.post(baseUrl() + "/api/auth/login", null,
+                Api.body(Map.of("identifier", username, "password", PASSWORD)));
+        assertThat(preVerify.status())
+                .as("login must be rejected until the email is verified").isEqualTo(403);
+
+        String verifyUrl = backend().awaitVerificationUrl(email);
+        assertThat(verifyUrl).as("dev console email must carry the verify link").isNotBlank();
+        Api.requireStatus(Api.get(verifyUrl, null), 200, "verify");
+
+        Api.Response login = Api.post(baseUrl() + "/api/auth/login", null,
+                Api.body(Map.of("identifier", email, "password", PASSWORD)));
+        Api.requireStatus(login, 200, "login after verification");
+        String jwt = Api.json(login.body()).get("token").asText();
+
+        JsonNode me = Api.json(Api.get(baseUrl() + "/api/users/me", jwt).body());
+        assertThat(me.get("username").asText()).isEqualTo(username);
+        assertThat(me.get("emailVerified").asBoolean()).isTrue();
+
+        Api.Response admin = Api.get(baseUrl() + "/api/admin/users", jwt);
+        assertThat(admin.status()).as("non-admin must be denied the admin API").isEqualTo(403);
+    }
+
+    @Test
+    void rejectsWeakPasswordAndUnderage() {
+        Api.Response weak = Api.post(baseUrl() + "/api/auth/register", null,
+                Api.body(Map.of("displayName", "Weak", "email", "weak@example.com",
+                        "dateOfBirth", "1990-01-15", "username", "w1", "password", WEAK)));
+        assertThat(weak.status()).isEqualTo(400);
+
+        Api.Response underage = Api.post(baseUrl() + "/api/auth/register", null,
+                Api.body(Map.of("displayName", "Kid", "email", "kid@example.com",
+                        "dateOfBirth", "2015-01-01", "username", "k1", "password", PASSWORD)));
+        assertThat(underage.status()).isEqualTo(400);
+    }
+
+    @Test
+    void duplicateUsernameIsConflict() {
+        Api.requireStatus(Api.post(baseUrl() + "/api/auth/register", null,
+                Api.body(Map.of("displayName", "Dup", "email", "dup@example.com",
+                        "dateOfBirth", "1990-01-15", "username", "itadup", "password", PASSWORD))),
+                201, "first register");
+
+        Api.Response duplicate = Api.post(baseUrl() + "/api/auth/register", null,
+                Api.body(Map.of("displayName", "Dup", "email", "other@example.com",
+                        "dateOfBirth", "1990-01-15", "username", "itadup", "password", PASSWORD)));
+        assertThat(duplicate.status()).isEqualTo(409);
+    }
+
+    @Test
+    void loginRejectsBadCredentials() {
+        Api.Response bad = Api.post(baseUrl() + "/api/auth/login", null,
+                Api.body(Map.of("identifier", "missing-user", "password", PASSWORD)));
+        assertThat(bad.status()).isEqualTo(401);
+    }
+
+    @Test
+    void verifyRejectsUnknownToken() {
+        assertThat(Api.get(baseUrl() + "/api/auth/verify?token=does-not-exist", null).status()).isEqualTo(400);
+        assertThat(Api.get(baseUrl() + "/api/auth/verify", null).status()).isEqualTo(400);
+    }
+
+    @Test
+    void adminCanListUsers() {
+        Api.Response login = Api.post(baseUrl() + "/api/auth/login", null,
+                Api.body(Map.of("identifier", "admin", "password", "AdminPassw0rd!")));
+        Api.requireStatus(login, 200, "bootstrap admin login");
+        String jwt = Api.json(login.body()).get("token").asText();
+
+        Api.Response users = Api.get(baseUrl() + "/api/admin/users", jwt);
+        Api.requireStatus(users, 200, "admin users list");
+        assertThat(Api.json(users.body()).isArray()).isTrue();
+    }
+
+    @Test
+    void protectedEndpointsRejectMissingAndInvalidTokens() {
+        assertThat(Api.get(baseUrl() + "/api/users/me", null).status()).isEqualTo(401);
+        assertThat(Api.get(baseUrl() + "/api/users/me", "not.a.jwt").status()).isEqualTo(401);
+    }
+}
