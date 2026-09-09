@@ -1,0 +1,12 @@
+{
+  "fixture": true,
+  "count": 6,
+  "results": [
+    { "index": "str", "name": "STR", "url": "/api/2014/ability-scores/str" },
+    { "index": "dex", "name": "DEX", "url": "/api/2014/ability-scores/dex" },
+    { "index": "con", "name": "CON", "url": "/api/2014/ability-scores/con" },
+    { "index": "int", "name": "INT", "url": "/api/2014/ability-scores/int" },
+    { "index": "wis", "name": "WIS", "url": "/api/2014/ability-scores/wis" },
+    { "index": "cha", "name": "CHA", "url": "/api/2014/ability-scores/cha" }
+  ]
+}

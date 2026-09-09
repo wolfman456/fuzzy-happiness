@@ -38,10 +38,7 @@
     <modules>
         <module>tabletopapi</module>
         <module>tabletopservice</module>
-        <!-- tabletopfunctionaltest: reserved for functional/E2E suites (draft-design §18).
-             Scaffolded when the first suite lands; keep commented out so `./mvnw test`
-             builds the reactor without it. -->
-        <!-- <module>tabletopfunctionaltest</module> -->
+        <module>tabletopfunctionaltest</module>
     </modules>
 
     <properties>

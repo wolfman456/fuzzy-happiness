@@ -37,7 +37,7 @@ if nothing else.
 - Backend: `tabletopserv/` — Spring Boot 4.1.1, Java 21, **multi-module Maven reactor**
   - `tabletopapi` — inbound REST contract only (interfaces + DTOs, `com.gamer.fowever.tabletopapi`)
   - `tabletopservice` — implementations, domain, repos, security, STOMP glue, runnable JAR (`com.gamer.fowever.tabletopservice`)
-  - `tabletopfunctionaltest` — blank / commented out; future functional/E2E suites (§18)
+  - `tabletopfunctionaltest` — functional/E2E suites (§18): boots the packaged JAR subprocess against Testcontainers Postgres + a recorded-fixture gateway stub; `*IT` classes run under `./mvnw verify`
 - Gateway: `tabletopgateway/` — Express 5, Node 24, ESM; egress-only proxy with a native `fetch`-based forwarder (SRD + future LLM, deny-by-default, `X-Gateway-Token`, TTL cache + stale fallback)
 - Auth: Spring Security — 24h JWT bearer (jjwt), bcrypt, `USER`/`MODERATOR`/`ADMIN` roles, email verification; CORS for the Vite dev origin
 - Rules data: D&D 5e SRD API (5e-bits/dnd5eapi.co) → **gateway** (`/api/srd/*`) → Spring; cached at the gateway (long TTL on lists)
@@ -47,7 +47,7 @@ See `AGENTS.md` for repo layout, commands, and conventions.
 
 ## Status
 
-Iterative build; design draft in [`draft-design.md`](draft-design.md) (Draft v0.12).
+Iterative build; design draft in [`draft-design.md`](draft-design.md) (Draft v0.13).
 
 Delivered:
 
@@ -126,6 +126,15 @@ backend tests, jacoco gate met. Frontend: `src/lib/monsters.js` (CR/role/edition
   `0.0.0.0` when a container `PORT` exists (`resolveListenConfig`); the web app ships as nginx
   serving the Vite build behind a React-Router SPA fallback. Dockerfiles for `tabletopserv/`
   and `tabletopweb/`, plus [Deployment](#deployment-railway) docs.
+- **Backend functional/E2E module** — `feature/functional-tests` (Draft v0.13, §18). The
+  `tabletopfunctionaltest` module goes live: `maven-failsafe-plugin` binds `*IT` journey
+  classes (auth, session/STOMP, dice, battle map/initiative, monster, SRD) to `verify`, so
+  `./mvnw test` stays unit-only and `./mvnw verify` builds the packaged JAR, boots it as a
+  subprocess against a **Testcontainers Postgres** (dev profile + env overrides, zero app-code
+  change) plus a **recorded-fixture gateway stub**, and drives the real HTTP/WebSocket
+  interfaces — email-verify tokens parsed from the child JVM log. CI (`maven.yml`) now runs
+  `./mvnw -B verify` on every push/PR to `develop`. Jenkins decision (advisory): not adopted;
+  GH Actions + manual `railway up` cover CI/CD for now.
 
 Next: character generation backed by the SRD (Stage 2) and the optional 3D viewport (§17)
 plus the rest of the game table (multi-map, fog of war, turn timers, conditions). The out-of-MVP
