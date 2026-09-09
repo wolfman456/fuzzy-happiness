@@ -1,5 +1,11 @@
 # Fuzzy Happiness — Tabletop Game Platform (Initial Design Draft)
 
+> Draft v0.13 (in `feature/functional-tests`) brings the **functional/E2E testing module
+> (`tabletopfunctionaltest`) live (§18)**: the packaged `tabletopservice` JAR boots as a
+> subprocess against a Testcontainers Postgres and a recorded-fixture gateway stub, with
+> `*IT` journey suites (auth, session/STOMP, dice, battle map/initiative, monster, SRD) bound
+> to `./mvnw verify` and CI (`maven.yml` runs `verify` on every push/PR to `develop`).
+> Jenkins stays advisory-only.
 > **Status:** Draft v0.10 — accounts/auth end-to-end (backend `feature/spring-security` + web UI
 > in `feature/frontend-auth`), Stage 1 "Sessions & chat" (lobby with invite codes,
 > create/join/leave, live chat + presence over STOMP, in `feature/sessions`), the first
@@ -97,7 +103,7 @@ additional games can be plugged in later.
   `com.gamer.fowever.tabletopapi`) and `tabletopservice` (implementations + domain + runtime,
   `com.gamer.fowever.tabletopservice`). REST (via `spring-boot-starter-webmvc`) for
   queries/mutations + **STOMP over WebSocket** (`spring-boot-starter-websocket`) for real-time
-  session events. See **§18** for the future functional-test module.
+  session events. See **§18** for the functional-test module.
 - **Frontend:** existing React 19 + Vite app in `tabletopweb/`, plain JSX. Views:
   login/register, lobby, session (chat + table), character sheets. Now running Tailwind CSS v4
   (via `@tailwindcss/vite`) and `react-router-dom`, pinning Node 24; auth pages + protected
@@ -732,20 +738,35 @@ the way a browser/API client would, without polluting the service module's cover
 |---|---|---|---|
 | Unit | `tabletopservice` | JUnit 5 + Mockito/MockMvc (existing) | domain logic, services, controllers; ≥ 90% line gate |
 | Slice/integration | `tabletopservice` | `@SpringBootTest` + `@AutoConfigureMockMvc`, slice tests | app wiring, security filter chain, STOMP sessions, outbound gateway mocks |
-| Functional/E2E | `tabletopfunctionaltest` (blank, commented out of parent `<modules>`) | JUnit 5 + Testcontainers (Postgres) + REST Assured vs the executable JAR; optional Playwright for the web UI | end-to-end API/user journeys against a real runtime + real DB — auth → session → battle map → dice; gateway-wrapped SRD flows |
+| Functional/E2E | `tabletopfunctionaltest` (live) | JUnit 5 + Testcontainers (Postgres) + JAR-subprocess harness vs the executable JAR; recorded-fixture gateway stub (Java `HttpServer`) | end-to-end API/WebSocket journeys against a real runtime + real DB — auth → session/STOMP → battle map → dice → monster → gateway-wrapped SRD |
 
+- **How it runs:** `maven-failsafe-plugin` binds `*IT` classes to the `integration-test`/`verify`
+  phases, so **`./mvnw test` stays unit-only** and **`./mvnw verify`** builds the packaged
+  `tabletopservice` JAR, boots it as a **subprocess** (`java -jar`) against a
+  **Testcontainers Postgres** (dev profile + Postgres env overrides; zero app-code changes),
+  and runs the journeys over the real HTTP/STOMP interfaces. Email-verification tokens are
+  parsed from the child JVM's dev-console emails. CI runs `./mvnw -B verify` on every push/PR
+  to `develop`.
+- **Upstream determinism:** SRD flows route through a **recorded-fixture gateway stub** built
+  from `com.sun.net.httpserver` (`src/test/resources/fixtures/srd/*.json`) that mimics the real
+  gateway's surface (`X-Gateway-Token` check on `/api/srd/*`) — no internet access, fully
+  deterministic. Phase 2 will move this stub to the real gateway app and Phase 3 adds
+  Playwright web E2E.
+- **Docker-less dev escape hatch:** if Docker is unavailable (constrained environments), pass
+  `-Dtabletopserv.functional.db-url=jdbc:h2:mem:...` to point the harness at any JDBC URL;
+  CI always exercises the Testcontainers Postgres path.
 - **Module rules:** `tabletopfunctionaltest` has **no jacoco gate**; it depends on the
   packaged `tabletopservice` and runs against a started server, so it never feeds the covered
-  code's gate. Kept out of the parent reactor until the first suite is written (avoid
-  breaking `./mvnw test`).
+  code's gate.
 - **Coverage philosophy:** unit + slice coverage stays in `tabletopservice`; functional tests
   are **journey coverage**, not branch coverage.
 - **VSC (versioned) contract:** the SRD/gateway DTO shape is pinned by the API module and
   verified by both the service tests (against a mocked gateway) and functional tests (against
-  the real gateway + upstream, or a recorded fixture).
-- **When:** the module is scaffolded when the first functional suite is needed (Stage 2
-  character journeys and gateway-backed SRD flows). Until then the plan, tooling, and module
-  placeholder live here.
+  the recorded fixture).
+- **CI/CD decision (Jenkins — advisory only):** no Jenkins pipeline is adopted. GitHub Actions
+  covers build/test/E2E on every PR and the Railway CLI covers deploys (`railway up`); Jenkins
+  would only be reintroduced for org policy, a broader OS/JDK matrix, on-prem infrastructure,
+  or scheduled smoke runs.
 
 ## 19. Deployment (Railway)
 

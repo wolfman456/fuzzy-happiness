@@ -9,7 +9,80 @@
         <relativePath>../pom.xml</relativePath>
     </parent>
     <artifactId>tabletopfunctionaltest</artifactId>
-    <packaging>jar</packaging>
     <name>tabletopfunctionaltest</name>
-    <description>Blank for now — reserved for functional/E2E test suites (see draft-design.md §18). Kept out of the parent reactor until the first suite is written.</description>
+    <description>Functional/E2E suites — boot the packaged tabletopservice JAR as a subprocess against a real Postgres (Testcontainers) and a recorded-fixture gateway stub (draft-design.md §18).</description>
+
+    <properties>
+        <testcontainers.version>1.20.6</testcontainers.version>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.testcontainers</groupId>
+                <artifactId>testcontainers-bom</artifactId>
+                <version>${testcontainers.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <dependencies>
+        <!-- Contract types (DTOs, EventType) so STOMP frames decode into the real api records. -->
+        <dependency>
+            <groupId>com.gamer.table</groupId>
+            <artifactId>tabletopapi</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- WebSocketStompClient + JacksonJsonMessageConverter for live STOMP journeys. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-websocket</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!-- Functional tests only run against the repackaged, runnable JAR of the service
+                 module, so they bind to the Maven integration-test lifecycle (verify), never
+                 to the unit-test phase. The JAR path is passed through as a system property;
+                 the harness fails fast with a clear message if it is missing. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <configuration>
+                    <systemPropertyVariables>
+                        <tabletopserv.functional.jar>
+                            ${project.basedir}/../tabletopservice/target/tabletopservice-${project.version}.jar
+                        </tabletopserv.functional.jar>
+                    </systemPropertyVariables>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
 </project>

@@ -7,7 +7,7 @@ Three independent apps at the repo root inside their own directories. There is *
 - `tabletopserv/` — Spring Boot 4.1.1 (Java 21) backend, Maven wrapper (`./mvnw`). Now a **multi-module Maven build** (parent aggregator pom + modules):
   - `tabletopapi/` — the **inbound REST API as interfaces + DTOs** (package `com.gamer.fowever.tabletopapi`). No domain/repository/business logic — the contract the service implements.
   - `tabletopservice/` — the runnable module (package `com.gamer.fowever.tabletopservice`): controller implementations of the api interfaces, services, domain, repositories, security, config, STOMP glue, `application*.properties`. Produces the executable JAR.
-  - `tabletopfunctionaltest/` — **blank for now** (parent `<modules>` entry commented out); reserved for functional/E2E testing on top of unit tests (see draft-design §18).
+  - `tabletopfunctionaltest/` — **functional/E2E module** (package `com.gamer.fowever.tabletopfunctionaltest`): `*IT` journey suites (auth, session/STOMP, dice, battle map/initiative, monster, SRD) that boot the packaged `tabletopservice` JAR as a subprocess against a Testcontainers Postgres + a recorded-fixture gateway stub. No jacoco gate. The JAR-subprocess harness (`support/BackendInstance`) supports a Docker-less escape hatch via `-Dtabletopserv.functional.db-url=jdbc:h2:mem:...` (see draft-design §18).
 - `tabletopweb/` — Vite 8 + React 19 frontend, plain JSX (no TypeScript), Tailwind CSS v4, react-router.
 - `tabletopgateway/` — Express 5 **egress gateway** (Node 24, ESM, plain JS). The only path out of the backend to internet upstreams (SRD `dnd5eapi.co`, future monster-gen LLM). Spring calls it server-to-server with an `X-Gateway-Token`; it does **not** see client traffic.
 - Node 24 is pinned everywhere (`tabletopweb/.nvmrc`, `tabletopgateway/.nvmrc`, `engines >= 24`, CI matrix). Ensure `nvm use 24` before any Node command.
@@ -16,7 +16,9 @@ Three independent apps at the repo root inside their own directories. There is *
 
 ```sh
 # Backend (run from tabletopserv/ — root aggregator)
-./mvnw test                       # build + test ALL modules (api + service), jacoco gate
+./mvnw test                       # build + test ALL modules (api + service), jacoco gate; unit-only
+./mvnw verify                     # above + functional/E2E ITs (needs Docker for Testcontainers Postgres)
+./mvnw verify -Dtabletopserv.functional.db-url=jdbc:h2:mem:ft   # ITs without Docker (H2 escape hatch)
 ./mvnw -pl tabletopservice -am spring-boot:run   # dev server (builds api first)
 ./mvnw -pl tabletopapi -am package               # build just the api library
 ./mvnw package                    # package the whole reactor
@@ -84,7 +86,7 @@ npm run lint                # oxlint
 ## Testing policy
 
 - Every plan and every code change ships with unit tests and keeps **line coverage ≥ 90%** on the `tabletopservice` module (jacoco `check` gate bound to the `test` phase in `tabletopserv/tabletopservice/pom.xml` fails the build below that threshold). Backend tests run with `./mvnw test` from `tabletopserv/`.
-- Functional/E2E testing strategy (future, `tabletopfunctionaltest/`) is documented in `draft-design.md` §18; the module is blank and commented out of the parent until implemented.
+- **Functional/E2E** (`tabletopfunctionaltest/`, §18): `*IT` journey suites run via failsafe at **`./mvnw verify`** only; `./mvnw test` stays unit-only. `verify` needs Docker for the Testcontainers Postgres; use `-Dtabletopserv.functional.db-url=jdbc:h2:mem:...` when Docker is unavailable. CI runs `./mvnw -B verify` on every push/PR to `develop`.
 
 ## Documentation
 
