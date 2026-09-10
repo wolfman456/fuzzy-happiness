@@ -28,6 +28,8 @@ Status key: ✅ landed · 🔨 in progress · ⏭ deferred (post-MVP)
 - As a Player I want my personal details (email, names, date of birth) encrypted at rest so a database leak doesn't expose my identity. (R18) ✅ landed
 - As a Player I want to sign in with my Google, Facebook or GitHub account so I can start playing without yet another password. (R19) 🔨 in progress
 - As an admin I want the production database seeded with a bootstrap administrator so I can administer the platform from day one. (R20) ✅ landed
+- As a Player I want to change my username after registering so I can pick a handle that grows with my campaign. (R21) 🔨 in progress
+- As a Player I want a dragon-themed background on the sign-in/sign-up screens so the entry screen fits the game's fantasy feel. (R22) 🔨 in progress
 
 ## MVP definition (agreed 2026-09-08)
 
