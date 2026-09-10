@@ -12,6 +12,7 @@ import com.gamer.fowever.tabletopservice.repository.EmailVerificationTokenReposi
 import com.gamer.fowever.tabletopservice.repository.UserRepository;
 import com.gamer.fowever.tabletopservice.security.JwtService;
 import com.gamer.fowever.tabletopapi.support.ApiException;
+import com.gamer.fowever.tabletopservice.support.PiiCrypto;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -46,7 +47,8 @@ class AuthServiceTest {
     private static final long JWT_MILLIS = 86_400_000;
 
     private static final RegisterRequest REGISTER = new RegisterRequest(
-            "Aria", "aria@example.com", LocalDate.of(1990, 1, 15), "aria", "Password1!");
+            "Aria", "Aria Ashton", "aria@example.com", LocalDate.of(1990, 1, 15),
+            "aria", "Password1!", "Password1!");
 
     @Mock
     private UserRepository userRepository;
@@ -80,7 +82,7 @@ class AuthServiceTest {
     @Test
     void registersUserAsUnverifiedAndSendsVerificationEmail() {
         when(userRepository.existsByUsernameIgnoreCase("aria")).thenReturn(false);
-        when(userRepository.existsByEmailIgnoreCase("aria@example.com")).thenReturn(false);
+        when(userRepository.existsByEmailKey(PiiCrypto.emailKey("aria@example.com"))).thenReturn(false);
         when(passwordEncoder.encode("Password1!")).thenReturn("encoded-hash");
         when(tokenRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(userRepository.save(any())).thenAnswer(invocation -> {
@@ -98,7 +100,8 @@ class AuthServiceTest {
         verify(userRepository).save(org.mockito.ArgumentMatchers.argThat(user ->
                 user.getAuthRole() == AuthRole.USER && !user.isEmailVerified()
                         && user.getPasswordHash().equals("encoded-hash")
-                        && user.getUsername().equals("aria")));
+                        && user.getUsername().equals("aria")
+                        && user.getRealName().equals("Aria Ashton")));
 
         ArgumentCaptor<EmailVerificationToken> tokenCaptor = ArgumentCaptor.forClass(EmailVerificationToken.class);
         verify(tokenRepository).save(tokenCaptor.capture());
@@ -107,6 +110,17 @@ class AuthServiceTest {
 
         verify(emailSender).sendVerificationEmail(eq("aria@example.com"),
                 contains("/api/auth/verify?token=" + tokenCaptor.getValue().getToken()));
+    }
+
+    @Test
+    void rejectsMismatchedPasswordConfirmation() {
+        RegisterRequest mismatched = new RegisterRequest(
+                "Aria", "Aria Ashton", "aria@example.com", LocalDate.of(1990, 1, 15),
+                "aria", "Password1!", "Different1!");
+
+        assertThatThrownBy(() -> service.register(mismatched))
+                .isInstanceOf(ApiException.class)
+                .hasMessage("Passwords do not match");
     }
 
     @Test
@@ -121,7 +135,7 @@ class AuthServiceTest {
     @Test
     void rejectsDuplicateEmail() {
         when(userRepository.existsByUsernameIgnoreCase("aria")).thenReturn(false);
-        when(userRepository.existsByEmailIgnoreCase("aria@example.com")).thenReturn(true);
+        when(userRepository.existsByEmailKey(PiiCrypto.emailKey("aria@example.com"))).thenReturn(true);
 
         assertThatThrownBy(() -> service.register(REGISTER))
                 .isInstanceOf(ApiException.class)
@@ -130,8 +144,8 @@ class AuthServiceTest {
 
     @Test
     void rejectsUnderageRegistration() {
-        RegisterRequest underage = new RegisterRequest("Kid", "kid@example.com",
-                LocalDate.of(2015, 1, 1), "kid", "Password1!");
+        RegisterRequest underage = new RegisterRequest("Kid", "Kid McChild", "kid@example.com",
+                LocalDate.of(2015, 1, 1), "kid", "Password1!", "Password1!");
 
         assertThatThrownBy(() -> service.register(underage))
                 .isInstanceOf(ApiException.class)
@@ -141,7 +155,7 @@ class AuthServiceTest {
     @Test
     void logsInVerifiedUserWithToken() {
         User user = user(true);
-        when(userRepository.findByUsernameIgnoreCaseOrEmailIgnoreCase("aria", "aria")).thenReturn(Optional.of(user));
+        when(userRepository.findByUsernameIgnoreCaseOrEmailKey("aria", PiiCrypto.emailKey("aria"))).thenReturn(Optional.of(user));
         when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
                 .thenReturn(mock(org.springframework.security.core.Authentication.class));
         when(jwtService.generateToken(user)).thenReturn("jwt-token");
@@ -157,7 +171,7 @@ class AuthServiceTest {
 
     @Test
     void rejectsUnverifiedLogin() {
-        when(userRepository.findByUsernameIgnoreCaseOrEmailIgnoreCase("aria", "aria")).thenReturn(Optional.of(user(false)));
+        when(userRepository.findByUsernameIgnoreCaseOrEmailKey("aria", PiiCrypto.emailKey("aria"))).thenReturn(Optional.of(user(false)));
 
         assertThatThrownBy(() -> service.login(new LoginRequest("aria", "Password1!")))
                 .isInstanceOf(ApiException.class)
@@ -166,7 +180,7 @@ class AuthServiceTest {
 
     @Test
     void rejectsWrongPassword() {
-        when(userRepository.findByUsernameIgnoreCaseOrEmailIgnoreCase("aria", "aria")).thenReturn(Optional.of(user(true)));
+        when(userRepository.findByUsernameIgnoreCaseOrEmailKey("aria", PiiCrypto.emailKey("aria"))).thenReturn(Optional.of(user(true)));
         when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
                 .thenThrow(new BadCredentialsException("bad password"));
 
@@ -177,7 +191,7 @@ class AuthServiceTest {
 
     @Test
     void rejectsUnknownLoginIdentifier() {
-        when(userRepository.findByUsernameIgnoreCaseOrEmailIgnoreCase("ghost", "ghost")).thenReturn(Optional.empty());
+        when(userRepository.findByUsernameIgnoreCaseOrEmailKey("ghost", PiiCrypto.emailKey("ghost"))).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.login(new LoginRequest("ghost", "Password1!")))
                 .isInstanceOf(ApiException.class)
@@ -238,7 +252,7 @@ class AuthServiceTest {
 
     @Test
     void resendDoesNothingForUnknownUser() {
-        when(userRepository.findByUsernameIgnoreCaseOrEmailIgnoreCase("ghost", "ghost")).thenReturn(Optional.empty());
+        when(userRepository.findByUsernameIgnoreCaseOrEmailKey("ghost", PiiCrypto.emailKey("ghost"))).thenReturn(Optional.empty());
 
         service.resendVerification("ghost");
 
@@ -248,7 +262,7 @@ class AuthServiceTest {
 
     @Test
     void resendSkipsVerifiedUser() {
-        when(userRepository.findByUsernameIgnoreCaseOrEmailIgnoreCase("aria", "aria")).thenReturn(Optional.of(user(true)));
+        when(userRepository.findByUsernameIgnoreCaseOrEmailKey("aria", PiiCrypto.emailKey("aria"))).thenReturn(Optional.of(user(true)));
 
         service.resendVerification("aria");
 
@@ -259,7 +273,7 @@ class AuthServiceTest {
     @Test
     void resendRespectsCooldown() {
         User user = user(false);
-        when(userRepository.findByUsernameIgnoreCaseOrEmailIgnoreCase("aria", "aria")).thenReturn(Optional.of(user));
+        when(userRepository.findByUsernameIgnoreCaseOrEmailKey("aria", PiiCrypto.emailKey("aria"))).thenReturn(Optional.of(user));
         when(tokenRepository.existsByUserAndCreatedAtAfter(eq(user), any())).thenReturn(true);
 
         assertThatThrownBy(() -> service.resendVerification("aria"))
@@ -270,7 +284,7 @@ class AuthServiceTest {
     @Test
     void resendReplacesOldTokenAndSendsNewLink() {
         User user = user(false);
-        when(userRepository.findByUsernameIgnoreCaseOrEmailIgnoreCase("aria", "aria")).thenReturn(Optional.of(user));
+        when(userRepository.findByUsernameIgnoreCaseOrEmailKey("aria", PiiCrypto.emailKey("aria"))).thenReturn(Optional.of(user));
         when(tokenRepository.existsByUserAndCreatedAtAfter(eq(user), any())).thenReturn(false);
         when(tokenRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 

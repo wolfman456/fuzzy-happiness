@@ -30,10 +30,12 @@ const baseValue = {
 
 function fillValidForm() {
   fireEvent.change(screen.getByLabelText(/display name/i), { target: { value: 'Aria' } })
+  fireEvent.change(screen.getByLabelText(/real name/i), { target: { value: 'Aria Ashton' } })
   fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'aria@example.com' } })
   fireEvent.change(screen.getByLabelText(/date of birth/i), { target: { value: '1990-01-15' } })
   fireEvent.change(screen.getByLabelText(/username/i), { target: { value: 'aria' } })
-  fireEvent.change(screen.getByLabelText(/password/i), { target: { value: 'Password1!' } })
+  fireEvent.change(screen.getByLabelText(/^Password/i), { target: { value: 'Password1!' } })
+  fireEvent.change(screen.getByLabelText(/confirm password/i), { target: { value: 'Password1!' } })
 }
 
 describe('RegisterPage', () => {
@@ -44,13 +46,33 @@ describe('RegisterPage', () => {
     fireEvent.click(screen.getByRole('button', { name: /create account/i }))
 
     expect(await screen.findByText(/check your inbox/i)).toBeInTheDocument()
-    expect(register).toHaveBeenCalledWith(expect.objectContaining({ username: 'aria' }))
+    expect(register).toHaveBeenCalledWith(expect.objectContaining({ username: 'aria', realName: 'Aria Ashton' }))
+  })
+
+  it('rejects mismatched password confirmation client-side', async () => {
+    renderRegister({ ...baseValue })
+    fillValidForm()
+    fireEvent.change(screen.getByLabelText(/confirm password/i), { target: { value: 'Other1!' } })
+    fireEvent.click(screen.getByRole('button', { name: /create account/i }))
+
+    expect(await screen.findByText('Passwords do not match.')).toBeInTheDocument()
+    expect(baseValue.register).not.toHaveBeenCalled()
+  })
+
+  it('rejects a blank real name client-side', async () => {
+    renderRegister({ ...baseValue })
+    fillValidForm()
+    fireEvent.change(screen.getByLabelText(/real name/i), { target: { value: '' } })
+    fireEvent.click(screen.getByRole('button', { name: /create account/i }))
+
+    expect(await screen.findByText(/real name is required/i)).toBeInTheDocument()
+    expect(baseValue.register).not.toHaveBeenCalled()
   })
 
   it('rejects a weak password client-side', async () => {
     renderRegister({ ...baseValue })
     fillValidForm()
-    fireEvent.change(screen.getByLabelText(/password/i), { target: { value: 'short' } })
+    fireEvent.change(screen.getByLabelText(/^Password/i), { target: { value: 'short' } })
     fireEvent.click(screen.getByRole('button', { name: /create account/i }))
 
     expect(await screen.findByText(/8\+ characters/i)).toBeInTheDocument()

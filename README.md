@@ -39,7 +39,10 @@ if nothing else.
   - `tabletopservice` — implementations, domain, repos, security, STOMP glue, runnable JAR (`com.gamer.fowever.tabletopservice`)
   - `tabletopfunctionaltest` — functional/E2E suites (§18): boots the packaged JAR subprocess against Testcontainers Postgres + a recorded-fixture gateway stub; `*IT` classes run under `./mvnw verify`
 - Gateway: `tabletopgateway/` — Express 5, Node 24, ESM; egress-only proxy with a native `fetch`-based forwarder (SRD + future LLM, deny-by-default, `X-Gateway-Token`, TTL cache + stale fallback)
-- Auth: Spring Security — 24h JWT bearer (jjwt), bcrypt, `USER`/`MODERATOR`/`ADMIN` roles, email verification; CORS for the Vite dev origin
+- Auth: Spring Security — 24h JWT bearer (jjwt), bcrypt, `USER`/`MODERATOR`/`ADMIN` roles,
+  email verification + resend cooldown, confirm-password + real-name registration, and
+  **PII encrypted at rest** (AES-256-GCM with an `emailKey` blind index); CORS for the Vite
+  dev origin
 - Rules data: D&D 5e SRD API (5e-bits/dnd5eapi.co) → **gateway** (`/api/srd/*`) → Spring; cached at the gateway (long TTL on lists)
 - Persistence: JPA (H2 dev / PostgreSQL prod via Spring profiles)
 
@@ -47,7 +50,7 @@ See `AGENTS.md` for repo layout, commands, and conventions.
 
 ## Status
 
-Iterative build; design draft in [`draft-design.md`](draft-design.md) (Draft v0.13).
+Iterative build; design draft in [`draft-design.md`](draft-design.md) (Draft v0.15).
 
 Delivered:
 
@@ -119,7 +122,9 @@ backend tests, jacoco gate met. Frontend: `src/lib/monsters.js` (CR/role/edition
 - **Railway deploy scaffold** — `feature/railway-deploy` (Draft v0.12, §19). Decision: the MVP
   runs on **Railway** (Hobby plan, Railway-provided `*.up.railway.app` domains, manual CLI
   deploys, Infrastructure-as-Code via `.railway/railway.ts` — Railway's legacy `railway.toml`
-  is deprecated with a 2026-12-01 cutoff). Backend gains a `prod` profile wired for
+  is deprecated with a 2026-12-01 cutoff). The live web entry point is the custom domain
+  **`gamenight.bond`** (+ `www`), registered through Railway so DNS + TLS are auto-managed.
+  Backend gains a `prod` profile wired for
   Railway-managed Postgres (`server.port=${PORT:8080}`, datasource from `PGHOST/PGPORT/
   PGDATABASE/PGUSER/PGPASSWORD`, `ddl-auto: validate`) and an Actuator `/actuator/health`
   health-check endpoint (`permitAll`). The gateway binds `PORT` → `GATEWAY_PORT` → 3001 and
@@ -177,11 +182,12 @@ service → `cd tabletopgateway && railway up`, `cd tabletopserv && railway up`,
 Dashboard secrets per service; `.railway/railway.ts` marks them `preserve()` so `config apply`
 never clobbers them.
 
-- **backend:** `SPRING_PROFILES_ACTIVE=prod`, `JWT_SECRET`, `ADMIN_PASSWORD`,
-  `SMTP_HOST` `SMTP_PORT` `SMTP_USER` `SMTP_PASSWORD`, `CORS_ALLOWED_ORIGINS` (the web
-  service's public URL), `GATEWAY_URL` (`http://gateway.railway.internal`),
-  `GATEWAY_TOKEN`; datasource `PGHOST` `PGPORT` `PGDATABASE` `PGUSER` `PGPASSWORD`
-  (referenced from the Postgres service).
+- **backend:** `SPRING_PROFILES_ACTIVE=prod`, `JWT_SECRET`, `PII_SECRET`,
+  `ADMIN_USERNAME` `ADMIN_PASSWORD`, `SMTP_HOST` `SMTP_PORT` `SMTP_USER` `SMTP_PASSWORD`,
+  `CORS_ALLOWED_ORIGINS` (`https://gamenight.bond`, `https://www.gamenight.bond`, and the web
+  service's `*.up.railway.app` URL), `FRONTEND_URL=https://gamenight.bond`,
+  `GATEWAY_URL` (`http://gateway.railway.internal`), `GATEWAY_TOKEN`; datasource `PGHOST`
+  `PGPORT` `PGDATABASE` `PGUSER` `PGPASSWORD` (referenced from the Postgres service).
 - **gateway:** `GATEWAY_TOKEN` (same value as backend).
 - **web:** `VITE_API_URL` (backend public URL) — read at **build time**, so change it and
   redeploy.

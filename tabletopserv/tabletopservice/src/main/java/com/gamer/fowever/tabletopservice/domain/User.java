@@ -1,7 +1,11 @@
 package com.gamer.fowever.tabletopservice.domain;
 import com.gamer.fowever.tabletopapi.AuthRole;
+import com.gamer.fowever.tabletopservice.support.EncryptingLocalDateConverter;
+import com.gamer.fowever.tabletopservice.support.EncryptingStringConverter;
+import com.gamer.fowever.tabletopservice.support.PiiCrypto;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -33,19 +37,30 @@ public class User implements UserDetails {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false, unique = true, length = 30)
     private String username;
 
-    @Column(nullable = false)
+    @Convert(converter = EncryptingStringConverter.class)
+    @Column(name = "display_name", nullable = false, length = 512)
     private String displayName;
 
-    @Column(nullable = false, unique = true)
+    @Convert(converter = EncryptingStringConverter.class)
+    @Column(name = "real_name", nullable = true, length = 512)
+    private String realName;
+
+    @Convert(converter = EncryptingStringConverter.class)
+    @Column(nullable = false, length = 512)
     private String email;
+
+    /** Deterministic blind index of the email (HMAC-SHA256) that backs equality lookups and uniqueness. */
+    @Column(name = "email_key", nullable = false, unique = true, length = 64)
+    private String emailKey;
 
     @Column(nullable = false)
     private String passwordHash;
 
-    @Column(name = "date_of_birth", nullable = false)
+    @Convert(converter = EncryptingLocalDateConverter.class)
+    @Column(name = "date_of_birth", nullable = false, length = 90)
     private LocalDate dateOfBirth;
 
     @Column(name = "email_verified", nullable = false)
@@ -55,6 +70,7 @@ public class User implements UserDetails {
     @Column(name = "auth_role", nullable = false)
     private AuthRole authRole = AuthRole.USER;
 
+    @Column(length = 512)
     private String avatar;
 
     @OneToMany(mappedBy = "owner")
@@ -64,6 +80,7 @@ public class User implements UserDetails {
         this.username = username;
         this.displayName = displayName;
         this.email = email;
+        this.emailKey = PiiCrypto.emailKey(email);
         this.dateOfBirth = dateOfBirth;
         this.passwordHash = passwordHash;
     }

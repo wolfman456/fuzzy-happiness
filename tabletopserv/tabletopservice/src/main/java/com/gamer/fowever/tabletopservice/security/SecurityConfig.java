@@ -1,6 +1,7 @@
 package com.gamer.fowever.tabletopservice.security;
 
 import com.gamer.fowever.tabletopservice.repository.UserRepository;
+import com.gamer.fowever.tabletopservice.support.PiiCrypto;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -39,7 +40,7 @@ public class SecurityConfig {
     @Bean
     public UserDetailsService userDetailsService(UserRepository userRepository) {
         return usernameOrEmail -> userRepository
-                .findByUsernameIgnoreCaseOrEmailIgnoreCase(usernameOrEmail, usernameOrEmail)
+                .findByUsernameIgnoreCaseOrEmailKey(usernameOrEmail, PiiCrypto.emailKey(usernameOrEmail))
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
     }
 

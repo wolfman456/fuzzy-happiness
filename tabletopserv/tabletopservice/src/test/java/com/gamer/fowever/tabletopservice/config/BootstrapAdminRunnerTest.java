@@ -2,6 +2,7 @@ package com.gamer.fowever.tabletopservice.config;
 
 import com.gamer.fowever.tabletopapi.AuthRole;
 import com.gamer.fowever.tabletopservice.repository.UserRepository;
+import com.gamer.fowever.tabletopservice.support.PiiCrypto;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -31,7 +32,7 @@ class BootstrapAdminRunnerTest {
     @Test
     void createsVerifiedAdminWhenMissing() {
         when(userRepository.existsByUsernameIgnoreCase("admin")).thenReturn(false);
-        when(userRepository.existsByEmailIgnoreCase("admin@tabletop.local")).thenReturn(false);
+        when(userRepository.existsByEmailKey(PiiCrypto.emailKey("admin@tabletop.local"))).thenReturn(false);
         when(passwordEncoder.encode("AdminPassw0rd!")).thenReturn("admin-hash");
 
         runner().run();
@@ -41,6 +42,7 @@ class BootstrapAdminRunnerTest {
             assertThat(user.isEmailVerified()).isTrue();
             assertThat(user.getPasswordHash()).isEqualTo("admin-hash");
             assertThat(user.getUsername()).isEqualTo("admin");
+            assertThat(user.getRealName()).isEqualTo("admin");
             return true;
         }));
     }
@@ -52,5 +54,30 @@ class BootstrapAdminRunnerTest {
         runner().run();
 
         verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void skipsWhenPasswordBlank() {
+        BootstrapAdminRunner blank = new BootstrapAdminRunner(userRepository, passwordEncoder,
+                "admin", "admin@tabletop.local", "  ");
+
+        blank.run();
+
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void derivesEmailFromUsernameWhenBlank() {
+        when(userRepository.existsByUsernameIgnoreCase("admin")).thenReturn(false);
+        when(userRepository.existsByEmailKey(PiiCrypto.emailKey("admin@tabletop.local"))).thenReturn(false);
+        when(passwordEncoder.encode("AdminPassw0rd!")).thenReturn("admin-hash");
+
+        new BootstrapAdminRunner(userRepository, passwordEncoder,
+                "admin", " ", "AdminPassw0rd!").run();
+
+        verify(userRepository).save(argThat(user -> {
+            assertThat(user.getEmail()).isEqualTo("admin@tabletop.local");
+            return true;
+        }));
     }
 }
