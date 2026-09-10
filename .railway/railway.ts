@@ -4,14 +4,18 @@
  * One editable file for the whole production topology: a managed Postgres
  * database plus the three runnable services (backend, egress gateway, web).
  *
- * Apply with the Railway CLI (manual deploys — no GitHub integration):
+ * Auto-deploy: each service now has a `source: github(...)` pointing at the
+ * repo and its `rootDirectory`, so pushes to `master` trigger a build in the
+ * right app directory automatically.
+ *
+ * Apply with the Railway CLI (initial setup / local escape hatch):
  *
  *   railway login
  *   railway link                 # link this repo to the Railway project
  *   railway config plan
  *   railway config apply
  *
- * Then deploy each app manually from its directory:
+ * Manual deploys (escape hatch — auto-deploy handles normal pushes):
  *
  *   railway up                   # from tabletopserv/   (Dockerfile build)
  *   railway up                   # from tabletopgateway/ (Railpack)
@@ -24,13 +28,14 @@
  * ADMIN_PASSWORD, SMTP_HOST/PORT/USER/PASSWORD, CORS_ALLOWED_ORIGINS.
  * The web service needs VITE_API_URL at build time (set it, then redeploy).
  */
-import { defineRailway, group, postgres, preserve, project, service } from "railway/iac";
+import { defineRailway, group, github, postgres, preserve, project, service } from "railway/iac";
 
 export default defineRailway(() => {
   const db = postgres("postgres");
 
   // Egress-only gateway. Spring is its only client; it has no public domain.
   const gateway = service("gateway", {
+    source: github("wolfman456/fuzzy-happiness", { branch: "master", rootDirectory: "tabletopgateway" }),
     start: "node src/index.js",
     healthcheck: "/health",
     replicas: 1,
@@ -40,6 +45,7 @@ export default defineRailway(() => {
   });
 
   const backend = service("backend", {
+    source: github("wolfman456/fuzzy-happiness", { branch: "master", rootDirectory: "tabletopserv" }),
     healthcheck: "/actuator/health",
     healthcheckTimeout: 300,
     replicas: 1,
@@ -65,6 +71,7 @@ export default defineRailway(() => {
   // Static SPA (nginx). React-router needs the VITE_API_URL build arg to point
   // at the backend's public URL; set it in the dashboard then redeploy.
   const web = service("web", {
+    source: github("wolfman456/fuzzy-happiness", { branch: "master", rootDirectory: "tabletopweb" }),
     healthcheck: "/",
     replicas: 1,
     env: {
