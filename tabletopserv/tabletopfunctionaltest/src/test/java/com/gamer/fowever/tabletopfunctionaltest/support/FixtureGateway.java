@@ -67,9 +67,12 @@ public final class FixtureGateway implements AutoCloseable {
         if (path.startsWith("/api/srd/")) {
             String rest = path.substring("/api/srd/".length());
             String[] parts = rest.split("/");
-            resource = parts.length == 1
-                    ? "/fixtures/srd/" + parts[0] + ".json"
-                    : "/fixtures/srd/" + parts[0] + "-" + parts[1] + ".json";
+            resource = switch (parts.length) {
+                case 1 -> "/fixtures/srd/" + parts[0] + ".json";
+                case 2 -> "/fixtures/srd/" + parts[0] + "-" + parts[1] + ".json";
+                case 3 -> "/fixtures/srd/" + parts[0] + "-" + parts[1] + "-" + parts[2] + ".json";
+                default -> null;
+            };
         } else {
             return null;
         }

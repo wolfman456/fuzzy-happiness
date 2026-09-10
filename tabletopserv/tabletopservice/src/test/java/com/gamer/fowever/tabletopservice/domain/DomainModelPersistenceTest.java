@@ -5,6 +5,7 @@ import com.gamer.fowever.tabletopapi.EventType;
 import com.gamer.fowever.tabletopapi.MonsterEdition;
 import com.gamer.fowever.tabletopapi.MonsterRole;
 import com.gamer.fowever.tabletopapi.Role;
+import com.gamer.fowever.tabletopapi.ScoreSource;
 import com.gamer.fowever.tabletopapi.SessionStatus;
 import com.gamer.fowever.tabletopapi.TokenCategory;
 import org.junit.jupiter.api.Test;
@@ -124,6 +125,8 @@ class DomainModelPersistenceTest {
         character.setSkillPickIndexes(Set.of("athletics", "intimidation"));
         character.setSpellIndexes(Set.of("expeditious-retreat"));
         character.setFeatureIndexes(Set.of("action-surge"));
+        character.setEquipmentIndexes(Set.of("chain-mail"));
+        character.setSpeedFeet(25);
         character.setHitPoints(20);
         character.setArmorClass(16);
         character.setProficiencyBonus(2);
@@ -159,6 +162,8 @@ class DomainModelPersistenceTest {
         assertThat(reloaded.getSkillPickIndexes()).containsExactlyInAnyOrder("athletics", "intimidation");
         assertThat(reloaded.getSpellIndexes()).containsExactly("expeditious-retreat");
         assertThat(reloaded.getFeatureIndexes()).containsExactly("action-surge");
+        assertThat(reloaded.getEquipmentIndexes()).containsExactly("chain-mail");
+        assertThat(reloaded.getSpeedFeet()).isEqualTo(25);
         assertThat(reloaded.getHitPoints()).isEqualTo(20);
         assertThat(reloaded.getArmorClass()).isEqualTo(16);
         assertThat(reloaded.getProficiencyBonus()).isEqualTo(2);

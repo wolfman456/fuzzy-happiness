@@ -45,4 +45,16 @@ class SrdControllerImplTest {
         assertThat(result).isSameAs(expected);
         verify(srdClient).detail("races", "dragonborn");
     }
+
+    @Test
+    void subresourceDelegatesToSrdClient() {
+        SrdControllerImpl controller = new SrdControllerImpl(srdClient);
+        JsonNode expected = objectMapper.readTree("[{\"level\":1}]");
+        when(srdClient.subresource("classes", "cleric", "levels", Map.of())).thenReturn(expected);
+
+        JsonNode result = controller.subresource("classes", "cleric", "levels", Map.of());
+
+        assertThat(result).isSameAs(expected);
+        verify(srdClient).subresource("classes", "cleric", "levels", Map.of());
+    }
 }

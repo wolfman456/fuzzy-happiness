@@ -1,0 +1,9 @@
+{
+  "fixture": true,
+  "index": "dwarf",
+  "name": "Dwarf",
+  "speed": 25,
+  "ability_bonuses": [
+    { "ability_score": { "index": "con", "name": "CON" }, "bonus": 2 }
+  ]
+}

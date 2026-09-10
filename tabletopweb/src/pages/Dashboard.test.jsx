@@ -1,13 +1,16 @@
 import { render, screen } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
 import { AuthContext } from '../auth/authContext'
 import Dashboard from './Dashboard'
 
 function renderDashboard(user) {
   return render(
-    <AuthContext.Provider value={{ user }}>
-      <Dashboard />
-    </AuthContext.Provider>,
+    <MemoryRouter>
+      <AuthContext.Provider value={{ user }}>
+        <Dashboard />
+      </AuthContext.Provider>
+    </MemoryRouter>,
   )
 }
 

@@ -29,4 +29,11 @@ public class SrdControllerImpl implements SrdApi {
     public JsonNode detail(@PathVariable String collection, @PathVariable String index) {
         return srdClient.detail(collection, index);
     }
+
+    @Override
+    public JsonNode subresource(@PathVariable String collection, @PathVariable String index,
+                                @PathVariable String subresource,
+                                @RequestParam Map<String, String> params) {
+        return srdClient.subresource(collection, index, subresource, params);
+    }
 }

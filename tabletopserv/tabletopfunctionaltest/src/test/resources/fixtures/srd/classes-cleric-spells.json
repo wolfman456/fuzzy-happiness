@@ -1,0 +1,10 @@
+{
+  "count": 5,
+  "results": [
+    { "index": "guidance", "name": "Guidance", "level": 0, "url": "/api/2014/spells/guidance" },
+    { "index": "sacred-flame", "name": "Sacred Flame", "level": 0, "url": "/api/2014/spells/sacred-flame" },
+    { "index": "bless", "name": "Bless", "level": 1, "url": "/api/2014/spells/bless" },
+    { "index": "cure-wounds", "name": "Cure Wounds", "level": 1, "url": "/api/2014/spells/cure-wounds" },
+    { "index": "spiritual-weapon", "name": "Spiritual Weapon", "level": 2, "url": "/api/2014/spells/spiritual-weapon" }
+  ]
+}

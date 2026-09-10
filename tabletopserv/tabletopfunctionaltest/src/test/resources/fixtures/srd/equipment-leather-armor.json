@@ -1,0 +1,7 @@
+{
+  "fixture": true,
+  "index": "leather-armor",
+  "name": "Leather Armor",
+  "equipment_category": { "index": "armor", "name": "Armor" },
+  "armor_class": { "base": 11, "dex_bonus": true }
+}
