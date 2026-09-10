@@ -18,8 +18,9 @@ class AuthJourneyIT extends FunctionalTestBase {
         String username = "itagm";
         String email = username + "@example.com";
         Api.requireStatus(Api.post(baseUrl() + "/api/auth/register", null,
-                Api.body(Map.of("displayName", "Aria", "email", email,
-                        "dateOfBirth", "1990-01-15", "username", username, "password", PASSWORD))),
+                Api.body(Map.of("displayName", "Aria", "realName", "Aria Ashton", "email", email,
+                        "dateOfBirth", "1990-01-15", "username", username,
+                        "password", PASSWORD, "confirmPassword", PASSWORD))),
                 201, "register");
 
         Api.Response preVerify = Api.post(baseUrl() + "/api/auth/login", null,
@@ -47,26 +48,30 @@ class AuthJourneyIT extends FunctionalTestBase {
     @Test
     void rejectsWeakPasswordAndUnderage() {
         Api.Response weak = Api.post(baseUrl() + "/api/auth/register", null,
-                Api.body(Map.of("displayName", "Weak", "email", "weak@example.com",
-                        "dateOfBirth", "1990-01-15", "username", "w1", "password", WEAK)));
+                Api.body(Map.of("displayName", "Weak", "realName", "Weak W", "email", "weak@example.com",
+                        "dateOfBirth", "1990-01-15", "username", "w1", "password", WEAK,
+                        "confirmPassword", WEAK)));
         assertThat(weak.status()).isEqualTo(400);
 
         Api.Response underage = Api.post(baseUrl() + "/api/auth/register", null,
-                Api.body(Map.of("displayName", "Kid", "email", "kid@example.com",
-                        "dateOfBirth", "2015-01-01", "username", "k1", "password", PASSWORD)));
+                Api.body(Map.of("displayName", "Kid", "realName", "Kid K", "email", "kid@example.com",
+                        "dateOfBirth", "2015-01-01", "username", "k1",
+                        "password", PASSWORD, "confirmPassword", PASSWORD)));
         assertThat(underage.status()).isEqualTo(400);
     }
 
     @Test
     void duplicateUsernameIsConflict() {
         Api.requireStatus(Api.post(baseUrl() + "/api/auth/register", null,
-                Api.body(Map.of("displayName", "Dup", "email", "dup@example.com",
-                        "dateOfBirth", "1990-01-15", "username", "itadup", "password", PASSWORD))),
+                Api.body(Map.of("displayName", "Dup", "realName", "Dup D", "email", "dup@example.com",
+                        "dateOfBirth", "1990-01-15", "username", "itadup",
+                        "password", PASSWORD, "confirmPassword", PASSWORD))),
                 201, "first register");
 
         Api.Response duplicate = Api.post(baseUrl() + "/api/auth/register", null,
-                Api.body(Map.of("displayName", "Dup", "email", "other@example.com",
-                        "dateOfBirth", "1990-01-15", "username", "itadup", "password", PASSWORD)));
+                Api.body(Map.of("displayName", "Dup", "realName", "Dup D", "email", "other@example.com",
+                        "dateOfBirth", "1990-01-15", "username", "itadup",
+                        "password", PASSWORD, "confirmPassword", PASSWORD)));
         assertThat(duplicate.status()).isEqualTo(409);
     }
 

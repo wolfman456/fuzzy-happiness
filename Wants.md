@@ -22,6 +22,12 @@ Status key: ✅ landed · 🔨 in progress · ⏭ deferred (post-MVP)
 - As a Player I want an optional 3D view of the battle map with player avatars and monster minis so the table feels more immersive alongside the existing 2D grid. (R12) ⏭ deferred (post-MVP, draft-design §17)
 - As a Player I want to create a D&D character through a guided wizard or a "surprise me" quick-build so I can bring a legal level 1–3 hero to my sessions. (R13) ✅ landed (draft-design §8, PR #31)
 - As a DM I want the platform to run on a production database behind CI so we can actually play with friends online. (R14) ✅ landed (draft-design §11/§13 Stage 5; Railway infra as code — §19, PR #31)
+- As a Player I want a polished sign-in/sign-up page with a themed background so the entry screen feels part of the game. (R15) ✅ landed
+- As a Player I want to confirm my password twice on registration so typos don't lock me out. (R16) ✅ landed
+- As a Player I want to supply my real name separately from my username and display name so I can be addressed properly without exposing my account handle. (R17) ✅ landed
+- As a Player I want my personal details (email, names, date of birth) encrypted at rest so a database leak doesn't expose my identity. (R18) ✅ landed
+- As a Player I want to sign in with my Google, Facebook or GitHub account so I can start playing without yet another password. (R19) 🔨 in progress
+- As an admin I want the production database seeded with a bootstrap administrator so I can administer the platform from day one. (R20) ✅ landed
 
 ## MVP definition (agreed 2026-09-08)
 

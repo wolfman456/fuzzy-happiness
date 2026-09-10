@@ -13,6 +13,7 @@ import com.gamer.fowever.tabletopservice.repository.UserRepository;
 import com.gamer.fowever.tabletopservice.security.JwtService;
 import com.gamer.fowever.tabletopapi.support.ApiException;
 import com.gamer.fowever.tabletopservice.support.Dtos;
+import com.gamer.fowever.tabletopservice.support.PiiCrypto;
 import com.gamer.fowever.tabletopapi.support.PasswordPolicy;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -69,15 +70,19 @@ public class AuthService {
 
     @Transactional
     public RegisterResponse register(RegisterRequest request) {
+        if (!request.password().equals(request.confirmPassword())) {
+            throw ApiException.badRequest("Passwords do not match");
+        }
         enforceMinimumAge(request.dateOfBirth());
         if (userRepository.existsByUsernameIgnoreCase(request.username())) {
             throw ApiException.conflict("Username is already taken");
         }
-        if (userRepository.existsByEmailIgnoreCase(request.email())) {
+        if (userRepository.existsByEmailKey(PiiCrypto.emailKey(request.email()))) {
             throw ApiException.conflict("An account with this email already exists");
         }
         User user = new User(request.username(), request.displayName(), request.email(),
                 request.dateOfBirth(), passwordEncoder.encode(request.password()));
+        user.setRealName(request.realName());
         user.setAuthRole(AuthRole.USER);
         user.setEmailVerified(false);
         userRepository.save(user);
@@ -87,7 +92,8 @@ public class AuthService {
 
     @Transactional
     public AuthResponse login(LoginRequest request) {
-        User user = userRepository.findByUsernameIgnoreCaseOrEmailIgnoreCase(request.identifier(), request.identifier())
+        User user = userRepository.findByUsernameIgnoreCaseOrEmailKey(request.identifier(),
+                        PiiCrypto.emailKey(request.identifier()))
                 .orElseThrow(() -> ApiException.unauthorized("Invalid username/email or password"));
         if (!user.isEmailVerified()) {
             throw ApiException.forbidden("Email not verified. Check your inbox or request a new link.");
@@ -122,7 +128,7 @@ public class AuthService {
 
     @Transactional
     public void resendVerification(String identifier) {
-        userRepository.findByUsernameIgnoreCaseOrEmailIgnoreCase(identifier, identifier).ifPresent(user -> {
+        userRepository.findByUsernameIgnoreCaseOrEmailKey(identifier, PiiCrypto.emailKey(identifier)).ifPresent(user -> {
             if (user.isEmailVerified()) {
                 return;
             }

@@ -1,5 +1,16 @@
 # Fuzzy Happiness — Tabletop Game Platform (Initial Design Draft)
 
+> Draft v0.15 (in `feature/auth-hardening`) ships the **auth hardening batch (R15–R18, R20)**:
+> a themed sign-in/sign-up background (R15), password typed twice on registration (R16),
+> a separate required **real name** field distinct from username and display name (R17),
+> **PII encryption at rest** — email, display name, real name and date of birth are
+> AES-256-GCM field-level encrypted with a deterministic **email blind index (`emailKey`,
+> HMAC-SHA256)** backing uniqueness and lookup (R18), and the **bootstrap admin** now seeds on
+> all profiles (guarded on a non-blank `tabletopserv.admin.password`), enabling production
+> seeding via `ADMIN_USERNAME`/`ADMIN_EMAIL`/`ADMIN_PASSWORD` (R20). Frontend register/login
+> gain the real-name + confirm-password fields and the themed background. `email` is no longer
+> unique in the DB — a new `email_key` column (unique) carries the deterministic blind index.
+> **R19 (social OAuth login) is deferred to a follow-up PR** until provider creds exist.
 > Draft v0.13 (in `feature/functional-tests`) brings the **functional/E2E testing module
 > (`tabletopfunctionaltest`) live (§18)**: the packaged `tabletopservice` JAR boots as a
 > subprocess against a Testcontainers Postgres and a recorded-fixture gateway stub, with
@@ -494,9 +505,12 @@ client · SRD integration = backend live proxy + cache over REST · character ge
 guided wizard + quick-build, house-rule d20 scores assigned by the player, starting
 levels 1–3, client-draft + pure server compile · **auth (implemented):** login by
 username **or** email, age ≥ 13 at signup, strict password policy (≥ 8 chars with upper,
-lower, digit, special), 24h JWT with no refresh token, single-use 24h email-verification
-tokens with a 60s resend cooldown, roles `USER`/`MODERATOR`/`ADMIN` with a dev-seeded
-bootstrap admin · **frontend (implemented):** Tailwind CSS v4, react-router, JWT in
+lower, digit, special) with a **confirm-password field** (R16), separate required **real
+name** (R17), **PII encrypted at rest** with an `emailKey` blind index (R18), 24h JWT with
+no refresh token, single-use 24h email-verification tokens with a 60s resend cooldown, roles
+`USER`/`MODERATOR`/`ADMIN` with a **bootstrap admin seeded on every profile when
+`tabletopserv.admin.password` is set** (R20) · **frontend (implemented):** Tailwind CSS v4,
+react-router, JWT in
 `localStorage` restored via `GET /api/users/me`, Node 24 pinned, backend CORS restricted to
 the configured `tabletopserv.cors.allowed-origins` (default the Vite dev origin); no Vite
 `/api` proxy — the SPA calls the backend cross-origin with `VITE_API_URL` · **sessions &
@@ -636,9 +650,16 @@ on upstream failure; the Spring side routes `/api/srd/*` through it via `Gateway
   ≥ 90% line coverage gate on the `test` phase (service module only).
 - **Auth stack in place:** stateless JWT filter chain, BCrypt, roles
   `USER`/`MODERATOR`/`ADMIN` on `User`, email verification via `EmailVerificationToken`
-  (`ConsoleEmailSender` in dev, SMTP in prod), and a dev-only bootstrap admin
-  (credentials from `tabletopserv.admin.*` props, overridable via env). Explicit JSON
-  `401`/`403` responses; business errors handled by `GlobalExceptionHandler`.
+  (`ConsoleEmailSender` in dev, SMTP in prod), and a bootstrap admin seeded on **all**
+  profiles when `tabletopserv.admin.password` is non-blank (credentials from
+  `tabletopserv.admin.*` props, overridable via env). **PII at rest (R18):** `email`,
+  `displayName`, `realName` and `dateOfBirth` are encrypted with AES-256-GCM
+  (`PiiCrypto` + JPA `AttributeConverter`s, key from `tabletopserv.pii.secret` / `PII_SECRET`,
+  sha-256 derived 256-bit key, fail-fast when blank in prod); `email` is **no longer unique**
+  — a deterministic `email_key` blind index (HMAC-SHA256) column carries uniqueness and lookup,
+  and login/register/resend/userDetails all resolve via username **or** `emailKey`. Dev/test
+  run on a fixed fallback key so JPA slices round-trip; prod must set `PII_SECRET`. Explicit
+  JSON `401`/`403` responses; business errors handled by `GlobalExceptionHandler`.
 - **Sessions stack in place:** STOMP over `/ws` (`spring-boot-starter-websocket`), client
   inbound channel on `SyncTaskExecutor` + `StompAuthChannelInterceptor` (throws
   `MessageDeliveryException`), `TokenHandshakeHandler` for the `?token=` handshake param,
@@ -803,7 +824,7 @@ build in the correct app directory; manual `railway up` remains available as an 
                     ┌──────────────────────────────────────────────┐
                     │  Railway project "fuzzy-happiness" (Hobby)    │
                     │                                              │
-                    │  web (public *.up.railway.app)  nginx + dist │
+                    │  web (public gamenight.bond / *.up.railway.app)  nginx + dist │
                     │        │ REST /api/** + STOMP /ws?token=      │
                     │        ▼                                     │
                     │  backend  ──►  gateway          <service>.railway.internal
@@ -829,9 +850,15 @@ build in the correct app directory; manual `railway up` remains available as an 
 - Services in the same project reach each other over the **private network** at
   `<service>.railway.internal`; traffic never egresses. The backend's `GATEWAY_URL` points at
   `http://gateway.railway.internal` (`${{gateway.RAILWAY_PRIVATE_DOMAIN}}`).
-- Only **web** and **backend** get public Railway-provided `*.up.railway.app` domains (custom
-  domains later, Hobby allows 2). The **gateway gets none** — it stays egress-only by
-  construction.
+- Only **web** and **backend** get public domains. Since 2026-09 the **web** service also
+  serves the **custom domain `gamenight.bond`** (registered **through Railway**, whose
+  nameservers auto-Manage DNS for domains purchased in-product: HTTPS certs auto-issue, no
+  external CNAME/TXT to hand-cut) — apex + `www`, both verified and live with valid TLS
+  (Hobby allows 2 custom domains per service, so both fit). The **backend** keeps its
+  Railway-provided `*.up.railway.app` domain. The **gateway gets none** — it stays
+  egress-only by construction.
+- `CORS_ALLOWED_ORIGINS` on the backend now lists `https://gamenight.bond`,
+  `https://www.gamenight.bond`, and the web service's `*.up.railway.app` URL.
 - WebSockets/STOMP work on Railway as plain HTTP upgrades; no proxy config needed.
 
 ### Ports & binds
@@ -847,8 +874,10 @@ build in the correct app directory; manual `railway up` remains available as an 
 ### Variables (per service, dashboard)
 
 Backend needs (prod profile refuses to boot clean without them): `SPRING_PROFILES_ACTIVE=prod`,
-`JWT_SECRET`, `ADMIN_PASSWORD`, `SMTP_HOST`/`SMTP_PORT`/`SMTP_USER`/`SMTP_PASSWORD`,
-`CORS_ALLOWED_ORIGINS` (the web service's public URL), `GATEWAY_URL`, `GATEWAY_TOKEN`, and the
+`JWT_SECRET`, `PII_SECRET`, `ADMIN_USERNAME`/`ADMIN_PASSWORD`, `SMTP_HOST`/`SMTP_PORT`/`SMTP_USER`/`SMTP_PASSWORD`,
+`CORS_ALLOWED_ORIGINS` (the web's public URLs: `https://gamenight.bond`,
+`https://www.gamenight.bond`, plus the `*.up.railway.app` URL), `FRONTEND_URL=https://gamenight.bond`,
+`GATEWAY_URL`, `GATEWAY_TOKEN`, and the
 datasource `PGHOST`/`PGPORT`/`PGDATABASE`/`PGUSER`/`PGPASSWORD` (referenced from the Postgres
 service). The gateway needs the **same** `GATEWAY_TOKEN`. The web service needs `VITE_API_URL`
 (backend public URL) set **before** its build, then a redeploy. `.railway/railway.ts` marks the
@@ -866,7 +895,8 @@ railway config apply         # create Postgres + 3 services (needs user go-ahead
 ```
 
 Set the dashboard secrets above, give the backend a public domain (or set `CORS_ALLOWED_ORIGINS`
-to the generated URL), then deploy **gateway → backend → web** (the bearer token must match and
+to the generated URL — both are already in place with `gamenight.bond` live), then deploy
+**gateway → backend → web** (the bearer token must match and
 `GATEWAY_URL` must resolve first). Rollback = one-click previous deploy; PR preview environments
 are available if later wanted.
 

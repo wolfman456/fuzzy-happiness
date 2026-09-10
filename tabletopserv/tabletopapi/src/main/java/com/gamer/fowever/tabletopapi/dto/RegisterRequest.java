@@ -13,6 +13,9 @@ import java.time.LocalDate;
 public record RegisterRequest(
         @NotBlank(message = "Name is required")
         String displayName,
+        @NotBlank(message = "Real name is required")
+        @Size(max = 150, message = "Real name must be 150 characters or fewer")
+        String realName,
         @NotBlank(message = "Email is required")
         @Email(message = "Email must be valid")
         String email,
@@ -23,6 +26,8 @@ public record RegisterRequest(
         @Size(min = 3, max = 30, message = "Username must be between 3 and 30 characters")
         String username,
         @Pattern(regexp = PasswordPolicy.REGEX, message = PasswordPolicy.MESSAGE)
-        String password
+        String password,
+        @NotBlank(message = "Password confirmation is required")
+        String confirmPassword
 ) {
 }

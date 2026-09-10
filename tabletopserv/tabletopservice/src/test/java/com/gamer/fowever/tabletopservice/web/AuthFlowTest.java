@@ -34,8 +34,8 @@ class AuthFlowTest {
     private UserRepository userRepository;
 
     private static final String REGISTER_BODY = """
-            {"displayName":"Aria","email":"aria@example.com","dateOfBirth":"1990-01-15",\
-            "username":"aria","password":"Password1!"}
+            {"displayName":"Aria","realName":"Aria Ashton","email":"aria@example.com","dateOfBirth":"1990-01-15",\
+            "username":"aria","password":"Password1!","confirmPassword":"Password1!"}
             """;
 
     private static final String ADMIN_BODY = """
@@ -87,14 +87,16 @@ class AuthFlowTest {
     void rejectsWeakPasswordAndUnderage() throws Exception {
         mvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"displayName\":\"Aria\",\"email\":\"a@example.com\","
-                                + "\"dateOfBirth\":\"1990-01-15\",\"username\":\"weak\",\"password\":\"short\"}"))
+                        .content("{\"displayName\":\"Aria\",\"realName\":\"Aria Ashton\",\"email\":\"a@example.com\","
+                                + "\"dateOfBirth\":\"1990-01-15\",\"username\":\"weak\",\"password\":\"short\","
+                                + "\"confirmPassword\":\"short\"}"))
                 .andExpect(status().isBadRequest());
 
         mvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"displayName\":\"Kid\",\"email\":\"kid@example.com\","
-                                + "\"dateOfBirth\":\"2015-01-01\",\"username\":\"kid\",\"password\":\"Password1!\"}"))
+                        .content("{\"displayName\":\"Kid\",\"realName\":\"Kid McChild\",\"email\":\"kid@example.com\","
+                                + "\"dateOfBirth\":\"2015-01-01\",\"username\":\"kid\",\"password\":\"Password1!\","
+                                + "\"confirmPassword\":\"Password1!\"}"))
                 .andExpect(status().isBadRequest());
     }
 
