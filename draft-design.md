@@ -824,7 +824,7 @@ build in the correct app directory; manual `railway up` remains available as an 
                     ┌──────────────────────────────────────────────┐
                     │  Railway project "fuzzy-happiness" (Hobby)    │
                     │                                              │
-                    │  web (public *.up.railway.app)  nginx + dist │
+                    │  web (public gamenight.bond / *.up.railway.app)  nginx + dist │
                     │        │ REST /api/** + STOMP /ws?token=      │
                     │        ▼                                     │
                     │  backend  ──►  gateway          <service>.railway.internal
@@ -850,9 +850,15 @@ build in the correct app directory; manual `railway up` remains available as an 
 - Services in the same project reach each other over the **private network** at
   `<service>.railway.internal`; traffic never egresses. The backend's `GATEWAY_URL` points at
   `http://gateway.railway.internal` (`${{gateway.RAILWAY_PRIVATE_DOMAIN}}`).
-- Only **web** and **backend** get public Railway-provided `*.up.railway.app` domains (custom
-  domains later, Hobby allows 2). The **gateway gets none** — it stays egress-only by
-  construction.
+- Only **web** and **backend** get public domains. Since 2026-09 the **web** service also
+  serves the **custom domain `gamenight.bond`** (registered **through Railway**, whose
+  nameservers auto-Manage DNS for domains purchased in-product: HTTPS certs auto-issue, no
+  external CNAME/TXT to hand-cut) — apex + `www`, both verified and live with valid TLS
+  (Hobby allows 2 custom domains per service, so both fit). The **backend** keeps its
+  Railway-provided `*.up.railway.app` domain. The **gateway gets none** — it stays
+  egress-only by construction.
+- `CORS_ALLOWED_ORIGINS` on the backend now lists `https://gamenight.bond`,
+  `https://www.gamenight.bond`, and the web service's `*.up.railway.app` URL.
 - WebSockets/STOMP work on Railway as plain HTTP upgrades; no proxy config needed.
 
 ### Ports & binds
@@ -868,8 +874,10 @@ build in the correct app directory; manual `railway up` remains available as an 
 ### Variables (per service, dashboard)
 
 Backend needs (prod profile refuses to boot clean without them): `SPRING_PROFILES_ACTIVE=prod`,
-`JWT_SECRET`, `ADMIN_PASSWORD`, `SMTP_HOST`/`SMTP_PORT`/`SMTP_USER`/`SMTP_PASSWORD`,
-`CORS_ALLOWED_ORIGINS` (the web service's public URL), `GATEWAY_URL`, `GATEWAY_TOKEN`, and the
+`JWT_SECRET`, `PII_SECRET`, `ADMIN_USERNAME`/`ADMIN_PASSWORD`, `SMTP_HOST`/`SMTP_PORT`/`SMTP_USER`/`SMTP_PASSWORD`,
+`CORS_ALLOWED_ORIGINS` (the web's public URLs: `https://gamenight.bond`,
+`https://www.gamenight.bond`, plus the `*.up.railway.app` URL), `FRONTEND_URL=https://gamenight.bond`,
+`GATEWAY_URL`, `GATEWAY_TOKEN`, and the
 datasource `PGHOST`/`PGPORT`/`PGDATABASE`/`PGUSER`/`PGPASSWORD` (referenced from the Postgres
 service). The gateway needs the **same** `GATEWAY_TOKEN`. The web service needs `VITE_API_URL`
 (backend public URL) set **before** its build, then a redeploy. `.railway/railway.ts` marks the
@@ -887,7 +895,8 @@ railway config apply         # create Postgres + 3 services (needs user go-ahead
 ```
 
 Set the dashboard secrets above, give the backend a public domain (or set `CORS_ALLOWED_ORIGINS`
-to the generated URL), then deploy **gateway → backend → web** (the bearer token must match and
+to the generated URL — both are already in place with `gamenight.bond` live), then deploy
+**gateway → backend → web** (the bearer token must match and
 `GATEWAY_URL` must resolve first). Rollback = one-click previous deploy; PR preview environments
 are available if later wanted.
 
