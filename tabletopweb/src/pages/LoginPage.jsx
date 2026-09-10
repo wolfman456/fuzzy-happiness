@@ -35,8 +35,8 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="grid min-h-screen place-items-center bg-zinc-100 px-4">
-      <div className="w-full max-w-sm rounded-xl border border-zinc-200 bg-white p-8 shadow-sm">
+    <div className="grid min-h-screen place-items-center bg-gradient-to-b from-zinc-900 via-zinc-800 to-zinc-900 px-4">
+      <div className="w-full max-w-sm rounded-xl border border-zinc-700 bg-zinc-100 p-8 shadow-xl">
         <h1 className="mb-6 text-2xl font-semibold tracking-tight">Log in</h1>
         <form onSubmit={handleSubmit} className="space-y-4">
           <label className="block text-sm font-medium" htmlFor="identifier">

@@ -21,7 +21,7 @@ public final class Dtos {
     }
 
     public static UserSummary userSummary(User user) {
-        return new UserSummary(user.getId(), user.getUsername(), user.getDisplayName(),
+        return new UserSummary(user.getId(), user.getUsername(), user.getDisplayName(), user.getRealName(),
                 user.getEmail(), user.getAuthRole(), user.isEmailVerified());
     }
 

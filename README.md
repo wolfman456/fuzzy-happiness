@@ -39,7 +39,10 @@ if nothing else.
   - `tabletopservice` — implementations, domain, repos, security, STOMP glue, runnable JAR (`com.gamer.fowever.tabletopservice`)
   - `tabletopfunctionaltest` — functional/E2E suites (§18): boots the packaged JAR subprocess against Testcontainers Postgres + a recorded-fixture gateway stub; `*IT` classes run under `./mvnw verify`
 - Gateway: `tabletopgateway/` — Express 5, Node 24, ESM; egress-only proxy with a native `fetch`-based forwarder (SRD + future LLM, deny-by-default, `X-Gateway-Token`, TTL cache + stale fallback)
-- Auth: Spring Security — 24h JWT bearer (jjwt), bcrypt, `USER`/`MODERATOR`/`ADMIN` roles, email verification; CORS for the Vite dev origin
+- Auth: Spring Security — 24h JWT bearer (jjwt), bcrypt, `USER`/`MODERATOR`/`ADMIN` roles,
+  email verification + resend cooldown, confirm-password + real-name registration, and
+  **PII encrypted at rest** (AES-256-GCM with an `emailKey` blind index); CORS for the Vite
+  dev origin
 - Rules data: D&D 5e SRD API (5e-bits/dnd5eapi.co) → **gateway** (`/api/srd/*`) → Spring; cached at the gateway (long TTL on lists)
 - Persistence: JPA (H2 dev / PostgreSQL prod via Spring profiles)
 
@@ -47,7 +50,7 @@ See `AGENTS.md` for repo layout, commands, and conventions.
 
 ## Status
 
-Iterative build; design draft in [`draft-design.md`](draft-design.md) (Draft v0.13).
+Iterative build; design draft in [`draft-design.md`](draft-design.md) (Draft v0.15).
 
 Delivered:
 

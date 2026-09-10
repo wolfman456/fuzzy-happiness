@@ -35,8 +35,9 @@ public abstract class FunctionalTestBase {
     protected static String registerVerifyLogin(String username) throws Exception {
         String email = username + "@example.com";
         Api.requireStatus(Api.post(baseUrl() + "/api/auth/register", null,
-                Api.body(Map.of("displayName", username, "email", email,
-                        "dateOfBirth", "1990-01-15", "username", username, "password", PASSWORD))),
+                Api.body(Map.of("displayName", username, "realName", "Real " + username, "email", email,
+                        "dateOfBirth", "1990-01-15", "username", username,
+                        "password", PASSWORD, "confirmPassword", PASSWORD))),
                 201, "register " + username);
 
         String verifyUrl = backend().awaitVerificationUrl(email);

@@ -361,10 +361,12 @@ class BattleMapFlowTest {
         mvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"displayName\":\"" + username + "\","
+                                + "\"realName\":\"Real " + username + "\","
                                 + "\"email\":\"" + username + "@example.com\","
                                 + "\"dateOfBirth\":\"1990-01-15\","
                                 + "\"username\":\"" + username + "\","
-                                + "\"password\":\"Password1!\"}"))
+                                + "\"password\":\"Password1!\","
+                                + "\"confirmPassword\":\"Password1!\"}"))
                 .andExpect(status().isCreated());
 
         List<com.gamer.fowever.tabletopservice.domain.EmailVerificationToken> tokens = tokenRepository.findAll();
