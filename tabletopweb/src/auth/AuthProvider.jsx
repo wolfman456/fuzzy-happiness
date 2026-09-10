@@ -53,6 +53,8 @@ export function AuthProvider({ children }) {
   const refreshMe = useCallback(async () => {
     const me = await api('/api/users/me')
     setUser(me)
+    const stored = loadStoredSession()
+    if (stored) saveSession(stored.token, me)
     return me
   }, [])
 

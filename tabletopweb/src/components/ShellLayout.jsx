@@ -18,6 +18,9 @@ export default function ShellLayout() {
             <Link to="/characters" className="text-sm text-zinc-500 hover:text-zinc-900">
               Characters
             </Link>
+            <Link to="/settings" className="text-sm text-zinc-500 hover:text-zinc-900">
+              Settings
+            </Link>
           </nav>
           <div className="flex items-center gap-4">
             {user && (

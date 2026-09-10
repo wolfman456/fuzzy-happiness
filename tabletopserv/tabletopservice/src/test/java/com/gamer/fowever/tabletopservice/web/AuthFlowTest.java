@@ -17,6 +17,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -164,6 +165,78 @@ class AuthFlowTest {
                 .andExpect(status().isUnauthorized());
 
         mvc.perform(get("/api/users/me").header("Authorization", "Bearer not.a.jwt"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void userCanChangeOwnUsername() throws Exception {
+        mvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON).content(REGISTER_BODY))
+                .andExpect(status().isCreated());
+        List<EmailVerificationToken> tokens = tokenRepository.findAll();
+        mvc.perform(get("/api/auth/verify").param("token", tokens.get(0).getToken()))
+                .andExpect(status().isOk());
+
+        MvcResult login = mvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"identifier\":\"aria\",\"password\":\"Password1!\"}"))
+                .andExpect(status().isOk())
+                .andReturn();
+        String jwt = JsonPath.read(login.getResponse().getContentAsString(), "$.token");
+
+        MvcResult renamed = mvc.perform(patch("/api/users/me/username")
+                        .header("Authorization", "Bearer " + jwt)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\":\"aria2\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.username").value("aria2"))
+                .andReturn();
+        assertThat(JsonPath.read(renamed.getResponse().getContentAsString(), "$.id").toString()).isNotBlank();
+
+        mvc.perform(get("/api/users/me").header("Authorization", "Bearer " + jwt))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.username").value("aria2"));
+    }
+
+    @Test
+    void usernameChangeRejectsTakenAndInvalidNames() throws Exception {
+        mvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON).content(REGISTER_BODY))
+                .andExpect(status().isCreated());
+        mvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"displayName\":\"Other\","
+                                + "\"realName\":\"Other Person\",\"email\":\"other@example.com\","
+                                + "\"dateOfBirth\":\"1990-01-15\",\"username\":\"other\",\"password\":\"Password1!\","
+                                + "\"confirmPassword\":\"Password1!\"}"))
+                .andExpect(status().isCreated());
+        List<EmailVerificationToken> tokens = tokenRepository.findAll();
+        for (EmailVerificationToken token : tokens) {
+            mvc.perform(get("/api/auth/verify").param("token", token.getToken())).andExpect(status().isOk());
+        }
+
+        MvcResult login = mvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"identifier\":\"aria\",\"password\":\"Password1!\"}"))
+                .andExpect(status().isOk())
+                .andReturn();
+        String jwt = JsonPath.read(login.getResponse().getContentAsString(), "$.token");
+
+        mvc.perform(patch("/api/users/me/username")
+                        .header("Authorization", "Bearer " + jwt)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\":\"other\"}"))
+                .andExpect(status().isConflict());
+
+        mvc.perform(patch("/api/users/me/username")
+                        .header("Authorization", "Bearer " + jwt)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\":\"ab\"}"))
+                .andExpect(status().isBadRequest());
+
+        mvc.perform(patch("/api/users/me/username")
+                        .header("Authorization", "Bearer not.a.jwt")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\":\"aria2\"}"))
                 .andExpect(status().isUnauthorized());
     }
 }

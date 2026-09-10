@@ -154,6 +154,14 @@ backend tests, jacoco gate met. Frontend: `src/lib/monsters.js` (CR/role/edition
   interfaces — email-verify tokens parsed from the child JVM log. CI (`maven.yml`) now runs
   `./mvnw -B verify` on every push/PR to `develop`. Jenkins decision (advisory): not adopted;
   GH Actions + manual `railway up` cover CI/CD for now.
+- **Account username changes + dragon theming** — `feature/username-change-and-dragon-bg`
+  (R21/R22). Backend: `PATCH /api/users/me/username` (interface in `tabletopapi`, impl in
+  `MeControllerImpl`, case-insensitive uniqueness excluding self, 409 on taken, no-op short
+  circuit) plus 2 unit, 2 web and 2 functional journeys. Frontend: a `/settings` page with a
+  username-change form (`src/lib/api.js#updateUsername`), `refreshMe` now persists the refreshed
+  profile to `localStorage`, and the sign-in/sign-up screens share an `AuthBackground` component
+  using the Pixabay-licensed dragon image (`public/dragon-bg.jpg`, photo 9728447) over a dark
+  overlay. 162 frontend tests (Vitest), oxlint + build clean.
 
 Next: production deploys (R14 — Railway auto-deploy from GitHub, rootDirectory per service), the
 optional 3D viewport (§17), and the rest of the game table (multi-map, fog of war, turn timers,

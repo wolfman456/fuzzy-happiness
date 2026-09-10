@@ -75,3 +75,7 @@ export function joinSession(inviteCode) {
 export function leaveSession(id) {
   return api(`/api/sessions/${id}/leave`, { method: 'POST' })
 }
+
+export function updateUsername(username) {
+  return api('/api/users/me/username', { method: 'PATCH', body: { username } })
+}
