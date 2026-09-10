@@ -6,13 +6,16 @@ import { useAuth } from './useAuth'
 const BASE = 'http://localhost:8080'
 
 function Probe() {
-  const { user, loading, login, logout } = useAuth()
+  const { user, loading, login, logout, refreshMe } = useAuth()
   return (
     <div>
       <span data-testid="loading">{String(loading)}</span>
       <span data-testid="user">{user ? user.username : 'none'}</span>
       <button type="button" onClick={() => login({ identifier: 'aria', password: 'Password1!' })}>
         login
+      </button>
+      <button type="button" onClick={refreshMe}>
+        refresh
       </button>
       <button type="button" onClick={logout}>
         logout
@@ -86,6 +89,22 @@ describe('AuthProvider', () => {
     await screen.findByText('sam')
     expect(JSON.parse(localStorage.getItem('tt.auth'))).toMatchObject({ token: 'jwt-new' })
     expect(fetch.mock.calls[0][1].body).toBe(JSON.stringify({ identifier: 'aria', password: 'Password1!' }))
+  })
+
+  it('refreshMe persists a refreshed user to the stored session', async () => {
+    localStorage.setItem('tt.auth', JSON.stringify({ token: 'jwt-1', user: { username: 'aria' } }))
+    mockFetchOnce(200, { id: 1, username: 'drake', displayName: 'Aria', email: 'a@e.com', role: 'USER', emailVerified: true })
+
+    render(
+      <AuthProvider>
+        <Probe />
+      </AuthProvider>,
+    )
+
+    await screen.findByText('drake')
+    fireEvent.click(screen.getByText('refresh'))
+    await waitFor(() => expect(JSON.parse(localStorage.getItem('tt.auth')).user.username).toBe('drake'))
+    expect(screen.getByTestId('user').textContent).toBe('drake')
   })
 
   it('logs out and clears the session', async () => {

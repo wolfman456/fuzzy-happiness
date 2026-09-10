@@ -1,11 +1,15 @@
 package com.gamer.fowever.tabletopservice.web;
 
 import com.gamer.fowever.tabletopapi.MeApi;
+import com.gamer.fowever.tabletopapi.dto.UpdateUsernameRequest;
 import com.gamer.fowever.tabletopapi.dto.UserSummary;
 import com.gamer.fowever.tabletopservice.domain.User;
+import com.gamer.fowever.tabletopservice.service.AuthService;
 import com.gamer.fowever.tabletopservice.support.Dtos;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -13,9 +17,22 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/users")
 public class MeControllerImpl implements MeApi {
 
+    private final AuthService authService;
+
+    public MeControllerImpl(AuthService authService) {
+        this.authService = authService;
+    }
+
     @GetMapping("/me")
     @Override
     public UserSummary me(Authentication authentication) {
         return Dtos.userSummary((User) authentication.getPrincipal());
+    }
+
+    @PatchMapping("/me/username")
+    @Override
+    public UserSummary updateUsername(@RequestBody UpdateUsernameRequest request,
+                                     Authentication authentication) {
+        return authService.updateUsername((User) authentication.getPrincipal(), request);
     }
 }

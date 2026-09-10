@@ -105,4 +105,64 @@ class AuthJourneyIT extends FunctionalTestBase {
         assertThat(Api.get(baseUrl() + "/api/users/me", null).status()).isEqualTo(401);
         assertThat(Api.get(baseUrl() + "/api/users/me", "not.a.jwt").status()).isEqualTo(401);
     }
+
+    @Test
+    void userCanChangeOwnUsername() throws Exception {
+        String username = "itarename";
+        String email = username + "@example.com";
+        Api.requireStatus(Api.post(baseUrl() + "/api/auth/register", null,
+                Api.body(Map.of("displayName", "Rena", "realName", "Rena R", "email", email,
+                        "dateOfBirth", "1990-01-15", "username", username,
+                        "password", PASSWORD, "confirmPassword", PASSWORD))),
+                201, "register");
+
+        String verifyUrl = backend().awaitVerificationUrl(email);
+        Api.requireStatus(Api.get(verifyUrl, null), 200, "verify");
+
+        Api.Response login = Api.post(baseUrl() + "/api/auth/login", null,
+                Api.body(Map.of("identifier", username, "password", PASSWORD)));
+        String jwt = Api.json(login.body()).get("token").asText();
+
+        String newUsername = "itarename2";
+        Api.Response renamed = Api.patch(baseUrl() + "/api/users/me/username", jwt,
+                Api.body(Map.of("username", newUsername)));
+        Api.requireStatus(renamed, 200, "rename");
+        assertThat(Api.json(renamed.body()).get("username").asText()).isEqualTo(newUsername);
+
+        JsonNode me = Api.json(Api.get(baseUrl() + "/api/users/me", jwt).body());
+        assertThat(me.get("username").asText()).isEqualTo(newUsername);
+
+        Api.Response relogin = Api.post(baseUrl() + "/api/auth/login", null,
+                Api.body(Map.of("identifier", newUsername, "password", PASSWORD)));
+        Api.requireStatus(relogin, 200, "login with renamed username");
+
+        Api.Response second = Api.patch(baseUrl() + "/api/users/me/username", jwt,
+                Api.body(Map.of("username", newUsername)));
+        Api.requireStatus(second, 200, "noop rename");
+        assertThat(Api.json(second.body()).get("username").asText()).isEqualTo(newUsername);
+    }
+
+    @Test
+    void usernameChangeRejectsTakenName() throws Exception {
+        Api.requireStatus(Api.post(baseUrl() + "/api/auth/register", null,
+                Api.body(Map.of("displayName", "A", "realName", "A A", "email", "itaa@example.com",
+                        "dateOfBirth", "1990-01-15", "username", "reat1",
+                        "password", PASSWORD, "confirmPassword", PASSWORD))),
+                201, "register one");
+        Api.requireStatus(Api.post(baseUrl() + "/api/auth/register", null,
+                Api.body(Map.of("displayName", "B", "realName", "B B", "email", "itbb@example.com",
+                        "dateOfBirth", "1990-01-15", "username", "reat2",
+                        "password", PASSWORD, "confirmPassword", PASSWORD))),
+                201, "register two");
+        String verifyUrl = backend().awaitVerificationUrl("itaa@example.com");
+        Api.requireStatus(Api.get(verifyUrl, null), 200, "verify one");
+
+        Api.Response login = Api.post(baseUrl() + "/api/auth/login", null,
+                Api.body(Map.of("identifier", "reat1", "password", PASSWORD)));
+        String jwt = Api.json(login.body()).get("token").asText();
+
+        Api.Response conflict = Api.patch(baseUrl() + "/api/users/me/username", jwt,
+                Api.body(Map.of("username", "reat2")));
+        assertThat(conflict.status()).isEqualTo(409);
+    }
 }

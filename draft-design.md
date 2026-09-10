@@ -397,6 +397,7 @@ POST   /api/auth/login               obtain token (username or email)        ✓
 GET    /api/auth/verify?token=       confirm email (single-use, 24h)         ✓
 POST   /api/auth/resend-verification resend verification (60s cooldown)      ✓
 GET    /api/users/me                 current user profile (JWT)              ✓
+PATCH  /api/users/me/username         change own username                       ✓
 GET    /api/admin/users              admin-only user listing                 ✓
 POST   /api/sessions               create session (returns invite code)      ✓
 GET    /api/sessions/{id}          snapshot (participants, game, status)      ✓

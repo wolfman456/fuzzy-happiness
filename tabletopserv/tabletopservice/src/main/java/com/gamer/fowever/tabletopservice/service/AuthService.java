@@ -1,20 +1,22 @@
 package com.gamer.fowever.tabletopservice.service;
 
 import com.gamer.fowever.tabletopapi.AuthRole;
-import com.gamer.fowever.tabletopservice.domain.EmailVerificationToken;
-import com.gamer.fowever.tabletopservice.domain.User;
 import com.gamer.fowever.tabletopapi.dto.AuthResponse;
 import com.gamer.fowever.tabletopapi.dto.LoginRequest;
 import com.gamer.fowever.tabletopapi.dto.RegisterRequest;
 import com.gamer.fowever.tabletopapi.dto.RegisterResponse;
+import com.gamer.fowever.tabletopapi.dto.UpdateUsernameRequest;
+import com.gamer.fowever.tabletopapi.dto.UserSummary;
+import com.gamer.fowever.tabletopapi.support.ApiException;
+import com.gamer.fowever.tabletopapi.support.PasswordPolicy;
+import com.gamer.fowever.tabletopservice.domain.EmailVerificationToken;
+import com.gamer.fowever.tabletopservice.domain.User;
 import com.gamer.fowever.tabletopservice.email.EmailSender;
 import com.gamer.fowever.tabletopservice.repository.EmailVerificationTokenRepository;
 import com.gamer.fowever.tabletopservice.repository.UserRepository;
 import com.gamer.fowever.tabletopservice.security.JwtService;
-import com.gamer.fowever.tabletopapi.support.ApiException;
 import com.gamer.fowever.tabletopservice.support.Dtos;
 import com.gamer.fowever.tabletopservice.support.PiiCrypto;
-import com.gamer.fowever.tabletopapi.support.PasswordPolicy;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -105,6 +107,20 @@ public class AuthService {
         }
         return new AuthResponse(jwtService.generateToken(user), "Bearer",
                 jwtExpirationMillis / 1000, Dtos.userSummary(user));
+    }
+
+    @Transactional
+    public UserSummary updateUsername(User user, UpdateUsernameRequest request) {
+        String newUsername = request.username().trim();
+        if (newUsername.equalsIgnoreCase(user.getUsername())) {
+            return Dtos.userSummary(user);
+        }
+        if (userRepository.existsByUsernameIgnoreCase(newUsername)) {
+            throw ApiException.conflict("Username is already taken");
+        }
+        user.setUsername(newUsername);
+        userRepository.save(user);
+        return Dtos.userSummary(user);
     }
 
     @Transactional

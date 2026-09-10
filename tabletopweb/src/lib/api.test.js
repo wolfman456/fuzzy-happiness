@@ -9,6 +9,7 @@ import {
   listGames,
   setAuthToken,
   setUnauthorizedHandler,
+  updateUsername,
 } from './api'
 
 const BASE = 'http://localhost:8080'
@@ -126,5 +127,15 @@ describe('api', () => {
     const [url, init] = fetch.mock.calls[0]
     expect(url).toBe(`${BASE}/api/sessions/7/leave`)
     expect(init.method).toBe('POST')
+  })
+
+  it('updateUsername PATCHes /api/users/me/username', async () => {
+    mockFetch(200, { id: 1, username: 'drake', displayName: 'Aria', email: 'a@e.com', role: 'USER', emailVerified: true })
+    const user = await updateUsername('drake')
+    expect(user.username).toBe('drake')
+    const [url, init] = fetch.mock.calls[0]
+    expect(url).toBe(`${BASE}/api/users/me/username`)
+    expect(init.method).toBe('PATCH')
+    expect(init.body).toBe(JSON.stringify({ username: 'drake' }))
   })
 })
