@@ -20,8 +20,8 @@ Status key: ✅ landed · 🔨 in progress · ⏭ deferred (post-MVP)
 - As a DM I want all external data and generation calls (SRD lookups, monster generation, future integrations) to route through a single secure Express gateway so our backend only talks to vetted, allowlisted upstream services. (R10) ✅ landed
 - As a DM I want to create homebrew content (e.g. monsters) that my GM tooling can persist and reuse across sessions. (R11) ✅ landed (ships with R9)
 - As a Player I want an optional 3D view of the battle map with player avatars and monster minis so the table feels more immersive alongside the existing 2D grid. (R12) ⏭ deferred (post-MVP, draft-design §17)
-- As a Player I want to create a D&D character through a guided wizard or a "surprise me" quick-build so I can bring a legal level 1–3 hero to my sessions. (R13) 🔨 in progress (draft-design §8)
-- As a DM I want the platform to run on a production database behind CI so we can actually play with friends online. (R14) 🔨 in progress (draft-design §11/§13 Stage 5; Railway deploys targeted — §19)
+- As a Player I want to create a D&D character through a guided wizard or a "surprise me" quick-build so I can bring a legal level 1–3 hero to my sessions. (R13) ✅ landed (draft-design §8, PR #31)
+- As a DM I want the platform to run on a production database behind CI so we can actually play with friends online. (R14) ✅ landed (draft-design §11/§13 Stage 5; Railway infra as code — §19, PR #31)
 
 ## MVP definition (agreed 2026-09-08)
 
