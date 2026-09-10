@@ -111,6 +111,53 @@ describe('createApp', () => {
     expect((await request(app).get('/api/srd/spells/../api').set('x-gateway-token', TOKEN)).status).toBe(403);
   });
 
+  it('forwards an allowlisted class subresource (spells/levels)', async () => {
+    const fetchFn = vi.fn(async (url) => {
+      const parsed = new URL(url);
+      expect(parsed.origin).toBe('https://www.dnd5eapi.co');
+      expect(parsed.pathname).toBe('/api/2014/classes/cleric/spells');
+      expect(parsed.searchParams.get('level')).toBe('0');
+      return okResponse({ count: 7 });
+    });
+    const { app } = makeApp({ fetchFn });
+    const res = await request(app)
+      .get('/api/srd/classes/cleric/spells?level=0')
+      .set('x-gateway-token', TOKEN);
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ count: 7 });
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+  });
+
+  it('forwards an allowlisted class levels subresource', async () => {
+    const fetchFn = vi.fn(async (url) => {
+      expect(new URL(url).pathname).toBe('/api/2014/classes/cleric/levels');
+      return okResponse([{ level: 1, prof_bonus: 2 }]);
+    });
+    const { app } = makeApp({ fetchFn });
+    const res = await request(app).get('/api/srd/classes/cleric/levels').set('x-gateway-token', TOKEN);
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
+  });
+
+  it('rejects unlisted subresources with 403', async () => {
+    const { app } = makeApp();
+    expect((await request(app).get('/api/srd/classes/cleric/proficiencies').set('x-gateway-token', TOKEN)).status)
+      .toBe(403);
+    expect((await request(app).get('/api/srd/races/dwarf/anything').set('x-gateway-token', TOKEN)).status)
+      .toBe(403);
+  });
+
+  it('caches subresource responses separately from the detail resource', async () => {
+    const fetchFn = vi.fn(async (url) => okResponse({ url }));
+    const { app } = makeApp({ fetchFn });
+    await request(app).get('/api/srd/classes/cleric').set('x-gateway-token', TOKEN);
+    await request(app).get('/api/srd/classes/cleric/levels').set('x-gateway-token', TOKEN);
+    expect(fetchFn).toHaveBeenCalledTimes(2);
+    const cached = await request(app).get('/api/srd/classes/cleric/levels').set('x-gateway-token', TOKEN);
+    expect(cached.headers['x-gateway-cache']).toBe('HIT');
+    expect(fetchFn).toHaveBeenCalledTimes(2);
+  });
+
   it('rejects non-GET methods with 403', async () => {
     const { app } = makeApp();
     const res = await request(app).post('/api/srd/races').set('x-gateway-token', TOKEN);

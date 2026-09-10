@@ -5,6 +5,7 @@ export const SRD_COLLECTIONS = [
   'classes',
   'subclasses',
   'subraces',
+  'backgrounds',
   'ability-scores',
   'skills',
   'proficiencies',
@@ -21,6 +22,15 @@ export const SRD_COLLECTIONS = [
 
 export const SRD_ALLOWED_PARAMS = ['level', 'school', 'name', 'index'];
 
+/**
+ * Third path segment allowed under a collection's detail resource. Deny-by-default:
+ * only the subresources the character builder actually needs are allowed.
+ * (e.g. /api/srd/classes/cleric/spells, /api/srd/classes/cleric/levels)
+ */
+export const SRD_SUBRESOURCES = {
+  classes: ['spells', 'levels'],
+};
+
 export const SRD_TIMEOUT_MS = 8000;
 export const SRD_MAX_BYTES = 2 * 1024 * 1024;
 export const SRD_LIST_TTL_MS = 60 * 60 * 1000;
@@ -35,6 +45,7 @@ export function defaultRoutes() {
       collections: SRD_COLLECTIONS,
       allowQuery: new Set(SRD_ALLOWED_PARAMS),
       indexPattern: /^[A-Za-z0-9_-]+$/,
+      subresources: SRD_SUBRESOURCES,
       timeoutMs: SRD_TIMEOUT_MS,
       maxBytes: SRD_MAX_BYTES,
       cacheTtlMs: { list: SRD_LIST_TTL_MS, detail: SRD_DETAIL_TTL_MS },

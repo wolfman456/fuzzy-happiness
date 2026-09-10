@@ -1,5 +1,6 @@
 package com.gamer.fowever.tabletopservice.domain;
 
+import com.gamer.fowever.tabletopapi.ScoreSource;
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
 import jakarta.persistence.DiscriminatorValue;
@@ -73,9 +74,18 @@ public class Dnd5eCharacter extends Character {
     @Column(name = "feature_index")
     private Set<String> featureIndexes = new HashSet<>();
 
+    @ElementCollection
+    @CollectionTable(name = "character_equipment", joinColumns = @JoinColumn(name = "character_id"))
+    @Column(name = "equipment_index")
+    private Set<String> equipmentIndexes = new HashSet<>();
+
     private int hitPoints;
 
     private int armorClass;
+
+    /** Derived from the race record at compile time (25/30/35/40 ft). */
+    @Column(name = "speed_feet")
+    private int speedFeet;
 
     private int proficiencyBonus;
 

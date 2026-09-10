@@ -16,11 +16,14 @@ import java.util.Set;
 public class SrdClient {
 
     private static final Set<String> COLLECTIONS = Set.of(
-            "races", "classes", "subclasses", "subraces", "ability-scores", "skills",
+            "races", "classes", "subclasses", "subraces", "backgrounds", "ability-scores", "skills",
             "proficiencies", "equipment", "equipment-categories", "spells", "features",
             "traits", "feats", "conditions", "languages", "monsters");
 
     private static final Set<String> ALLOWED_PARAMS = Set.of("level", "school", "name", "index");
+
+    private static final Map<String, Set<String>> SUBRESOURCES = Map.of(
+            "classes", Set.of("spells", "levels"));
 
     private final GatewayClient gatewayClient;
     private final ObjectMapper objectMapper;
@@ -39,6 +42,14 @@ public class SrdClient {
     public JsonNode detail(String collection, String index) {
         requireCollection(collection);
         return fetch("/api/srd/" + collection + "/" + index, Map.of());
+    }
+
+    public JsonNode subresource(String collection, String index, String subresource, Map<String, String> params) {
+        requireCollection(collection);
+        if (!SUBRESOURCES.getOrDefault(collection, Set.of()).contains(subresource)) {
+            throw ApiException.badRequest("unknown SRD subresource: " + collection + "/" + subresource);
+        }
+        return fetch("/api/srd/" + collection + "/" + index + "/" + subresource, curateParams(params));
     }
 
     private Map<String, String> curateParams(Map<String, String> params) {

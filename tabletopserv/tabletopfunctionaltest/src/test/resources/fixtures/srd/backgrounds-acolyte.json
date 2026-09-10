@@ -1,0 +1,10 @@
+{
+  "fixture": true,
+  "index": "acolyte",
+  "name": "Acolyte",
+  "starting_equipment": [
+    { "equipment": { "index": "block-incense", "name": "Block of incense", "url": "/api/2014/equipment/block-incense" } },
+    { "equipment": { "index": "censer", "name": "Censer", "url": "/api/2014/equipment/censer" } },
+    { "equipment": { "index": "vestments", "name": "Priest's vestments", "url": "/api/2014/equipment/vestments" } }
+  ]
+}
