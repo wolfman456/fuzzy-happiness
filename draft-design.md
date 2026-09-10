@@ -6,6 +6,14 @@
 > `*IT` journey suites (auth, session/STOMP, dice, battle map/initiative, monster, SRD) bound
 > to `./mvnw verify` and CI (`maven.yml` runs `verify` on every push/PR to `develop`).
 > Jenkins stays advisory-only.
+> Draft v0.14 (in `feature/chargen`) ships **character generation (R13, §8)** end-to-end: a
+> draft→compile→finalize server flow (CharacterApi + CharacterService + ChargenRules, 200
+> CompileResult with violations when illegal, persisted snapshot) with functional coverage
+> (CharacterJourneyIT, 6 journeys), plus the frontend character builder — `CharactersPage` (list
+> + quick-build "surprise me"), `CharacterWizardPage` (10-step guided wizard with client caps
+> mirroring the server) and `CharacterSheetPage`. The SRD allowlists are completed (gateway +
+> SrdClient include `backgrounds`). The same PR prepares **Railway auto-deploy (R14, §19)** by
+> wiring services to the GitHub repo source with per-service `rootDirectory`.
 > **Status:** Draft v0.10 — accounts/auth end-to-end (backend `feature/spring-security` + web UI
 > in `feature/frontend-auth`), Stage 1 "Sessions & chat" (lobby with invite codes,
 > create/join/leave, live chat + presence over STOMP, in `feature/sessions`), the first
@@ -470,6 +478,10 @@ hidden frame).
 > outbound path lands: **Express egress gateway** (`tabletopgateway/`) + the **SRD rewire**
 > through it (`/api/srd/*` via `GatewayClient`/`SrdClient`), in `feature/backend-modules-gateway`.
 | 2. Characters | abstract `Character`, registry, D&D sheet model + **generation** (guided wizard + quick-build) backed by the SRD proxy, server compile validation | create a validated level 1–3 D&D character via wizard or quick-build |
+> Stage 2 status (characters): **complete** (Draft v0.14, `feature/chargen`) — backend
+> chargen (draft → compile → finalize, `CharacterApi` + `ChargenRules`, functional tests via
+> `CharacterJourneyIT`) and the web UI (list, wizard, quick-build, sheet, `/characters` routes)
+> shipped; frontend 154 tests green, jacoco 92.87%.
 | 3. Game table | dice rolls ✓, initiative/order ✓, shared table state — battle map track 1 (grid, tokens, per-turn movement budget) ✓: see §14; 3D viewport (R3F) is a later enhancement to this stage (§17) | grid battle map synced, movement budget, server dice (public + GM-private hidden frames), initiative order with auto d20 |
 | 3b. Gateway + monsters | Express egress gateway ✓ (SRD flows through it, §16) + homebrew monster generation ✓ (deterministic engine, §9b — LLM flavor deferred) | all outbound calls flow through the gateway; CR+role → valid statblock, persisted `Monster` reused across sessions (R9-R11) |
 | 4. Discord | OAuth connect + deep-link voice | "Connect Discord" flows to voice + table side-by-side |
@@ -570,6 +582,16 @@ on upstream failure; the Spring side routes `/api/srd/*` through it via `Gateway
   4d6-drop-lowest selectable; the 6×d20 house rule becomes an optional score source; HP = max
   at level 1 + CON per level; proficiency bonus +2 for levels 1–3. The 2024 ruleset stays
   deferred alongside the SRD `/api/2024` upgrade path.
+- **Chargen (implemented, §8):** server-side flow in `CharacterService` + `ChargenRules`:
+  `POST /api/characters/compile` (idempotent validate + derive; returns 200 `CompileResult`
+  with `valid`, `violations`, `sheet` even when illegal), `POST /api/characters/generate`
+  (random quick-build), `GET|POST /api/users/me/characters` and `GET /api/users/me/characters/{id}`
+  with per-user access; `CharacterDraftDto` / `CharacterSheetDto` (persisted snapshot) /
+  `ScoreSource` live in `tabletopapi`. `CharacterJourneyIT` covers the full journey including
+  standard array, point-buy, 4d6, illegal drafts and the generate happy path. Web UI in
+  `feature/chargen`: `CharactersPage` (list + quick-build with preview/save/revise) and
+  `CharacterWizardPage` (10-step guided flow with skill/spell pick caps mirroring the server)
+  and `CharacterSheetPage`; routes at `/characters`, `/characters/new`, `/characters/:id`.
 
 - Do we need friends list / permanent groups, or is invite-code enough for now?
 - Exact D&D 5e sheet fields — confirm which sets matter for v1.
@@ -770,12 +792,12 @@ the way a browser/API client would, without polluting the service module's cover
 
 ## 19. Deployment (Railway)
 
-**Decision (Draft v0.12):** host the MVP on **Railway** — one project with a managed
+**Decision (Draft v0.12 / updated v0.14):** host the MVP on **Railway** — one project with a managed
 **Postgres** database and three deployable services. Config is **Infrastructure-as-Code**
 (`.railway/railway.ts`, evaluated/ applied by the Railway CLI) because Railway's legacy
-`railway.toml` config-as-code is deprecated (hard cutoff **2026-12-01**). Deploys are
-**manual CLI** (`railway up`) per app directory; there is **no GitHub integration** and no CI
-deploy step for now.
+`railway.toml` config-as-code is deprecated (hard cutoff **2026-12-01**). Each service now has
+a **`source: github(..., { rootDirectory })`** so pushes to `master` trigger an automatic
+build in the correct app directory; manual `railway up` remains available as an escape hatch.
 
 ```
                     ┌──────────────────────────────────────────────┐
@@ -838,8 +860,9 @@ secrets `preserve()` so a later `railway config apply` never overwrites dashboar
 railway login
 railway link                 # link repo ↔ project
 railway config plan          # preview IaC diff (safe)
-railway config apply         # create Postgres + 3 services
-# per app: cd <dir> && railway up
+railway config apply         # create Postgres + 3 services (needs user go-ahead)
+# per app: cd <dir> && railway up      # manual escape hatch
+# auto-deploy: pushes to master trigger a build per service rootDirectory
 ```
 
 Set the dashboard secrets above, give the backend a public domain (or set `CORS_ALLOWED_ORIGINS`

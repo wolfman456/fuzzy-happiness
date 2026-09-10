@@ -126,6 +126,20 @@ backend tests, jacoco gate met. Frontend: `src/lib/monsters.js` (CR/role/edition
   `0.0.0.0` when a container `PORT` exists (`resolveListenConfig`); the web app ships as nginx
   serving the Vite build behind a React-Router SPA fallback. Dockerfiles for `tabletopserv/`
   and `tabletopweb/`, plus [Deployment](#deployment-railway) docs.
+- **Character generation (R13)** — `feature/chargen`. Backend: `CharacterApi` with
+  draft→compile→finalize in `CharacterService` + `ChargenRules`, `ScoreSource` (standard
+  array default, point-buy, 4d6-drop-lowest, house-rule 6×d20), `POST /api/characters/compile`
+  (validates choices + derives stats, returns 200 `CompileResult` even when illegal),
+  `POST /api/characters/generate` (random quick-build), `GET|POST /api/users/me/characters`
+  and `GET /api/users/me/characters/{id}`; persisted `Dnd5eCharacter` with a JSON display
+  snapshot. SRD allowlists updated (gateway + `SrdClient` now include `backgrounds`).
+  `CharacterJourneyIT` (6 journeys) added to the functional suite. 224 backend tests, jacoco
+  92.87%. Frontend: `src/lib/characters.js` + `srd.js` (API/catalog layer), `CharactersPage`
+  (list + "surprise me" quick-build with preview and save), `CharacterWizardPage` (10-step
+  guided flow with client-side caps mirroring the server rules), `CharacterSheetPage` (read-only
+  stat blocks, scores, skills, spells, equipment). Routes `/characters`,
+  `/characters/new`, `/characters/:id` live; nav link enabled; Dashboard cards updated.
+  154 frontend tests, oxlint + build clean.
 - **Backend functional/E2E module** — `feature/functional-tests` (Draft v0.13, §18). The
   `tabletopfunctionaltest` module goes live: `maven-failsafe-plugin` binds `*IT` journey
   classes (auth, session/STOMP, dice, battle map/initiative, monster, SRD) to `verify`, so
@@ -136,9 +150,9 @@ backend tests, jacoco gate met. Frontend: `src/lib/monsters.js` (CR/role/edition
   `./mvnw -B verify` on every push/PR to `develop`. Jenkins decision (advisory): not adopted;
   GH Actions + manual `railway up` cover CI/CD for now.
 
-Next: character generation backed by the SRD (Stage 2) and the optional 3D viewport (§17)
-plus the rest of the game table (multi-map, fog of war, turn timers, conditions). The out-of-MVP
-list lives in [Wants.md](Wants.md).
+Next: production deploys (R14 — Railway auto-deploy from GitHub, rootDirectory per service), the
+optional 3D viewport (§17), and the rest of the game table (multi-map, fog of war, turn timers,
+conditions). The out-of-MVP list lives in [Wants.md](Wants.md).
 
 ## Deployment (Railway)
 

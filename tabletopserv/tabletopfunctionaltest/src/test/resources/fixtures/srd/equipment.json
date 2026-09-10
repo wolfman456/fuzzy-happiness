@@ -1,0 +1,8 @@
+{
+  "fixture": true,
+  "count": 2,
+  "results": [
+    { "index": "leather-armor", "name": "Leather Armor", "url": "/api/2014/equipment/leather-armor" },
+    { "index": "shield", "name": "Shield", "url": "/api/2014/equipment/shield" }
+  ]
+}

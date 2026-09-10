@@ -7,12 +7,13 @@ function respondError(res, status, message) {
   res.status(status).json({ status, message });
 }
 
-function buildCacheKey(route, collection, index, params) {
+function buildCacheKey(route, collection, index, subresource, params) {
   const paramKey = Object.keys(params)
     .sort()
     .map((k) => `${k}=${params[k]}`)
     .join('&');
-  return `${route.name}:${collection}${index ? `/${index}` : ''}${paramKey ? `?${paramKey}` : ''}`;
+  const suffix = index ? `/${index}${subresource ? `/${subresource}` : ''}` : '';
+  return `${route.name}:${collection}${suffix}${paramKey ? `?${paramKey}` : ''}`;
 }
 
 function filterQuery(route, query, res) {
@@ -82,11 +83,15 @@ export function createForwarder({ route, cache, fetchFn = fetch, dnsLookup }) {
     res.set('x-correlation-id', correlationId);
 
     const segments = req.path.split('/').filter(Boolean);
-    const [collection, index] = segments;
+    const [collection, index, subresource] = segments;
     if (!collection || !route.collections.includes(collection)) {
       return respondError(res, 403, `path not allowed: ${req.path}`);
     }
-    if (segments.length > 2) {
+    if (segments.length > 3) {
+      return respondError(res, 403, `path not allowed: ${req.path}`);
+    }
+    if (subresource !== undefined
+        && !(route.subresources?.[collection]?.includes(subresource))) {
       return respondError(res, 403, `path not allowed: ${req.path}`);
     }
     if (index !== undefined && !route.indexPattern.test(index)) {
@@ -96,7 +101,7 @@ export function createForwarder({ route, cache, fetchFn = fetch, dnsLookup }) {
     const params = filterQuery(route, req.query, res);
     if (params === undefined) return undefined;
 
-    const key = buildCacheKey(route, collection, index, params);
+    const key = buildCacheKey(route, collection, index, subresource, params);
     const ttlMs = index !== undefined ? route.cacheTtlMs.detail : route.cacheTtlMs.list;
 
     if (cache.isFresh(key, ttlMs)) {
@@ -105,7 +110,8 @@ export function createForwarder({ route, cache, fetchFn = fetch, dnsLookup }) {
     }
 
     const url = new URL(route.target);
-    url.pathname = `${url.pathname.replace(/\/$/, '')}/${collection}${index ? `/${index}` : ''}`;
+    url.pathname = `${url.pathname.replace(/\/$/, '')}/${collection}`
+      + `${index ? `/${index}` : ''}${subresource ? `/${subresource}` : ''}`;
     for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
 
     try {

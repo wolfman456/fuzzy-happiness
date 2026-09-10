@@ -1,0 +1,33 @@
+{
+  "fixture": true,
+  "index": "cleric",
+  "name": "Cleric",
+  "hit_die": 8,
+  "proficiency_choices": [
+    {
+      "choose": 2,
+      "from": {
+        "options": [
+          { "item": { "index": "skill-history", "name": "History" } },
+          { "item": { "index": "skill-insight", "name": "Insight" } },
+          { "item": { "index": "skill-medicine", "name": "Medicine" } },
+          { "item": { "index": "skill-persuasion", "name": "Persuasion" } },
+          { "item": { "index": "skill-religion", "name": "Religion" } }
+        ]
+      }
+    }
+  ],
+  "saving_throws": [
+    { "index": "wis", "name": "WIS" },
+    { "index": "cha", "name": "CHA" }
+  ],
+  "subclasses": [
+    { "index": "life", "name": "Life", "url": "/api/2014/subclasses/life" }
+  ],
+  "subclass_level": null,
+  "spellcasting": {
+    "level": 1,
+    "spellcasting_ability": { "index": "wis", "name": "WIS" },
+    "info": [ { "name": "Spellcasting Ability", "desc": [] } ]
+  }
+}

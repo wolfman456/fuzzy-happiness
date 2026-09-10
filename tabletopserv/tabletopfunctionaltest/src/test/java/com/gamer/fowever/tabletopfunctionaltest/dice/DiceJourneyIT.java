@@ -16,9 +16,9 @@ import tools.jackson.databind.JsonNode;
 import java.lang.reflect.Type;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -80,17 +80,18 @@ class DiceJourneyIT extends FunctionalTestBase {
         StompSession gm = connect(client, gmJwt);
         StompSession player = connect(client, playerJwt);
 
+        Map<String, Map<String, Object>> gmHiddenByRoll = new ConcurrentHashMap<>();
+        Map<String, Map<String, Object>> playerHiddenByRoll = new ConcurrentHashMap<>();
+        Map<String, Map<String, Object>> gmFullByRoll = new ConcurrentHashMap<>();
         CountDownLatch gmHiddenLatch = new CountDownLatch(1);
         CountDownLatch playerHiddenLatch = new CountDownLatch(1);
         CountDownLatch gmFullLatch = new CountDownLatch(1);
-        AtomicReference<Map<String, Object>> gmHidden = new AtomicReference<>();
-        AtomicReference<Map<String, Object>> playerHidden = new AtomicReference<>();
-        AtomicReference<Map<String, Object>> gmFull = new AtomicReference<>();
 
-        gm.subscribe("/topic/sessions/" + session.id(), diceTopicHandler(gmHidden, gmHiddenLatch));
-        player.subscribe("/topic/sessions/" + session.id(), diceTopicHandler(playerHidden, playerHiddenLatch));
+        gm.subscribe("/topic/sessions/" + session.id(), diceTopicHandler(gmHiddenByRoll, gmHiddenLatch));
+        player.subscribe("/topic/sessions/" + session.id(), diceTopicHandler(playerHiddenByRoll, playerHiddenLatch));
         gm.subscribe("/user/queue/dice", topicAwareFrameHandler((headers, payload) -> {
-            gmFull.set((Map<String, Object>) ((SessionEventDto) payload).payload());
+            Map<String, Object> dice = (Map<String, Object>) ((SessionEventDto) payload).payload();
+            gmFullByRoll.put((String) dice.get("rollId"), dice);
             gmFullLatch.countDown();
         }));
         gm.subscribe("/app/sessions/" + session.id(), topicAwareFrameHandler((headers, payload) -> {
@@ -98,15 +99,26 @@ class DiceJourneyIT extends FunctionalTestBase {
 
         Map<String, Object> full = null;
         Map<String, Object> hidden = null;
+        Map<String, Object> playerHidden = null;
         long deadline = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(10);
         while (full == null && System.currentTimeMillis() < deadline) {
             roll(gmJwt, session.id(), "d100", null, true);
             if (gmHiddenLatch.await(1, TimeUnit.SECONDS)) {
-                hidden = gmHidden.get();
+                hidden = gmHiddenByRoll.values().stream().findFirst().orElse(null);
             }
             playerHiddenLatch.await(1, TimeUnit.SECONDS);
             if (gmFullLatch.await(1, TimeUnit.SECONDS)) {
-                full = gmFull.get();
+                full = gmFullByRoll.values().stream().findFirst().orElse(null);
+            }
+            for (Map.Entry<String, Map<String, Object>> entry : gmHiddenByRoll.entrySet()) {
+                Map<String, Object> gmFullOfRoll = gmFullByRoll.get(entry.getKey());
+                Map<String, Object> playerHiddenOfRoll = playerHiddenByRoll.get(entry.getKey());
+                if (gmFullOfRoll != null && playerHiddenOfRoll != null) {
+                    hidden = entry.getValue();
+                    playerHidden = playerHiddenOfRoll;
+                    full = gmFullOfRoll;
+                    break;
+                }
             }
         }
 
@@ -115,8 +127,8 @@ class DiceJourneyIT extends FunctionalTestBase {
         assertThat(hidden.get("hidden")).isEqualTo(Boolean.TRUE);
         assertThat(hidden).doesNotContainKey("rolls");
         assertThat(hidden).doesNotContainKey("total");
-        assertThat(playerHidden.get()).as("player topic received the hidden roll").isNotNull();
-        assertThat(playerHidden.get().get("rollId")).isEqualTo(hidden.get("rollId"));
+        assertThat(playerHidden).as("player topic received the hidden roll").isNotNull();
+        assertThat(playerHidden.get("rollId")).isEqualTo(hidden.get("rollId"));
         assertThat(full.get("hidden")).isEqualTo(Boolean.TRUE);
         assertThat(full).containsKey("rolls");
         assertThat(full).containsKey("total");
@@ -162,11 +174,12 @@ class DiceJourneyIT extends FunctionalTestBase {
     }
 
     private static StompFrameHandler diceTopicHandler(
-            AtomicReference<Map<String, Object>> capture, CountDownLatch latch) {
+            Map<String, Map<String, Object>> captureByRoll, CountDownLatch latch) {
         return topicAwareFrameHandler((headers, payload) -> {
             SessionEventDto event = (SessionEventDto) payload;
             if (event.type() == EventType.DICE) {
-                capture.set((Map<String, Object>) event.payload());
+                Map<String, Object> dice = (Map<String, Object>) event.payload();
+                captureByRoll.put((String) dice.get("rollId"), dice);
                 latch.countDown();
             }
         });

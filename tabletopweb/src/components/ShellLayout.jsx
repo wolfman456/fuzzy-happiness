@@ -15,13 +15,7 @@ export default function ShellLayout() {
             <Link to="/sessions" className="text-sm text-zinc-500 hover:text-zinc-900">
               Sessions
             </Link>
-            <Link
-              to="/characters"
-              className="text-sm text-zinc-500 hover:text-zinc-900"
-              aria-disabled="true"
-              onClick={(e) => e.preventDefault()}
-              title="Coming soon"
-            >
+            <Link to="/characters" className="text-sm text-zinc-500 hover:text-zinc-900">
               Characters
             </Link>
           </nav>

@@ -1,5 +1,6 @@
 package com.gamer.fowever.tabletopservice.domain;
 
+import com.gamer.fowever.tabletopapi.ScoreSource;
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
 import jakarta.persistence.ElementCollection;

@@ -1,0 +1,7 @@
+{
+  "fixture": true,
+  "count": 1,
+  "results": [
+    { "index": "cleric", "name": "Cleric", "url": "/api/2014/classes/cleric" }
+  ]
+}

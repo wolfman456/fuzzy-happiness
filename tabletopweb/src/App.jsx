@@ -8,6 +8,9 @@ import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import SessionPage from './pages/SessionPage'
 import VerifyPage from './pages/VerifyPage'
+import CharactersPage from './pages/CharactersPage'
+import CharacterWizardPage from './pages/CharacterWizardPage'
+import CharacterSheetPage from './pages/CharacterSheetPage'
 
 export default function App() {
   return (
@@ -22,6 +25,9 @@ export default function App() {
               <Route path="/" element={<Dashboard />} />
               <Route path="/sessions" element={<LobbyPage />} />
               <Route path="/sessions/:id" element={<SessionPage />} />
+              <Route path="/characters" element={<CharactersPage />} />
+              <Route path="/characters/new" element={<CharacterWizardPage />} />
+              <Route path="/characters/:id" element={<CharacterSheetPage />} />
             </Route>
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />

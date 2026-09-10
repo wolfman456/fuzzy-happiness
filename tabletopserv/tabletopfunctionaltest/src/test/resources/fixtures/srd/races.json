@@ -1,0 +1,7 @@
+{
+  "fixture": true,
+  "count": 1,
+  "results": [
+    { "index": "dwarf", "name": "Dwarf", "url": "/api/2014/races/dwarf" }
+  ]
+}

@@ -28,7 +28,7 @@ Pick up where we left off: opencode session resumes via `/sessions`; if starting
 
 ## Next steps
 
-- Character generation (§8) + SRD proxy (§9): `Character` model, compilation, wizard/quick-build — next slice (Stage 2), now backed by gateway-routed SRD.
+- Character generation shipped (§8): draft→compile→finalize backend + frontend wizard/quick-build/sheet (R13 in `feature/chargen`, awaiting merge + deploy). Railway auto-deploy fix (R14) ships in the same PR: add `source: github(...)` + `rootDirectory` per service in `.railway/railway.ts` so deploys build the right app dir.
 - Then table state + dice (§3/§6): DICE events on the existing event stream, server-authoritative rolls.
 - Homebrew monster generation (§9b) via the gateway `llm-monsters` route (Stage 3b).
 - Optional 3D battle-map viewport (§17) via React Three Fiber + drei.

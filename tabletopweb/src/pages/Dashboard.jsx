@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
 
 const ADMIN_USERS_URL = `${import.meta.env.VITE_API_URL ?? 'http://localhost:8080'}/api/admin/users`
@@ -35,15 +36,17 @@ export default function Dashboard() {
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
           <h2 className="font-semibold">Sessions</h2>
-          <p className="mt-1 text-sm text-zinc-500">
-            Create or join a game room with an invite code. Coming soon.
-          </p>
+          <p className="mt-1 text-sm text-zinc-500">Create or join a game room with an invite code.</p>
+          <Link to="/sessions" className="mt-2 inline-block text-sm text-zinc-900 underline">
+            Go to sessions
+          </Link>
         </div>
         <div className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
           <h2 className="font-semibold">Characters</h2>
-          <p className="mt-1 text-sm text-zinc-500">
-            Build a character sheet for your game. Coming soon.
-          </p>
+          <p className="mt-1 text-sm text-zinc-500">Build a D&D character sheet for your game.</p>
+          <Link to="/characters" className="mt-2 inline-block text-sm text-zinc-900 underline">
+            Build your characters
+          </Link>
         </div>
       </section>
 

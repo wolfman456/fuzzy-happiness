@@ -108,4 +108,40 @@ class SrdClientTest {
                 .isInstanceOf(ApiException.class)
                 .hasMessageContaining("rules data unavailable");
     }
+
+    @Test
+    void subresourceForwardsNestedIndexPath() {
+        SrdClient client = new SrdClient(gatewayClient, objectMapper);
+        when(gatewayClient.get("/api/srd/classes/cleric/levels", Map.of()))
+                .thenReturn("[{\"level\":1}]");
+
+        JsonNode result = client.subresource("classes", "cleric", "levels", Map.of());
+
+        assertThat(result.isArray()).isTrue();
+        verify(gatewayClient).get("/api/srd/classes/cleric/levels", Map.of());
+    }
+
+    @Test
+    void subresourceRejectsUnknownSubresource() {
+        SrdClient client = new SrdClient(gatewayClient, objectMapper);
+
+        assertThatThrownBy(() -> client.subresource("classes", "cleric", "proficiencies", Map.of()))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("unknown SRD subresource");
+        assertThatThrownBy(() -> client.subresource("races", "dwarf", "spells", Map.of()))
+                .isInstanceOf(ApiException.class);
+    }
+
+    @Test
+    void subresourceCuratesParams() {
+        SrdClient client = new SrdClient(gatewayClient, objectMapper);
+        when(gatewayClient.get("/api/srd/classes/cleric/spells",
+                Map.of("level", "0"))).thenReturn("{\"count\":7}");
+
+        JsonNode result = client.subresource("classes", "cleric", "spells",
+                Map.of("level", "0", "hacker", "x"));
+
+        assertThat(result.get("count").asInt()).isEqualTo(7);
+        verify(gatewayClient).get(eq("/api/srd/classes/cleric/spells"), eq(Map.of("level", "0")));
+    }
 }
