@@ -58,7 +58,7 @@ export default defineRailway(() => {
       SMTP_PORT: preserve(),
       SMTP_USER: preserve(),
       SMTP_PASSWORD: preserve(),
-      GATEWAY_URL: `http://${gateway.env.RAILWAY_PRIVATE_DOMAIN}`,
+      GATEWAY_URL: "http://gateway.railway.internal",
       GATEWAY_TOKEN: preserve(),
       PGHOST: db.env.PGHOST,
       PGPORT: db.env.PGPORT,
