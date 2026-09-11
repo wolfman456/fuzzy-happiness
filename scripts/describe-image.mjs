@@ -10,7 +10,7 @@
  *
  * Env:
  *   GEMINI_API_KEY   (required) free key from https://aistudio.google.com/apikey
- *   GEMINI_MODEL     (optional, default gemini-2.5-flash)
+ *   GEMINI_MODEL     (optional, default gemini-3.6-flash)
  *   GEMINI_BASE_URL  (optional, default https://generativelanguage.googleapis.com)
  */
 import { readFile } from 'node:fs/promises'
@@ -49,22 +49,33 @@ if (!mime) {
 const data = (await readFile(imagePath)).toString('base64')
 const prompt = process.argv.slice(3).join(' ') || DEFAULT_PROMPT
 
-const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash'
+const model = process.env.GEMINI_MODEL || 'gemini-3.6-flash'
 const base = (process.env.GEMINI_BASE_URL || 'https://generativelanguage.googleapis.com').replace(/\/$/, '')
 const url = `${base}/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`
 
-const response = await fetch(url, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    contents: [
-      {
-        role: 'user',
-        parts: [{ text: prompt }, { inline_data: { mime_type: mime, data } }],
-      },
-    ],
-  }),
-})
+const body = {
+  contents: [
+    {
+      role: 'user',
+      parts: [{ text: prompt }, { inline_data: { mime_type: mime, data } }],
+    },
+  ],
+}
+
+const maxAttempts = 5
+let response
+for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+  response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  const retryable = response.status === 429 || response.status === 500 || response.status === 503
+  if (!retryable || attempt === maxAttempts) break
+  const wait = 2 ** attempt * 1000
+  console.error(`retry ${attempt}/${maxAttempts - 1} after ${response.status} — waiting ${wait / 1000}s`)
+  await new Promise((resolve) => setTimeout(resolve, wait))
+}
 
 if (!response.ok) {
   console.error(`Gemini error ${response.status}: ${await response.text()}`)
