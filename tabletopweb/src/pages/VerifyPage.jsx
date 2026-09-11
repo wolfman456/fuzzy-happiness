@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { api } from '../lib/api'
+import AuthBackground from '../components/AuthBackground'
 
 export default function VerifyPage() {
   const [params] = useSearchParams()
@@ -27,7 +28,7 @@ export default function VerifyPage() {
   }, [token])
 
   return (
-    <div className="grid min-h-screen place-items-center bg-zinc-100 px-4">
+    <AuthBackground>
       <div className="w-full max-w-sm rounded-xl border border-zinc-200 bg-white p-8 text-center shadow-sm">
         {result === 'loading' && <p className="text-sm text-zinc-600">Verifying your email…</p>}
         {result === 'success' && (
@@ -51,6 +52,6 @@ export default function VerifyPage() {
           </>
         )}
       </div>
-    </div>
+    </AuthBackground>
   )
 }

@@ -36,6 +36,8 @@ Status key: ✅ landed · 🔨 in progress · ⏭ deferred (post-MVP)
 - As a Player I want registration not to hard-fail when the verification email can't be sent, so I'm still signed up and can verify through a resent link once the mail server is reachable. (R26) ✅ landed
 - As a Player I want to change my password and edit my profile details (display name, real name) after signing in, so I can keep my account secure and my name accurate. (R27) ✅ landed
 - As a Player I want to roll my ability scores one at a time (or all at once) with an animated per-ability dice roll in the wizard, and see the equipment shop price everything against live SRD costs — with the class kit trimming itself to my starting gold — so the totals match what compiling actually charges. (R28) ✅ landed (PR #39)
+- As a Player I want a themed backdrop across all screens of the app — not empty white pages — so the whole app feels part of the game rather than a form tool. (R29) ✅ landed (PR #43)
+- As a Player I want the app's navigation tucked into a slide-in sidebar that opens from a menu button in the top bar, so screens stay uncluttered and the top header stays slim. (R30) ✅ landed (PR #43)
 
 ## MVP definition (agreed 2026-09-08)
 
