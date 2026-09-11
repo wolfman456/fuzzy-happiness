@@ -52,7 +52,7 @@ See `AGENTS.md` for repo layout, commands, and conventions.
 
 ## Status
 
-Iterative build; design draft in [`draft-design.md`](draft-design.md) (Draft v0.15).
+Iterative build; design draft in [`draft-design.md`](draft-design.md) (Draft v0.17).
 
 Delivered:
 
@@ -166,6 +166,13 @@ backend tests, jacoco gate met. Frontend: `src/lib/monsters.js` (CR/role/edition
   wizard's spent total always matches what compile charges (regression-pinned at 20 gp in the
   functional fixtures). 239+ backend tests (jacoco ≥90%) and 186 frontend tests, lint + build
   clean.
+- **UI polish batch (R29/R30)** — `feature/ui-polish` (Draft v0.17). The authenticated pages
+  and the email-verify screen now sit on the **same themed backdrop as the auth screens**
+  (`dragon-bg.jpg` + scrim via a shared `ThemedBackdrop` component) instead of flat zinc-100,
+  so no screen is a blank white page. The top-header nav links move into a **slide-in sidebar
+  drawer** opened from a ☰ menu button (`aria-expanded`/`aria-controls`, backdrop + Escape to
+  close, `NavLink` active highlighting), leaving the header slim and translucent
+  (`bg-white/80 backdrop-blur`). 191 frontend tests, lint + build clean.
 - **Backend functional/E2E module** — `feature/functional-tests` (Draft v0.13, §18). The
   `tabletopfunctionaltest` module goes live: `maven-failsafe-plugin` binds `*IT` journey
   classes (auth, session/STOMP, dice, battle map/initiative, monster, SRD) to `verify`, so
