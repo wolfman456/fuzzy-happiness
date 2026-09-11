@@ -239,4 +239,92 @@ class AuthFlowTest {
                         .content("{\"username\":\"aria2\"}"))
                 .andExpect(status().isUnauthorized());
     }
+
+    @Test
+    void editsProfileDetailsAndChangesPassword() throws Exception {
+        mvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON).content(REGISTER_BODY))
+                .andExpect(status().isCreated());
+        mvc.perform(get("/api/auth/verify").param("token", tokenRepository.findAll().get(0).getToken()))
+                .andExpect(status().isOk());
+
+        MvcResult login = mvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"identifier\":\"aria\",\"password\":\"Password1!\"}"))
+                .andExpect(status().isOk())
+                .andReturn();
+        String jwt = JsonPath.read(login.getResponse().getContentAsString(), "$.token");
+
+        mvc.perform(patch("/api/users/me/profile")
+                        .header("Authorization", "Bearer " + jwt)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"displayName\":\"Aria the Brave\",\"realName\":\"Aria Ashton\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.displayName").value("Aria the Brave"))
+                .andExpect(jsonPath("$.realName").value("Aria Ashton"));
+
+        mvc.perform(get("/api/users/me").header("Authorization", "Bearer " + jwt))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.displayName").value("Aria the Brave"));
+
+        mvc.perform(patch("/api/users/me/password")
+                        .header("Authorization", "Bearer " + jwt)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"currentPassword\":\"Password1!\",\"newPassword\":\"BrandNew3x!\","
+                                + "\"confirmPassword\":\"BrandNew3x!\"}"))
+                .andExpect(status().isOk());
+
+        mvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"identifier\":\"aria\",\"password\":\"BrandNew3x!\"}"))
+                .andExpect(status().isOk());
+
+        mvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"identifier\":\"aria\",\"password\":\"Password1!\"}"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void profileUpdateAndPasswordChangeRejectInvalidInput() throws Exception {
+        mvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON).content(REGISTER_BODY))
+                .andExpect(status().isCreated());
+        mvc.perform(get("/api/auth/verify").param("token", tokenRepository.findAll().get(0).getToken()))
+                .andExpect(status().isOk());
+
+        MvcResult login = mvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"identifier\":\"aria\",\"password\":\"Password1!\"}"))
+                .andExpect(status().isOk())
+                .andReturn();
+        String jwt = JsonPath.read(login.getResponse().getContentAsString(), "$.token");
+
+        mvc.perform(patch("/api/users/me/profile")
+                        .header("Authorization", "Bearer " + jwt)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"displayName\":\"\",\"realName\":\"\"}"))
+                .andExpect(status().isBadRequest());
+
+        mvc.perform(patch("/api/users/me/password")
+                        .header("Authorization", "Bearer " + jwt)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"currentPassword\":\"Password1!\",\"newPassword\":\"short\","
+                                + "\"confirmPassword\":\"short\"}"))
+                .andExpect(status().isBadRequest());
+
+        mvc.perform(patch("/api/users/me/password")
+                        .header("Authorization", "Bearer " + jwt)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"currentPassword\":\"WrongPass1!\",\"newPassword\":\"BrandNew3x!\","
+                                + "\"confirmPassword\":\"BrandNew3x!\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Current password is incorrect"));
+
+        mvc.perform(patch("/api/users/me/password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"currentPassword\":\"Password1!\",\"newPassword\":\"BrandNew3x!\","
+                                + "\"confirmPassword\":\"BrandNew3x!\"}"))
+                .andExpect(status().isUnauthorized());
+    }
 }

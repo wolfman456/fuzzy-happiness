@@ -4,9 +4,11 @@ import com.gamer.fowever.tabletopapi.AuthRole;
 import com.gamer.fowever.tabletopservice.domain.EmailVerificationToken;
 import com.gamer.fowever.tabletopservice.domain.User;
 import com.gamer.fowever.tabletopapi.dto.AuthResponse;
+import com.gamer.fowever.tabletopapi.dto.ChangePasswordRequest;
 import com.gamer.fowever.tabletopapi.dto.LoginRequest;
 import com.gamer.fowever.tabletopapi.dto.RegisterRequest;
 import com.gamer.fowever.tabletopapi.dto.RegisterResponse;
+import com.gamer.fowever.tabletopapi.dto.UpdateProfileRequest;
 import com.gamer.fowever.tabletopapi.dto.UpdateUsernameRequest;
 import com.gamer.fowever.tabletopservice.email.EmailSender;
 import com.gamer.fowever.tabletopservice.repository.EmailVerificationTokenRepository;
@@ -374,5 +376,58 @@ class AuthServiceTest {
         assertThatThrownBy(() -> service.updateUsername(user, new UpdateUsernameRequest("taken")))
                 .isInstanceOf(ApiException.class)
                 .hasMessage("Username is already taken");
+    }
+
+    @Test
+    void updatesProfileFieldsAndReturnsSummary() {
+        User user = user(true);
+        user.setDisplayName("Aria");
+        when(userRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var summary = service.updateProfile(user, new UpdateProfileRequest("Aria the Brave", "Aria Ashton"));
+
+        assertThat(summary.displayName()).isEqualTo("Aria the Brave");
+        assertThat(summary.realName()).isEqualTo("Aria Ashton");
+        assertThat(user.getDisplayName()).isEqualTo("Aria the Brave");
+        assertThat(user.getRealName()).isEqualTo("Aria Ashton");
+        verify(userRepository).save(user);
+    }
+
+    @Test
+    void changePasswordHashesAndUpdatesPassword() {
+        User user = user(true);
+        when(passwordEncoder.matches("Password1!", "hash-value")).thenReturn(true);
+        when(passwordEncoder.encode("NewPass2!")).thenReturn("new-hash");
+        when(userRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var summary = service.changePassword(user,
+                new ChangePasswordRequest("Password1!", "NewPass2!", "NewPass2!"));
+
+        assertThat(summary).isNotNull();
+        assertThat(user.getPasswordHash()).isEqualTo("new-hash");
+        verify(userRepository).save(user);
+    }
+
+    @Test
+    void changePasswordRejectsMismatchedConfirmation() {
+        User user = user(true);
+
+        assertThatThrownBy(() -> service.changePassword(user,
+                new ChangePasswordRequest("Password1!", "NewPass2!", "Different2!")))
+                .isInstanceOf(ApiException.class)
+                .hasMessage("Passwords do not match");
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void changePasswordRejectsWrongCurrentPassword() {
+        User user = user(true);
+        when(passwordEncoder.matches("Wrong1!", "hash-value")).thenReturn(false);
+
+        assertThatThrownBy(() -> service.changePassword(user,
+                new ChangePasswordRequest("Wrong1!", "NewPass2!", "NewPass2!")))
+                .isInstanceOf(ApiException.class)
+                .hasMessage("Current password is incorrect");
+        verify(userRepository, never()).save(any());
     }
 }

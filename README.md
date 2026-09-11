@@ -177,6 +177,16 @@ backend tests, jacoco gate met. Frontend: `src/lib/monsters.js` (CR/role/edition
   inside the @Transactional `register()` 500'd and rolled the account back — observed live on
   prod where `SMTP_*` is still unset, see [`draft-design.md` §19](draft-design.md)). 2 new unit
   tests; `./mvnw test` 241 green, jacoco ≥90% met.
+- **Profile editing + password change** — `feature/profile-and-password`
+  (R27). Signed-in users can now edit their display name and real name
+  (`PATCH /api/users/me/profile`, `AuthService.updateProfile`) and change their password
+  (`PATCH /api/users/me/password` — current password verified against the BCrypt hash, the same
+  password policy regex enforced, confirm field required). Email and date of birth stay
+  read-only. The `/settings` page gains two panels ("Edit profile" + "Change password") in the
+  existing inline-style forms; existing JWTs remain valid after a change (no token-version
+  revocation, matching username changes). 6 new backend tests (`./mvnw test` 247 green, jacoco
+  ≥90% met — incl. functional `editsProfileAndChangesPassword` IT) and 9 new frontend tests
+  (177 Vitest green, oxlint + build clean).
 
 Next: production deploys (R14 — Railway auto-deploy from GitHub, rootDirectory per service), the
 optional 3D viewport (§17), and the rest of the game table (multi-map, fog of war, turn timers,

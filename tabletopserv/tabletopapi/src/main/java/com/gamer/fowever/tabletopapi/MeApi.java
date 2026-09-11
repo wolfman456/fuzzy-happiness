@@ -1,5 +1,7 @@
 package com.gamer.fowever.tabletopapi;
 
+import com.gamer.fowever.tabletopapi.dto.ChangePasswordRequest;
+import com.gamer.fowever.tabletopapi.dto.UpdateProfileRequest;
 import com.gamer.fowever.tabletopapi.dto.UpdateUsernameRequest;
 import com.gamer.fowever.tabletopapi.dto.UserSummary;
 import jakarta.validation.Valid;
@@ -17,5 +19,13 @@ public interface MeApi {
 
     @PatchMapping("/me/username")
     UserSummary updateUsername(@Valid @RequestBody UpdateUsernameRequest request,
+                               Authentication authentication);
+
+    @PatchMapping("/me/profile")
+    UserSummary updateProfile(@Valid @RequestBody UpdateProfileRequest request,
+                              Authentication authentication);
+
+    @PatchMapping("/me/password")
+    UserSummary changePassword(@Valid @RequestBody ChangePasswordRequest request,
                                Authentication authentication);
 }

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   api,
   ApiError,
+  changePassword,
   createSession,
   getSession,
   joinSession,
@@ -9,6 +10,7 @@ import {
   listGames,
   setAuthToken,
   setUnauthorizedHandler,
+  updateProfile,
   updateUsername,
 } from './api'
 
@@ -137,5 +139,32 @@ describe('api', () => {
     expect(url).toBe(`${BASE}/api/users/me/username`)
     expect(init.method).toBe('PATCH')
     expect(init.body).toBe(JSON.stringify({ username: 'drake' }))
+  })
+
+  it('updateProfile PATCHes /api/users/me/profile', async () => {
+    mockFetch(200, { id: 1, username: 'aria', displayName: 'Aria the Brave', email: 'a@e.com', role: 'USER', emailVerified: true })
+    const user = await updateProfile({ displayName: 'Aria the Brave', realName: 'Aria Ashton' })
+    expect(user.displayName).toBe('Aria the Brave')
+    const [url, init] = fetch.mock.calls[0]
+    expect(url).toBe(`${BASE}/api/users/me/profile`)
+    expect(init.method).toBe('PATCH')
+    expect(init.body).toBe(JSON.stringify({ displayName: 'Aria the Brave', realName: 'Aria Ashton' }))
+  })
+
+  it('changePassword PATCHes /api/users/me/password', async () => {
+    mockFetch(200, { id: 1, username: 'aria', displayName: 'Aria', email: 'a@e.com', role: 'USER', emailVerified: true })
+    await changePassword({
+      currentPassword: 'OldPass1!',
+      newPassword: 'NewPass2!',
+      confirmPassword: 'NewPass2!',
+    })
+    const [url, init] = fetch.mock.calls[0]
+    expect(url).toBe(`${BASE}/api/users/me/password`)
+    expect(init.method).toBe('PATCH')
+    expect(init.body).toBe(JSON.stringify({
+      currentPassword: 'OldPass1!',
+      newPassword: 'NewPass2!',
+      confirmPassword: 'NewPass2!',
+    }))
   })
 })
