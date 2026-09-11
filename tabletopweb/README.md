@@ -18,7 +18,8 @@ npm run test             # Vitest (no watch; use npm run test:watch for watch mo
 
 - `src/lib/api.js` — `fetch` wrapper: base URL from `VITE_API_URL` (default
   `http://localhost:8080`), JWT bearer injection, HTTP error mapping (`ApiError`), plus
-  session/game helpers (`listGames`, `createSession`, `getSession`, `joinSession`, `leaveSession`).
+  session/game helpers (`listGames`, `createSession`, `getSession`, `joinSession`, `leaveSession`,
+  `updateUsername`).
 - `src/lib/stomp.js` — `@stomp/stompjs` wrapper: `stompBrokerUrl()` (Vite base → `ws`, injects
   the JWT as a `?token=` param) and `createRealtimeClient({sessionId, onSnapshot, onEvent,
   onPrivateRoll, onError})` subscribing to the snapshot destination (`/app/sessions/{id}`),
@@ -34,14 +35,14 @@ npm run test             # Vitest (no watch; use npm run test:watch for watch mo
 - `src/auth/` — auth store (localStorage key `tt.auth`), `AuthProvider` context, `useAuth`,
   session restore via `GET /api/users/me`.
 - `src/components/` — `ProtectedRoute`, `ShellLayout` (Sessions / Characters nav),
-  `BattleMapPanel` (grid + tokens, select-to-move with reachable-square overlay, GM token
+  `AuthBackground` (shared dragon backdrop for auth screens), `BattleMapPanel` (grid + tokens, select-to-move with reachable-square overlay, GM token
   form + turn bar; controlled via `map`/`onMapChange`), `InitiativeRail` (ordered list with
   current-turn highlight, GM add/reroll/remove + advance), `DiceTray` (expression + label +
   GM-private roll form on the session screen).
 - `src/pages/` — `LoginPage`, `RegisterPage` (client-side password + age policies),
-  `VerifyPage`, `Dashboard`, `LobbyPage`, `SessionPage`.
+  `VerifyPage`, `Dashboard`, `LobbyPage`, `SessionPage`, `SettingsPage` (change your username).
 - `src/App.jsx` — routes: `/login`, `/register`, `/verify`, `/` (protected), plus
-  `/sessions` (lobby) and `/sessions/:id` (live session).
+  `/sessions` (lobby), `/sessions/:id` (live session) and `/settings` (account).
 
 The frontend calls the backend cross-origin (no Vite `/api` proxy). The backend allows the
 dev origin (`http://localhost:5173`) via `tabletopserv.cors.allowed-origins`.

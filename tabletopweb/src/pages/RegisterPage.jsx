@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
+import AuthBackground from '../components/AuthBackground'
 
 const PASSWORD_PATTERN = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/
 const MIN_AGE_MS = 13 * 365.25 * 24 * 60 * 60 * 1000
@@ -73,8 +74,8 @@ export default function RegisterPage() {
 
   if (done) {
     return (
-      <div className="grid min-h-screen place-items-center bg-gradient-to-b from-zinc-900 via-zinc-800 to-zinc-900 px-4">
-        <div className="w-full max-w-sm rounded-xl border border-zinc-700 bg-zinc-100 p-8 text-center shadow-xl">
+      <AuthBackground>
+        <div className="mx-auto w-full max-w-sm rounded-xl border border-zinc-700 bg-zinc-100 p-8 text-center shadow-xl">
           <h1 className="mb-3 text-xl font-semibold">Check your inbox</h1>
           <p className="text-sm text-zinc-600">
             A verification link was sent to <strong>{form.email}</strong>. You can log in
@@ -84,13 +85,13 @@ export default function RegisterPage() {
             Go to log in
           </Link>
         </div>
-      </div>
+      </AuthBackground>
     )
   }
 
   return (
-    <div className="grid min-h-screen place-items-center bg-gradient-to-b from-zinc-900 via-zinc-800 to-zinc-900 px-4 py-8">
-      <div className="w-full max-w-md rounded-xl border border-zinc-700 bg-zinc-100 p-8 shadow-xl">
+    <AuthBackground>
+      <div className="mx-auto w-full max-w-md rounded-xl border border-zinc-700 bg-zinc-100 p-8 shadow-xl">
         <h1 className="mb-6 text-2xl font-semibold tracking-tight">Create account</h1>
         <form onSubmit={handleSubmit} className="space-y-4" noValidate>
           <Field label="Display name" id="displayName" error={fields.displayName}>
@@ -188,7 +189,7 @@ export default function RegisterPage() {
           </Link>
         </p>
       </div>
-    </div>
+    </AuthBackground>
   )
 }
 

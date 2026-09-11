@@ -7,6 +7,7 @@ import com.gamer.fowever.tabletopapi.dto.AuthResponse;
 import com.gamer.fowever.tabletopapi.dto.LoginRequest;
 import com.gamer.fowever.tabletopapi.dto.RegisterRequest;
 import com.gamer.fowever.tabletopapi.dto.RegisterResponse;
+import com.gamer.fowever.tabletopapi.dto.UpdateUsernameRequest;
 import com.gamer.fowever.tabletopservice.email.EmailSender;
 import com.gamer.fowever.tabletopservice.repository.EmailVerificationTokenRepository;
 import com.gamer.fowever.tabletopservice.repository.UserRepository;
@@ -295,5 +296,41 @@ class AuthServiceTest {
         verify(tokenRepository).save(captor.capture());
         assertThat(captor.getValue().getToken()).hasSize(64);
         verify(emailSender).sendVerificationEmail(eq("aria@example.com"), contains(captor.getValue().getToken()));
+    }
+
+    @Test
+    void updatesUsernameWhenFree() {
+        User user = user(true);
+        user.setDisplayName("Aria");
+        when(userRepository.existsByUsernameIgnoreCase("aria2")).thenReturn(false);
+        when(userRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var summary = service.updateUsername(user, new UpdateUsernameRequest("aria2"));
+
+        assertThat(summary.username()).isEqualTo("aria2");
+        assertThat(user.getUsername()).isEqualTo("aria2");
+        verify(userRepository).save(user);
+    }
+
+    @Test
+    void ignoresNoopUsernameChangeAndKeepsIt() {
+        User user = user(true);
+        user.setDisplayName("Aria");
+
+        var summary = service.updateUsername(user, new UpdateUsernameRequest("Aria"));
+
+        assertThat(summary.username()).isEqualTo("aria");
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void rejectsTakenUsernameChange() {
+        User user = user(true);
+        user.setDisplayName("Aria");
+        when(userRepository.existsByUsernameIgnoreCase("taken")).thenReturn(true);
+
+        assertThatThrownBy(() -> service.updateUsername(user, new UpdateUsernameRequest("taken")))
+                .isInstanceOf(ApiException.class)
+                .hasMessage("Username is already taken");
     }
 }
