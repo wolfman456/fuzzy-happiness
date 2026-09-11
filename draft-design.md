@@ -423,6 +423,8 @@ GET    /api/auth/verify?token=       confirm email (single-use, 24h)         ✓
 POST   /api/auth/resend-verification resend verification (60s cooldown)      ✓
 GET    /api/users/me                 current user profile (JWT)              ✓
 PATCH  /api/users/me/username         change own username                       ✓
+PATCH  /api/users/me/profile          edit display/real name                    ✓
+PATCH  /api/users/me/password         change password (current + policy check)  ✓
 GET    /api/admin/users              admin-only user listing                 ✓
 POST   /api/sessions               create session (returns invite code)      ✓
 GET    /api/sessions/{id}          snapshot (participants, game, status)      ✓
@@ -538,7 +540,11 @@ no refresh token, single-use 24h email-verification tokens with a 60s resend coo
 `tabletopserv.admin.password` is set** (R20) — the verification-email **send is non-fatal**
 (R26): a delivery failure logs a WARN, keeps the created account and persisted token, and
 leaves `/api/auth/verify` + `/api/auth/resend-verification` working once mail is configured
-(the send used to be in-transaction, so any SMTP outage 500'd and rolled back registration) · **frontend (implemented):** Tailwind CSS v4,
+(the send used to be in-transaction, so any SMTP outage 500'd and rolled back registration);
+**authenticated account editing** (R27): `PATCH /api/users/me/profile` edits display/real name,
+`PATCH /api/users/me/password` verifies the current BCrypt hash, enforces the same password
+policy and re-hashes (email, date of birth, role stay immutable; existing JWTs remain valid —
+there is no token-version revocation, same as username changes) · **frontend (implemented):** Tailwind CSS v4,
 react-router, JWT in
 `localStorage` restored via `GET /api/users/me`, Node 24 pinned, backend CORS restricted to
 the configured `tabletopserv.cors.allowed-origins` (default the Vite dev origin); no Vite

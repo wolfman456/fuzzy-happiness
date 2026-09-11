@@ -165,4 +165,41 @@ class AuthJourneyIT extends FunctionalTestBase {
                 Api.body(Map.of("username", "reat2")));
         assertThat(conflict.status()).isEqualTo(409);
     }
+
+    @Test
+    void editsProfileAndChangesPassword() throws Exception {
+        String username = "itaprofile";
+        String email = username + "@example.com";
+        Api.requireStatus(Api.post(baseUrl() + "/api/auth/register", null,
+                Api.body(Map.of("displayName", "Prof", "realName", "Prof P", "email", email,
+                        "dateOfBirth", "1990-01-15", "username", username,
+                        "password", PASSWORD, "confirmPassword", PASSWORD))),
+                201, "register");
+
+        String verifyUrl = backend().awaitVerificationUrl(email);
+        Api.requireStatus(Api.get(verifyUrl, null), 200, "verify");
+
+        Api.Response login = Api.post(baseUrl() + "/api/auth/login", null,
+                Api.body(Map.of("identifier", username, "password", PASSWORD)));
+        String jwt = Api.json(login.body()).get("token").asText();
+
+        Api.Response profile = Api.patch(baseUrl() + "/api/users/me/profile", jwt,
+                Api.body(Map.of("displayName", "The Bard", "realName", "Prof Pickles")));
+        Api.requireStatus(profile, 200, "update profile");
+        assertThat(Api.json(profile.body()).get("displayName").asText()).isEqualTo("The Bard");
+
+        JsonNode me = Api.json(Api.get(baseUrl() + "/api/users/me", jwt).body());
+        assertThat(me.get("displayName").asText()).isEqualTo("The Bard");
+        assertThat(me.get("realName").asText()).isEqualTo("Prof Pickles");
+
+        String newPassword = "BrandNew3x!";
+        Api.requireStatus(Api.patch(baseUrl() + "/api/users/me/password", jwt,
+                Api.body(Map.of("currentPassword", PASSWORD, "newPassword", newPassword,
+                        "confirmPassword", newPassword))),
+                200, "change password");
+
+        Api.Response relogin = Api.post(baseUrl() + "/api/auth/login", null,
+                Api.body(Map.of("identifier", username, "password", newPassword)));
+        Api.requireStatus(relogin, 200, "login with new password");
+    }
 }
