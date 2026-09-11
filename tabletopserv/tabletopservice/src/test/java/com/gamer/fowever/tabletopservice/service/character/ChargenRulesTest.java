@@ -71,6 +71,26 @@ class ChargenRulesTest {
     }
 
     @Test
+    void startingGoldBudgetFollowsPhbWealthByClass() {
+        assertThat(ChargenRules.startingGoldClassBudget("monk")).isEqualTo(12);
+        assertThat(ChargenRules.startingGoldClassBudget("druid")).isEqualTo(50);
+        assertThat(ChargenRules.startingGoldClassBudget("sorcerer")).isEqualTo(75);
+        assertThat(ChargenRules.startingGoldClassBudget("rogue")).isEqualTo(100);
+        assertThat(ChargenRules.startingGoldClassBudget("fighter")).isEqualTo(125);
+        assertThat(ChargenRules.startingGoldClassBudget("unknown")).isEqualTo(100);
+    }
+
+    @Test
+    void equipmentGoldCostConvertsUnitsAndRoundsSubGoldToZero() {
+        assertThat(ChargenRules.equipmentGoldCostGp(75, "gp")).isEqualTo(75);
+        assertThat(ChargenRules.equipmentGoldCostGp(2, "sp")).isZero();
+        assertThat(ChargenRules.equipmentGoldCostGp(15, "sp")).isEqualTo(1);
+        assertThat(ChargenRules.equipmentGoldCostGp(300, "cp")).isEqualTo(3);
+        assertThat(ChargenRules.equipmentGoldCostGp(5, "pp")).isEqualTo(50);
+        assertThat(ChargenRules.equipmentGoldCostGp(1, "")).isEqualTo(1);
+    }
+
+    @Test
     void hitPointsScaleByLevel() {
         assertThat(ChargenRules.hitPoints(1, 8, 2)).isEqualTo(10);
         assertThat(ChargenRules.hitPoints(2, 8, 2)).isEqualTo(17);

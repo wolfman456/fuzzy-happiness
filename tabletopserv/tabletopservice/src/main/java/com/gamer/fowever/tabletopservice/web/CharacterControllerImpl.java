@@ -6,6 +6,8 @@ import com.gamer.fowever.tabletopapi.dto.CharacterSheetDto;
 import com.gamer.fowever.tabletopapi.dto.CharacterSummaryDto;
 import com.gamer.fowever.tabletopapi.dto.CompileResult;
 import com.gamer.fowever.tabletopapi.dto.GenerateCharacterRequest;
+import com.gamer.fowever.tabletopapi.dto.RollScoresRequest;
+import com.gamer.fowever.tabletopapi.dto.RollScoresResult;
 import com.gamer.fowever.tabletopservice.domain.User;
 import com.gamer.fowever.tabletopservice.service.character.CharacterService;
 import jakarta.validation.Valid;
@@ -34,6 +36,11 @@ public class CharacterControllerImpl implements CharacterApi {
     @Override
     public CompileResult generate(@Valid @RequestBody GenerateCharacterRequest request, Authentication authentication) {
         return characterService.generate((User) authentication.getPrincipal(), request);
+    }
+
+    @Override
+    public RollScoresResult rollScores(@Valid @RequestBody RollScoresRequest request, Authentication authentication) {
+        return characterService.rollScores(request);
     }
 
     @Override

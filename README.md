@@ -145,6 +145,14 @@ backend tests, jacoco gate met. Frontend: `src/lib/monsters.js` (CR/role/edition
   stat blocks, scores, skills, spells, equipment). Routes `/characters`,
   `/characters/new`, `/characters/:id` live; nav link enabled; Dashboard cards updated.
   154 frontend tests, oxlint + build clean.
+- **Chargen hardening R23/R25** — `feature/chargen-wizard-rolls` (Draft v0.15, §8). Rolled
+  score sources are **server-enforced** via `POST /api/characters/roll-scores` (the wizard's
+  score inputs lock until a server roll lands); standard array / point-buy stay constrained
+  assignment. The wizard tracks **base scores** and applies the **race ability bonus** on race
+  pick, so racial-bonus characters compile without manual inflation. Starting equipment
+  becomes a **gold-budget shop** tied to the class's PHB starting wealth (compile rejects
+  over-budget kits); the sheet gains `startingGoldGp`/`spentGoldGp` **in the snapshot only**
+  (no prod DDL). 239 backend tests (jacoco ≥90%) and 169 frontend tests, lint + build clean.
 - **Backend functional/E2E module** — `feature/functional-tests` (Draft v0.13, §18). The
   `tabletopfunctionaltest` module goes live: `maven-failsafe-plugin` binds `*IT` journey
   classes (auth, session/STOMP, dice, battle map/initiative, monster, SRD) to `verify`, so
