@@ -24,6 +24,8 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.security.SecureRandom;
 import java.time.Duration;
@@ -35,6 +37,7 @@ import java.util.HexFormat;
 @Service
 public class AuthService {
 
+    private static final Logger log = LoggerFactory.getLogger(AuthService.class);
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private final UserRepository userRepository;
@@ -161,7 +164,14 @@ public class AuthService {
         EmailVerificationToken token = new EmailVerificationToken(tokenValue, user,
                 LocalDateTime.now().plus(Duration.ofMillis(tokenTtlMillis)));
         tokenRepository.save(token);
-        emailSender.sendVerificationEmail(user.getEmail(), baseUrl + "/api/auth/verify?token=" + tokenValue);
+        try {
+            emailSender.sendVerificationEmail(user.getEmail(), baseUrl + "/api/auth/verify?token=" + tokenValue);
+        } catch (RuntimeException ex) {
+            log.warn("Verification email could not be delivered to user {} (id {}): the account is created but "
+                    + "the link will not arrive until the mail server is configured. Token stays valid for "
+                    + "/api/auth/verify and /api/auth/resend-verification. Cause: {}", user.getUsername(),
+                    user.getId(), ex.getMessage());
+        }
     }
 
     private String generateTokenValue() {

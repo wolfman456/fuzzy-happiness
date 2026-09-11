@@ -170,6 +170,13 @@ backend tests, jacoco gate met. Frontend: `src/lib/monsters.js` (CR/role/edition
   profile to `localStorage`, and the sign-in/sign-up screens share an `AuthBackground` component
   using the Pixabay-licensed dragon image (`public/dragon-bg.jpg`, photo 9728447) over a dark
   overlay. 162 frontend tests (Vitest), oxlint + build clean.
+- **Resilient verification emailing** — `feature/registration-smtp-resilience`
+  (R26). The verification-email send is non-fatal: a delivery failure logs a WARN, keeps the
+  created account and its persisted token, and leaves `/api/auth/verify` +
+  `/api/auth/resend-verification` working once mail is configured (previously a send failure
+  inside the @Transactional `register()` 500'd and rolled the account back — observed live on
+  prod where `SMTP_*` is still unset, see [`draft-design.md` §19](draft-design.md)). 2 new unit
+  tests; `./mvnw test` 241 green, jacoco ≥90% met.
 
 Next: production deploys (R14 — Railway auto-deploy from GitHub, rootDirectory per service), the
 optional 3D viewport (§17), and the rest of the game table (multi-map, fog of war, turn timers,
