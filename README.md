@@ -153,6 +153,17 @@ backend tests, jacoco gate met. Frontend: `src/lib/monsters.js` (CR/role/edition
   becomes a **gold-budget shop** tied to the class's PHB starting wealth (compile rejects
   over-budget kits); the sheet gains `startingGoldGp`/`spentGoldGp` **in the snapshot only**
   (no prod DDL). 239 backend tests (jacoco ≥90%) and 169 frontend tests, lint + build clean.
+- **Chargen dice & gold fix (R28)** — `feature/chargen-dice-and-gold` (Draft v0.16, §8).
+  Rolled methods are now the **default** score source with **per-ability 🎲 roll buttons** and a
+  "Roll all ability scores" button (server-authoritative, ~2 s animated running number — no
+  arrow/stepper inputs for rolled methods). The race-bonus map is keyed to **full ability names**
+  so quick-build restore seeds base scores by removing the bonus exactly once (no double-apply),
+  and the point-buy total ignores unassigned scores. The equipment shop now **fetches live SRD
+  `cost` for every picked item** (static map is display bootstrap only), reports unpriced items
+  with a retry, and the **class kit auto-trims itself to the starting-gold budget** — so the
+  wizard's spent total always matches what compile charges (regression-pinned at 20 gp in the
+  functional fixtures). 239+ backend tests (jacoco ≥90%) and 186 frontend tests, lint + build
+  clean.
 - **Backend functional/E2E module** — `feature/functional-tests` (Draft v0.13, §18). The
   `tabletopfunctionaltest` module goes live: `maven-failsafe-plugin` binds `*IT` journey
   classes (auth, session/STOMP, dice, battle map/initiative, monster, SRD) to `verify`, so

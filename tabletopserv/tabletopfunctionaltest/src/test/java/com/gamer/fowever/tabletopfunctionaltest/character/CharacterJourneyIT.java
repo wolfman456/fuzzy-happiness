@@ -56,6 +56,8 @@ class CharacterJourneyIT extends FunctionalTestBase {
         assertThat(sheet.get("spellSlots").get("1").asInt()).isEqualTo(2);
         assertThat(sheet.get("spellSlots").get("0").asInt()).isEqualTo(3);
         assertThat(sheet.get("featureIndexes")).isNotEmpty();
+        assertThat(sheet.get("startingGoldGp").asInt()).isEqualTo(125);
+        assertThat(sheet.get("spentGoldGp").asInt()).isEqualTo(20);
         assertThat(sheet.get("sheetSnapshot").isNull()).isFalse();
     }
 

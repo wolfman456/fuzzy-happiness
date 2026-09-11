@@ -3,5 +3,6 @@
   "index": "shield",
   "name": "Shield",
   "equipment_category": { "index": "armor", "name": "Armor" },
-  "armor_class": { "base": 2, "dex_bonus": false }
+  "armor_class": { "base": 2, "dex_bonus": false },
+  "cost": { "quantity": 10, "unit": "gp" }
 }

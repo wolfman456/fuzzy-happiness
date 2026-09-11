@@ -63,10 +63,13 @@ class CharacterServiceTest {
     private static final String CLERIC_SPELLS = "{\"count\":2,\"results\":["
             + "{\"index\":\"sacred-flame\",\"level\":0},{\"index\":\"cure-wounds\",\"level\":1}]}";
     private static final String LEATHER = "{\"index\":\"leather-armor\",\"equipment_category\":{\"index\":\"armor\"},"
-            + "\"armor_class\":{\"base\":11,\"dex_bonus\":true}}";
+            + "\"armor_class\":{\"base\":11,\"dex_bonus\":true},"
+            + "\"cost\":{\"quantity\":10,\"unit\":\"gp\"}}";
     private static final String SHIELD = "{\"index\":\"shield\",\"equipment_category\":{\"index\":\"armor\"},"
-            + "\"armor_class\":{\"base\":2,\"dex_bonus\":false}}";
-    private static final String CLUB = "{\"index\":\"club\",\"equipment_category\":{\"index\":\"weapon\"}}";
+            + "\"armor_class\":{\"base\":2,\"dex_bonus\":false},"
+            + "\"cost\":{\"quantity\":10,\"unit\":\"gp\"}}";
+    private static final String CLUB = "{\"index\":\"club\",\"equipment_category\":{\"index\":\"weapon\"},"
+            + "\"cost\":{\"quantity\":1,\"unit\":\"sp\"}}";
 
     @Mock
     private SrdClient srd;
@@ -109,7 +112,7 @@ class CharacterServiceTest {
         assertThat(sheet.featureIndexes()).contains("spellcasting");
         assertThat(sheet.sheetSnapshot()).isNotNull();
         assertThat(sheet.startingGoldGp()).isEqualTo(125);
-        assertThat(sheet.spentGoldGp()).isZero();
+        assertThat(sheet.spentGoldGp()).isEqualTo(20);
 
         verify(srd).subresource("classes", "cleric", "levels", Map.of());
     }
@@ -123,6 +126,19 @@ class CharacterServiceTest {
 
         assertThat(result.valid()).isFalse();
         assertThat(result.sheet()).isNull();
+        assertThat(result.violations()).anyMatch(v -> v.contains("scores"));
+    }
+
+    @Test
+    void compileRejectsScoresThatAlreadyIncludeTheRaceBonus() {
+        stubCommonCatalog();
+        // A revise-from-quick-build draft carries the FINAL sheet scores (con 15 + dwarf +2 = 17);
+        // the backend subtracts the bonus again, so this must be rejected rather than double-counted.
+        CharacterDraftDto draft = draftBuilder(legalDraft()).constitution(17).build();
+
+        CompileResult result = service.compile(user(5L), draft);
+
+        assertThat(result.valid()).isFalse();
         assertThat(result.violations()).anyMatch(v -> v.contains("scores"));
     }
 
@@ -167,7 +183,7 @@ class CharacterServiceTest {
 
         assertThat(result.valid()).isTrue();
         assertThat(result.sheet().startingGoldGp()).isEqualTo(125);
-        assertThat(result.sheet().spentGoldGp()).isZero();
+        assertThat(result.sheet().spentGoldGp()).isEqualTo(20);
     }
 
     @Test

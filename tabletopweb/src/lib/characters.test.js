@@ -9,6 +9,7 @@ import {
   abilityModifier,
   compileCharacter,
   createCharacter,
+  equipmentCostGp,
   equipmentPriceGp,
   generateCharacter,
   getCharacter,
@@ -139,5 +140,15 @@ describe('score source math', () => {
     expect(equipmentPriceGp('shield')).toBe(10)
     expect(equipmentPriceGp('plate-armor')).toBe(1500)
     expect(equipmentPriceGp('not-an-item')).toBeNull()
+  })
+
+  it('converts live SRD equipment costs with the same truncation as the backend', () => {
+    expect(equipmentCostGp({ quantity: 10, unit: 'gp' })).toBe(10)
+    expect(equipmentCostGp({ quantity: 50, unit: 'gp' })).toBe(50)
+    expect(equipmentCostGp({ quantity: 2, unit: 'sp' })).toBe(0)
+    expect(equipmentCostGp({ quantity: 15, unit: 'sp' })).toBe(1)
+    expect(equipmentCostGp({ quantity: 300, unit: 'cp' })).toBe(3)
+    expect(equipmentCostGp({ quantity: 5, unit: 'pp' })).toBe(50)
+    expect(equipmentCostGp(undefined)).toBe(0)
   })
 })
