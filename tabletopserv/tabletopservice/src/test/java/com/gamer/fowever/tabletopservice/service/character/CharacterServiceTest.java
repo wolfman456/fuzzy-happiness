@@ -6,6 +6,8 @@ import com.gamer.fowever.tabletopapi.dto.CharacterSheetDto;
 import com.gamer.fowever.tabletopapi.dto.CharacterSummaryDto;
 import com.gamer.fowever.tabletopapi.dto.CompileResult;
 import com.gamer.fowever.tabletopapi.dto.GenerateCharacterRequest;
+import com.gamer.fowever.tabletopapi.dto.RollScoresRequest;
+import com.gamer.fowever.tabletopapi.dto.RollScoresResult;
 import com.gamer.fowever.tabletopapi.support.ApiException;
 import com.gamer.fowever.tabletopservice.domain.Character;
 import com.gamer.fowever.tabletopservice.domain.Dnd5eCharacter;
@@ -106,6 +108,8 @@ class CharacterServiceTest {
         assertThat(sheet.spellSlots()).containsEntry(0, 3).containsEntry(1, 2);
         assertThat(sheet.featureIndexes()).contains("spellcasting");
         assertThat(sheet.sheetSnapshot()).isNotNull();
+        assertThat(sheet.startingGoldGp()).isEqualTo(125);
+        assertThat(sheet.spentGoldGp()).isZero();
 
         verify(srd).subresource("classes", "cleric", "levels", Map.of());
     }
@@ -153,6 +157,66 @@ class CharacterServiceTest {
 
         assertThat(result.valid()).isFalse();
         assertThat(result.violations()).anyMatch(v -> v.contains("vorpal-sword"));
+    }
+
+    @Test
+    void compileDerivesClassStartingGoldAndSpend() {
+        stubCommonCatalog();
+
+        CompileResult result = service.compile(user(5L), legalDraft());
+
+        assertThat(result.valid()).isTrue();
+        assertThat(result.sheet().startingGoldGp()).isEqualTo(125);
+        assertThat(result.sheet().spentGoldGp()).isZero();
+    }
+
+    @Test
+    void compileRejectsEquipmentOverStartingGoldBudget() {
+        stubCommonCatalog();
+        when(srd.detail("equipment", "shield")).thenReturn(objectMapper.readTree(
+                "{\"index\":\"shield\",\"equipment_category\":{\"index\":\"armor\"},"
+                        + "\"cost\":{\"quantity\":2000,\"unit\":\"gp\"}}"));
+        CharacterDraftDto draft = draftBuilder(legalDraft()).equipmentIndexes(Set.of("shield")).build();
+
+        CompileResult result = service.compile(user(5L), draft);
+
+        assertThat(result.valid()).isFalse();
+        assertThat(result.violations()).anyMatch(v -> v.contains("exceeds"));
+    }
+
+    @Test
+    void rollScoresProducesBaseScoresWithinRange() {
+        RollScoresResult result = service.rollScores(new RollScoresRequest(ScoreSource.FOUR_D6_DROP_LOWEST, 7));
+
+        assertThat(result.scoreSource()).isEqualTo(ScoreSource.FOUR_D6_DROP_LOWEST);
+        assertThat(result.strength()).isBetween(3, 18);
+        assertThat(result.dexterity()).isBetween(3, 18);
+        assertThat(result.constitution()).isBetween(3, 18);
+        assertThat(result.intelligence()).isBetween(3, 18);
+        assertThat(result.wisdom()).isBetween(3, 18);
+        assertThat(result.charisma()).isBetween(3, 18);
+    }
+
+    @Test
+    void rollScoresCoversHouseRuleRange() {
+        RollScoresResult result = service.rollScores(new RollScoresRequest(ScoreSource.HOUSE_RULE_D20, 4));
+
+        assertThat(result.strength()).isBetween(1, 30);
+        assertThat(result.dexterity()).isBetween(1, 30);
+        assertThat(result.constitution()).isBetween(1, 30);
+        assertThat(result.intelligence()).isBetween(1, 30);
+        assertThat(result.wisdom()).isBetween(1, 30);
+        assertThat(result.charisma()).isBetween(1, 30);
+    }
+
+    @Test
+    void rollScoresRejectsAssignedSources() {
+        assertThatThrownBy(() -> service.rollScores(new RollScoresRequest(ScoreSource.STANDARD_ARRAY, 1)))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("not a rolled score method");
+        assertThatThrownBy(() -> service.rollScores(new RollScoresRequest(ScoreSource.POINT_BUY, 1)))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("not a rolled score method");
     }
 
     @Test
@@ -247,6 +311,7 @@ class CharacterServiceTest {
                 Map.of(0, 3, 1, 2),
                 List.of("spellcasting"),
                 List.of("leather-armor", "shield"),
+                125, 25,
                 null);
         Dnd5eCharacter entity = savedCharacter(7L, "Tordek");
         entity.setSheetSnapshot(objectMapper.writeValueAsString(sheet));
@@ -257,6 +322,8 @@ class CharacterServiceTest {
         assertThat(result.id()).isEqualTo(7L);
         assertThat(result.name()).isEqualTo("Tordek");
         assertThat(result.spellSlots()).containsEntry(1, 2);
+        assertThat(result.startingGoldGp()).isEqualTo(125);
+        assertThat(result.spentGoldGp()).isEqualTo(25);
     }
 
     @Test

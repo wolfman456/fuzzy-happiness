@@ -7,7 +7,11 @@ import {
   abilityModifier,
   compileCharacter,
   createCharacter,
+  equipmentPriceGp,
   pointBuyCost,
+  rollScores,
+  startingGoldClassBudget,
+  validateBaseScores,
 } from '../lib/characters'
 import {
   offeredClassSkills,
@@ -40,6 +44,8 @@ const ABILITY_LABELS = {
   charisma: 'Charisma',
 }
 
+const ROLLED_SOURCES = new Set(['FOUR_D6_DROP_LOWEST', 'HOUSE_RULE_D20'])
+
 function plainSkill(index) {
   return index.startsWith('skill-') ? index.slice('skill-'.length) : index
 }
@@ -65,6 +71,28 @@ function initialDraft() {
   }
 }
 
+function abilityBonusMap(raceDetail) {
+  const bonuses = {}
+  for (const entry of raceDetail?.ability_bonuses ?? []) {
+    const ability = entry?.ability_score?.index
+    const bonus = entry?.bonus ?? 0
+    if (ability) bonuses[ability] = bonus
+  }
+  return bonuses
+}
+
+function applyBonus(base, bonus) {
+  const final = {}
+  for (const ability of ABILITIES) {
+    final[ability] = base[ability] + (bonus[ability] ?? 0)
+  }
+  return final
+}
+
+function isCompleteBase(base) {
+  return base && ABILITIES.every((ability) => Number.isInteger(base[ability]))
+}
+
 export default function CharacterWizardPage() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -75,15 +103,47 @@ export default function CharacterWizardPage() {
   const [classDetail, setClassDetail] = useState(null)
   const [classLevels, setClassLevels] = useState(null)
   const [classSpells, setClassSpells] = useState(null)
+  const [raceDetail, setRaceDetail] = useState(null)
+  const [raceBonus, setRaceBonus] = useState({})
+  const [baseScores, setBaseScores] = useState(null)
+  const [equipmentPrices, setEquipmentPrices] = useState({})
   const [result, setResult] = useState(null)
   const [compiledDraft, setCompiledDraft] = useState(null)
   const [hint, setHint] = useState('')
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [rolling, setRolling] = useState(false)
+
+  function commitScores(next) {
+    setBaseScores(next)
+    if (isCompleteBase(next)) {
+      const final = applyBonus(next, raceBonus)
+      setDraft((current) => ({ ...current, ...final }))
+      setResult(null)
+      setCompiledDraft(null)
+      setError('')
+    }
+  }
+
+  function setRaceBonusFromDetail(detail) {
+    const bonus = abilityBonusMap(detail)
+    setRaceBonus(bonus)
+    setRaceDetail(detail)
+    if (isCompleteBase(baseScores)) {
+      const final = applyBonus(baseScores, bonus)
+      setDraft((current) => ({ ...current, ...final }))
+      setResult(null)
+      setCompiledDraft(null)
+    }
+  }
 
   useEffect(() => {
-    if (location.state?.draft) setDraft(location.state.draft)
+    if (location.state?.draft) {
+      setDraft(location.state.draft)
+      const base = ABILITIES.reduce((acc, ability) => ({ ...acc, [ability]: location.state.draft[ability] }), {})
+      setBaseScores(ROLLED_SOURCES.has(location.state.draft.scoreSource) ? null : base)
+    }
   }, [location.state])
 
   useEffect(() => {
@@ -105,6 +165,16 @@ export default function CharacterWizardPage() {
       })
       .catch(() => setCatalogError('Could not load character options (SRD data unavailable)'))
   }, [])
+
+  useEffect(() => {
+    if (draft.raceIndex) {
+      srdDetail('races', draft.raceIndex)
+        .then(setRaceBonusFromDetail)
+        .catch(() => setRaceBonusFromDetail(null))
+    } else {
+      setRaceBonusFromDetail(null)
+    }
+  }, [draft.raceIndex])
 
   useEffect(() => {
     if (!draft.classIndex) return
@@ -173,8 +243,20 @@ export default function CharacterWizardPage() {
   const spellsStepVisible = caster && step === 7
   const spellsSkipped = !caster && step === 7
 
+  const budget = startingGoldClassBudget(draft.classIndex)
+  const spentGold = (draft.equipmentIndexes ?? []).reduce(
+    (sum, index) => sum + (equipmentPriceGp(index) ?? equipmentPrices[index] ?? 0),
+    0,
+  )
+  const overBudget = spentGold > budget
+
   function update(field, value) {
     setDraft((current) => ({ ...current, [field]: value }))
+    if (field === 'scoreSource') {
+      if (ROLLED_SOURCES.has(value)) {
+        setBaseScores(null)
+      }
+    }
     setResult(null)
     setCompiledDraft(null)
     setError('')
@@ -221,6 +303,74 @@ export default function CharacterWizardPage() {
     togglePick('spellIndexes', value)
   }
 
+  function toggleEquipment(value) {
+    togglePick('equipmentIndexes', value)
+    if (equipmentPriceGp(value) == null && !(value in equipmentPrices)) {
+      srdDetail('equipment', value)
+        .then((detail) => {
+          const cost = detail?.cost
+          if (cost?.unit) {
+            const unit = cost.unit
+            const quantity = cost.quantity ?? 0
+            const gp =
+              unit === 'gp' ? quantity : unit === 'sp' ? quantity / 10 : unit === 'cp' ? quantity / 100 : unit === 'pp' ? quantity * 10 : quantity
+            setEquipmentPrices((current) => ({ ...current, [value]: gp }))
+          }
+        })
+        .catch(() => {})
+    }
+  }
+
+  async function handleRoll() {
+    setRolling(true)
+    setError('')
+    try {
+      const rolled = await rollScores({ scoreSource: draft.scoreSource })
+commitScores({
+        strength: rolled.strength,
+        dexterity: rolled.dexterity,
+        constitution: rolled.constitution,
+        intelligence: rolled.intelligence,
+        wisdom: rolled.wisdom,
+        charisma: rolled.charisma,
+      })
+
+    } catch (rollError) {
+      setError(rollError.message)
+    } finally {
+      setRolling(false)
+    }
+  }
+
+  function pickStandardArray() {
+    commitScores({ strength: 15, dexterity: 14, constitution: 13, intelligence: 12, wisdom: 10, charisma: 8 })
+  }
+
+  function recommendedKit() {
+    const kit = new Set((classDetail?.starting_equipment ?? []).map((row) => row.equipment?.index))
+    for (const group of classDetail?.starting_equipment_options ?? []) {
+      const first = (group?.from?.options ?? []).find(
+        (option) => option.option_type === 'counted_reference' || option.option_type === 'multiple',
+      )
+      if (first?.option_type === 'multiple') {
+        for (const item of first.items ?? []) kit.add(item?.of?.index)
+      } else if (first?.of?.index) {
+        kit.add(first.of.index)
+      }
+    }
+    return [...kit].filter((index) => catalog.equipment.some((row) => row.index === index))
+  }
+
+  function applyRecommendedKit() {
+    setHint('')
+    setDraft((current) => ({
+      ...current,
+      equipmentIndexes: [...new Set([...current.equipmentIndexes, ...recommendedKit()])],
+    }))
+    setResult(null)
+    setCompiledDraft(null)
+  }
+
   async function handleCompile() {
     setError('')
     setResult(null)
@@ -250,12 +400,21 @@ export default function CharacterWizardPage() {
     }
   }
 
+  function baseScoresLegal() {
+    if (ROLLED_SOURCES.has(draft.scoreSource)) {
+      return isCompleteBase(baseScores)
+    }
+    return validateBaseScores(draft.scoreSource, baseScores ?? {})
+  }
+
   function canAdvance() {
     if (draft.name.trim().length === 0 && step === 0) return false
+    if (step === 1 && !baseScoresLegal()) return false
     if (step === 2 && !draft.raceIndex) return false
     if (step === 3 && !draft.classIndex) return false
     if (step === 4 && hasSubclasses && !draft.subclassIndex) return false
     if (step === 5 && !draft.backgroundIndex) return false
+    if (step === 8 && overBudget) return false
     if (step === 7 && !caster) return true
     return true
   }
@@ -341,10 +500,32 @@ export default function CharacterWizardPage() {
         )}
 
         {step === 1 && (
-          <ScoreStep draft={draft} update={update} onChange={() => setResult(null)} />
+          <ScoreStep
+            draft={draft}
+            baseScores={baseScores}
+            raceBonus={raceBonus}
+            rolling={rolling}
+            onRoll={handleRoll}
+            onSetScore={commitScores}
+            onStandardArray={pickStandardArray}
+          />
         )}
 
-        {step === 2 && <PickGrid label="Race" rows={catalog.races} value={draft.raceIndex} onSelect={(value) => update('raceIndex', value)} />}
+        {step === 2 && (
+          <div className="space-y-3">
+            <PickGrid label="Race" rows={catalog.races} value={draft.raceIndex} onSelect={(value) => update('raceIndex', value)} />
+            {raceDetail && (
+              <p className="text-sm text-zinc-500">
+                {raceDetail.name} ability bonuses:{' '}
+                {abilityBonusMap(raceDetail) && Object.keys(abilityBonusMap(raceDetail)).length
+                  ? Object.entries(abilityBonusMap(raceDetail))
+                      .map(([ability, bonus]) => `+${bonus} ${ABILITY_LABELS[ability]}`)
+                      .join(', ')
+                  : 'none'}
+              </p>
+            )}
+          </div>
+        )}
 
         {step === 3 && <PickGrid label="Class" rows={catalog.classes} value={draft.classIndex} onSelect={(value) => update('classIndex', value)} />}
 
@@ -439,30 +620,17 @@ export default function CharacterWizardPage() {
         )}
 
         {step === 8 && (
-          <div className="space-y-3">
-            <p className="text-sm text-zinc-500">Pick your starting equipment (armor and shields count toward AC).</p>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              {catalog.equipment.map((item) => {
-                const checked = draft.equipmentIndexes.includes(item.index)
-                return (
-                  <label
-                    key={item.index}
-                    className={`flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm ${
-                      checked ? 'border-zinc-900 bg-zinc-900 text-white' : 'border-zinc-300 hover:bg-zinc-50'
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={() => togglePick('equipmentIndexes', item.index)}
-                      className="accent-zinc-900"
-                    />
-                    {item.name}
-                  </label>
-                )
-              })}
-            </div>
-          </div>
+          <ShopStep
+            items={catalog.equipment}
+            selected={draft.equipmentIndexes}
+            budget={budget}
+            spentGold={spentGold}
+            overBudget={overBudget}
+            priceOf={(index) => equipmentPriceGp(index) ?? equipmentPrices[index] ?? null}
+            recommendedKit={recommendedKit()}
+            onToggle={toggleEquipment}
+            onTakeRecommended={applyRecommendedKit}
+          />
         )}
 
         {step === 9 && (
@@ -472,6 +640,8 @@ export default function CharacterWizardPage() {
             compiledDraft={compiledDraft}
             classSkills={classSkills}
             hasSubclasses={hasSubclasses}
+            budget={budget}
+            spentGold={spentGold}
             busy={busy}
             onCompile={handleCompile}
             onCreate={handleCreate}
@@ -514,32 +684,66 @@ export default function CharacterWizardPage() {
   )
 }
 
-function ScoreStep({ draft, update, onChange }) {
+function modText(score) {
+  const mod = abilityModifier(score)
+  return mod >= 0 ? `+${mod}` : String(mod)
+}
+
+function ScoreStep({ draft, baseScores, raceBonus, rolling, onRoll, onSetScore, onStandardArray }) {
   const { scoreSource } = draft
-  const values = ABILITIES.map((ability) => draft[ability])
-  const usedPoints =
-    scoreSource === 'POINT_BUY' ? values.reduce((sum, value) => sum + pointBuyCost(value), 0) : null
+  const rolled = ROLLED_SOURCES.has(scoreSource)
+  const rolledDone = rolled && isCompleteBase(baseScores)
+  const values = ABILITIES.map((ability) => (rolledDone || !rolled ? baseScores?.[ability] ?? '' : ''))
+  const usedPoints = !rolled
+    ? values.reduce((sum, value) => sum + pointBuyCost(Number(value) || 0), 0)
+    : null
+  const legal = validateBaseScores(scoreSource, baseScores ?? {})
+
+  const finalModNote = (ability) => {
+    if (rolled && !rolledDone) return '—'
+    const base = baseScores?.[ability]
+    const bonus = raceBonus[ability] ?? 0
+    if (Number.isInteger(base) && bonus) return `base ${base} +${bonus} = ${base + bonus}`
+    return modText(base)
+  }
 
   return (
     <div className="space-y-4">
-      {scoreSource === 'STANDARD_ARRAY' && (
+      <p className="text-sm text-zinc-500">
+        {rolled
+          ? `The ${SCORE_SOURCE_LABELS[scoreSource]} roll happens on the server so nobody can stack the dice — these six values are what you get.`
+          : `Assign the ${scoreSource === 'STANDARD_ARRAY' ? 'standard array (15,14,13,12,10,8)' : '27-point-buy values (8–15)'} yourself.`}
+      </p>
+
+      {rolled && (
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onRoll}
+            disabled={rolling}
+            className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50"
+          >
+            {rolling ? 'Rolling…' : rolledDone ? 'Roll again' : 'Roll ability scores'}
+          </button>
+          {rolledDone && <span className="text-sm text-zinc-500">Locked in — the race bonus is applied next step.</span>}
+        </div>
+      )}
+
+      {!rolled && scoreSource === 'STANDARD_ARRAY' && (
         <button
           type="button"
-          onClick={() => {
-            const assigned = { strength: 15, dexterity: 14, constitution: 13, intelligence: 12, wisdom: 10, charisma: 8 }
-            Object.entries(assigned).forEach(([ability, value]) => update(ability, value))
-            onChange()
-          }}
+          onClick={onStandardArray}
           className="rounded-md border border-zinc-300 px-3 py-1 text-sm text-zinc-700 hover:bg-zinc-50"
         >
           Use the standard array (as written)
         </button>
       )}
-      {scoreSource === 'POINT_BUY' && (
+      {!rolled && scoreSource === 'POINT_BUY' && (
         <p className={usedPoints <= 27 ? 'text-sm text-zinc-500' : 'text-sm text-red-600'}>
           Points used: {usedPoints} / 27
         </p>
       )}
+
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {ABILITIES.map((ability) => (
           <label key={ability} className="block">
@@ -547,21 +751,90 @@ function ScoreStep({ draft, update, onChange }) {
             <div className="mt-1 flex items-center gap-2">
               <input
                 type="number"
+                disabled={rolled}
                 min={scoreSource === 'HOUSE_RULE_D20' ? 1 : scoreSource === 'FOUR_D6_DROP_LOWEST' ? 3 : 8}
                 max={scoreSource === 'HOUSE_RULE_D20' ? 30 : scoreSource === 'FOUR_D6_DROP_LOWEST' ? 18 : 15}
-                value={draft[ability]}
+                value={rolled && !rolledDone ? '' : (baseScores?.[ability] ?? '')}
                 onChange={(event) => {
-                  update(ability, Number(event.target.value))
-                  onChange()
+                  const next = { ...baseScores, [ability]: Number(event.target.value) }
+                  onSetScore(next)
                 }}
-                className="w-24 rounded-md border border-zinc-300 px-3 py-2 text-sm"
+                placeholder={rolled ? '—' : ''}
+                className={`w-28 rounded-md border px-3 py-2 text-sm ${
+                  rolled && !rolledDone ? 'border-zinc-200 bg-zinc-50 text-zinc-400' : 'border-zinc-300'
+                }`}
               />
-              <span className="text-xs text-zinc-500">
-                mod {abilityModifier(draft[ability]) >= 0 ? `+${abilityModifier(draft[ability])}` : abilityModifier(draft[ability])}
-              </span>
+              <span className="text-xs text-zinc-500">mod {finalModNote(ability)}</span>
             </div>
           </label>
         ))}
+      </div>
+
+      {!rolled && !legal && (
+        <p role="status" className="text-sm text-red-600">
+          {scoreSource === 'STANDARD_ARRAY'
+            ? 'Standard array needs exactly 15, 14, 13, 12, 10 and 8.'
+            : 'Point-buy scores must sit between 8 and 15 and add up to 27 points or fewer.'}
+        </p>
+      )}
+    </div>
+  )
+}
+
+function ShopStep({ items, selected, budget, spentGold, overBudget, priceOf, recommendedKit, onToggle, onTakeRecommended }) {
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm font-medium text-zinc-700">
+          Starting gold <span className="text-zinc-500">({budget} gp)</span> · Spent{' '}
+          <span className={overBudget ? 'text-red-600' : 'text-zinc-500'}>
+            {Math.round(spentGold * 100) / 100} gp
+          </span>{' '}
+          · Remaining <span className={overBudget ? 'text-red-600' : 'text-emerald-700'}>{Math.max(0, Math.round((budget - spentGold) * 100) / 100)} gp</span>
+        </p>
+        {recommendedKit.length > 0 && (
+          <button
+            type="button"
+            onClick={onTakeRecommended}
+            className="rounded-md border border-zinc-300 px-3 py-1 text-sm text-zinc-700 hover:bg-zinc-50"
+          >
+            Take your class's recommended kit
+          </button>
+        )}
+      </div>
+      {overBudget && (
+        <p role="alert" className="text-sm text-red-600">
+          You've spent more than your class's starting gold — remove a few items.
+        </p>
+      )}
+      <p className="text-sm text-zinc-500">Every item is bought out of your starting gold. A class kit is suggested but you choose.</p>
+      {recommendedKit.length > 0 && (
+        <p className="text-sm text-zinc-500">Recommended kit: {recommendedKit.join(', ')}</p>
+      )}
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        {items.map((item) => {
+          const checked = selected.includes(item.index)
+          const price = priceOf(item.index)
+          return (
+            <label
+              key={item.index}
+              className={`flex cursor-pointer items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm ${
+                checked ? 'border-zinc-900 bg-zinc-900 text-white' : 'border-zinc-300 hover:bg-zinc-50'
+              }`}
+            >
+              <span className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={() => onToggle(item.index)}
+                  className="accent-zinc-900"
+                />
+                {item.name}
+              </span>
+              <span className="text-xs">{price == null ? '—' : `${price} gp`}</span>
+            </label>
+          )
+        })}
       </div>
     </div>
   )
@@ -617,7 +890,7 @@ function SkillGroup({ title, rows, picks, onToggle }) {
   )
 }
 
-function ReviewStep({ draft, result, compiledDraft, classSkills, hasSubclasses, busy, onCompile, onCreate, saving }) {
+function ReviewStep({ draft, result, compiledDraft, classSkills, hasSubclasses, budget, spentGold, busy, onCompile, onCreate, saving }) {
   const selectedSkills = draft.skillPickIndexes
   const backgroundPicks = selectedSkills.filter((pick) => !classSkills.includes(pick))
 
@@ -642,6 +915,8 @@ function ReviewStep({ draft, result, compiledDraft, classSkills, hasSubclasses, 
         />
         <ReviewRow label="Spells" value={draft.spellIndexes.length ? draft.spellIndexes.length + ' selected' : 'none'} />
         <ReviewRow label="Equipment" value={draft.equipmentIndexes.length ? draft.equipmentIndexes.join(', ') : 'none'} />
+        <ReviewRow label="Starting gold" value={`${budget} gp`} />
+        <ReviewRow label="Spent on gear" value={`${Math.round(spentGold * 100) / 100} gp`} />
       </dl>
 
       <div className="flex items-center gap-2">

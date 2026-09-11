@@ -16,6 +16,34 @@ public final class ChargenRules {
     public static final int STANDARD_ARRAY_MIN = 15;
     public static final int STANDARD_ARRAY_MAX = 8;
 
+    /**
+     * PHB 5.1 wealth-by-class (p.143) starting purse in gold pieces. The PHB
+     * rolls a class dice pool (e.g. fighter 5d4 × 10 gp); we budget the
+     * reasonable average of that pool so the math stays deterministic and
+     * server-side. Unknown classes get a conservative 100 gp.
+     */
+    public static int startingGoldClassBudget(String classIndex) {
+        return switch (classIndex) {
+            case "barbarian", "druid" -> 50;
+            case "monk" -> 12;
+            case "sorcerer" -> 75;
+            case "rogue", "warlock", "wizard" -> 100;
+            case "bard", "cleric", "fighter", "paladin", "ranger" -> 125;
+            default -> 100;
+        };
+    }
+
+    /** SRD unit -> gold-piece conversion; sub-gp prices round down to 0 gp. */
+    public static int equipmentGoldCostGp(int quantity, String unit) {
+        long copper = switch (unit) {
+            case "pp" -> quantity * 1000L;
+            case "sp" -> quantity * 10L;
+            case "cp" -> quantity;
+            default -> quantity * 100L; // gp and anything unexpected
+        };
+        return (int) (copper / 100L);
+    }
+
     private ChargenRules() {
     }
 
