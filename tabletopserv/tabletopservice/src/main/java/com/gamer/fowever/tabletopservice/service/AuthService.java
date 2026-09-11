@@ -2,9 +2,11 @@ package com.gamer.fowever.tabletopservice.service;
 
 import com.gamer.fowever.tabletopapi.AuthRole;
 import com.gamer.fowever.tabletopapi.dto.AuthResponse;
+import com.gamer.fowever.tabletopapi.dto.ChangePasswordRequest;
 import com.gamer.fowever.tabletopapi.dto.LoginRequest;
 import com.gamer.fowever.tabletopapi.dto.RegisterRequest;
 import com.gamer.fowever.tabletopapi.dto.RegisterResponse;
+import com.gamer.fowever.tabletopapi.dto.UpdateProfileRequest;
 import com.gamer.fowever.tabletopapi.dto.UpdateUsernameRequest;
 import com.gamer.fowever.tabletopapi.dto.UserSummary;
 import com.gamer.fowever.tabletopapi.support.ApiException;
@@ -122,6 +124,27 @@ public class AuthService {
             throw ApiException.conflict("Username is already taken");
         }
         user.setUsername(newUsername);
+        userRepository.save(user);
+        return Dtos.userSummary(user);
+    }
+
+    @Transactional
+    public UserSummary updateProfile(User user, UpdateProfileRequest request) {
+        user.setDisplayName(request.displayName().trim());
+        user.setRealName(request.realName().trim());
+        userRepository.save(user);
+        return Dtos.userSummary(user);
+    }
+
+    @Transactional
+    public UserSummary changePassword(User user, ChangePasswordRequest request) {
+        if (!request.newPassword().equals(request.confirmPassword())) {
+            throw ApiException.badRequest("Passwords do not match");
+        }
+        if (!passwordEncoder.matches(request.currentPassword(), user.getPasswordHash())) {
+            throw ApiException.badRequest("Current password is incorrect");
+        }
+        user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
         userRepository.save(user);
         return Dtos.userSummary(user);
     }

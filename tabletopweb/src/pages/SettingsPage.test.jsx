@@ -44,6 +44,8 @@ describe('SettingsPage', () => {
     expect(screen.getByText('aria')).toBeInTheDocument()
     expect(screen.getByText('aria@example.com')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /change username/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /save profile/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /change password/i })).toBeInTheDocument()
   })
 
   it('updates the username and refreshes the session', async () => {
@@ -83,5 +85,100 @@ describe('SettingsPage', () => {
     fireEvent.click(screen.getByRole('button', { name: /change username/i }))
     expect(screen.getByText(/username must be 3–30 characters/i)).toBeInTheDocument()
     expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('updates the profile details and refreshes the session', async () => {
+    const refreshMe = vi.fn().mockResolvedValue(user)
+    mockFetch(200, { ...user, displayName: 'Aria the Brave' })
+    renderSettings({ refreshMe })
+
+    fireEvent.change(screen.getByLabelText(/display name/i), { target: { value: 'Aria the Brave' } })
+    fireEvent.change(screen.getByLabelText(/real name/i), { target: { value: 'Aria Ashton' } })
+    fireEvent.click(screen.getByRole('button', { name: /save profile/i }))
+
+    expect(await screen.findByText(/profile updated/i)).toBeInTheDocument()
+    expect(fetch).toHaveBeenCalledWith(
+      'http://localhost:8080/api/users/me/profile',
+      expect.objectContaining({
+        method: 'PATCH',
+        body: JSON.stringify({ displayName: 'Aria the Brave', realName: 'Aria Ashton' }),
+      }),
+    )
+    expect(refreshMe).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows the server error when the profile update is rejected', async () => {
+    mockFetch(400, { status: 400, message: 'Real name must be 150 characters or fewer' })
+    renderSettings()
+
+    fireEvent.change(screen.getByLabelText(/display name/i), { target: { value: 'Aria' } })
+    fireEvent.change(screen.getByLabelText(/real name/i), { target: { value: 'x'.repeat(160) } })
+    fireEvent.click(screen.getByRole('button', { name: /save profile/i }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/150 characters or fewer/i)
+  })
+
+  it('changes the password and clears the fields', async () => {
+    mockFetch(200, user)
+    renderSettings()
+
+    fireEvent.change(screen.getByLabelText(/current password/i), { target: { value: 'OldPass1!' } })
+    fireEvent.change(screen.getByLabelText(/^New password/i), { target: { value: 'NewPass2!' } })
+    fireEvent.change(screen.getByLabelText(/confirm new password/i), { target: { value: 'NewPass2!' } })
+    fireEvent.click(screen.getByRole('button', { name: /change password/i }))
+
+    expect(await screen.findByText(/password changed/i)).toBeInTheDocument()
+    expect(fetch).toHaveBeenCalledWith(
+      'http://localhost:8080/api/users/me/password',
+      expect.objectContaining({
+        method: 'PATCH',
+        body: JSON.stringify({
+          currentPassword: 'OldPass1!',
+          newPassword: 'NewPass2!',
+          confirmPassword: 'NewPass2!',
+        }),
+      }),
+    )
+    expect(screen.getByLabelText(/current password/i).value).toBe('')
+    expect(screen.getByLabelText(/^New password/i).value).toBe('')
+    expect(screen.getByLabelText(/confirm new password/i).value).toBe('')
+  })
+
+  it('rejects a weak new password locally', async () => {
+    mockFetch(200, user)
+    renderSettings()
+
+    fireEvent.change(screen.getByLabelText(/current password/i), { target: { value: 'OldPass1!' } })
+    fireEvent.change(screen.getByLabelText(/^New password/i), { target: { value: 'short' } })
+    fireEvent.change(screen.getByLabelText(/confirm new password/i), { target: { value: 'short' } })
+    fireEvent.click(screen.getByRole('button', { name: /change password/i }))
+
+    expect(screen.getAllByText(/8\+ characters with an upper, lower, digit and symbol/i)).toHaveLength(2)
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('rejects a mismatched password confirmation locally', async () => {
+    mockFetch(200, user)
+    renderSettings()
+
+    fireEvent.change(screen.getByLabelText(/current password/i), { target: { value: 'OldPass1!' } })
+    fireEvent.change(screen.getByLabelText(/^New password/i), { target: { value: 'NewPass2!' } })
+    fireEvent.change(screen.getByLabelText(/confirm new password/i), { target: { value: 'Different2!' } })
+    fireEvent.click(screen.getByRole('button', { name: /change password/i }))
+
+    expect(screen.getByText(/passwords do not match/i)).toBeInTheDocument()
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('shows the server error when the current password is wrong', async () => {
+    mockFetch(400, { status: 400, message: 'Current password is incorrect' })
+    renderSettings()
+
+    fireEvent.change(screen.getByLabelText(/current password/i), { target: { value: 'WrongPass1!' } })
+    fireEvent.change(screen.getByLabelText(/^New password/i), { target: { value: 'NewPass2!' } })
+    fireEvent.change(screen.getByLabelText(/confirm new password/i), { target: { value: 'NewPass2!' } })
+    fireEvent.click(screen.getByRole('button', { name: /change password/i }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/current password is incorrect/i)
   })
 })

@@ -79,3 +79,14 @@ export function leaveSession(id) {
 export function updateUsername(username) {
   return api('/api/users/me/username', { method: 'PATCH', body: { username } })
 }
+
+export function updateProfile({ displayName, realName }) {
+  return api('/api/users/me/profile', { method: 'PATCH', body: { displayName, realName } })
+}
+
+export function changePassword({ currentPassword, newPassword, confirmPassword }) {
+  return api('/api/users/me/password', {
+    method: 'PATCH',
+    body: { currentPassword, newPassword, confirmPassword },
+  })
+}

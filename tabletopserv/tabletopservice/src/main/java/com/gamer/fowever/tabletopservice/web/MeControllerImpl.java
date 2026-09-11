@@ -1,6 +1,8 @@
 package com.gamer.fowever.tabletopservice.web;
 
 import com.gamer.fowever.tabletopapi.MeApi;
+import com.gamer.fowever.tabletopapi.dto.ChangePasswordRequest;
+import com.gamer.fowever.tabletopapi.dto.UpdateProfileRequest;
 import com.gamer.fowever.tabletopapi.dto.UpdateUsernameRequest;
 import com.gamer.fowever.tabletopapi.dto.UserSummary;
 import com.gamer.fowever.tabletopservice.domain.User;
@@ -34,5 +36,19 @@ public class MeControllerImpl implements MeApi {
     public UserSummary updateUsername(@RequestBody UpdateUsernameRequest request,
                                      Authentication authentication) {
         return authService.updateUsername((User) authentication.getPrincipal(), request);
+    }
+
+    @PatchMapping("/me/profile")
+    @Override
+    public UserSummary updateProfile(@RequestBody UpdateProfileRequest request,
+                                    Authentication authentication) {
+        return authService.updateProfile((User) authentication.getPrincipal(), request);
+    }
+
+    @PatchMapping("/me/password")
+    @Override
+    public UserSummary changePassword(@RequestBody ChangePasswordRequest request,
+                                     Authentication authentication) {
+        return authService.changePassword((User) authentication.getPrincipal(), request);
     }
 }
