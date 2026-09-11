@@ -38,5 +38,7 @@ public record CharacterSheetDto(
         Map<Integer, Integer> spellSlots,
         List<String> featureIndexes,
         List<String> equipmentIndexes,
+        int startingGoldGp,
+        int spentGoldGp,
         JsonNode sheetSnapshot) {
 }

@@ -25,6 +25,16 @@
 > mirroring the server) and `CharacterSheetPage`. The SRD allowlists are completed (gateway +
 > SrdClient include `backgrounds`). The same PR prepares **Railway auto-deploy (R14, §19)** by
 > wiring services to the GitHub repo source with per-service `rootDirectory`.
+> Draft v0.15 (in `feature/chargen-wizard-rolls`) hardens the **character wizard (R23/R25, §8)**:
+> rolled score sources are enforced — the server owns the dice (`POST /api/characters/roll-scores`)
+> and the wizard's score inputs are locked until a roll lands — while standard-array and
+> point-buy stay constrained assignment with client caps. The wizard now tracks **base scores**
+> and applies the **race ability bonus** when the race is chosen, so characters with racial
+> bonuses compile without manual score inflation. Starting equipment becomes a **gold-budget
+> shop**: the class's PHB starting wealth is the purse, every item shows its SRD price, and the
+> sheet carries `startingGoldGp` / `spentGoldGp` (snapshot-only — no schema change), with the
+> server compile rejecting over-budget kits. Expanded classes beyond the SRD core (R24) stay
+> deferred pending a data-source/licensing decision (§8).
 > **Status:** Draft v0.10 — accounts/auth end-to-end (backend `feature/spring-security` + web UI
 > in `feature/frontend-auth`), Stage 1 "Sessions & chat" (lobby with invite codes,
 > create/join/leave, live chat + presence over STOMP, in `feature/sessions`), the first
@@ -214,12 +224,27 @@ sheet with derived stats.
   returns a preview; the user can push it into the wizard to edit, or save as-is.
 
 **Ability scores (score sources):** the **2014 PHB standard array is the v1 default**
-(15, 14, 13, 12, 10, 8 — PHB p.13). The following alternatives are selectable as
-**score sources**: 27-point **point-buy** (scores 8–15 per the PHB cost table) and
-**4d6-drop-lowest** rolled six times. The existing table house rule — the server rolls
-**6 × d20** (server-side, for trust) and returns an **unassigned set** the player assigns
-to STR/DEX/CON/INT/WIS/CHA — is retained as a fourth, optional score source. Whenever a
-score source rolls dice, rolls are server-authoritative (`SecureRandom`).
+(15, 14, 13, 12, 10, 8 — PHB p.13). Selectable alternatives: **27-point point-buy**
+(scores 8–15 per the PHB cost table), **4d6-drop-lowest** rolled six times, and the
+existing house rule — **6 × d20**. **Rolls are server-authoritative (`SecureRandom`)
+and the wizard enforces them**: picked a rolled method and the dice simply aren't handed
+to the player — `POST /api/characters/roll-scores` returns the six **base scores** (a seeded
+variant exists for functional tests) and the score inputs stay locked until a roll lands.
+Standard array and point-buy are **constrained assignment** (the client mirrors the server's
+legality check so Next stays gated). Choosing a race applies its **ability bonus** to the base
+scores client-side — the draft the server compiles always carries final scores once the race
+is added, which is how characters with racial bonuses stay legal.
+
+**Starting gold & equipment (equipment shop):** starting equipment is **tied to the class's
+starting wealth** and **bought**, not granted free. Each class gets a purse equal to the
+**average of its PHB wealth-by-class pool** (PHB p.143 — e.g. fighter 5d4×10 gp averages
+125 gp; needle-fine amounts are server-derived). The equipment step is a **budgeted shop**:
+every SRD item shows its price (from the SRD `cost`, converted to gp), a running spent /
+remaining total gates Next, the class's recommended starter kit (from the class record's
+`starting_equipment` + first `starting_equipment_options` choice) is offered as one-click
+auto-select, and **compile rejects any kit over budget**. Gold is carried on the sheet as
+`startingGoldGp` / `spentGoldGp` **in the snapshot only** — no new DB columns, so nothing
+drifts against prod's `ddl-auto=validate` schema.
 
 **Starting level:** configurable **1–3** at creation. **Hit points follow the PHB (p.15):**
 level 1 = max hit die + CON modifier, then the hit die + CON per level. **Proficiency
@@ -600,13 +625,23 @@ on upstream failure; the Spring side routes `/api/srd/*` through it via `Gateway
 - **Chargen (implemented, §8):** server-side flow in `CharacterService` + `ChargenRules`:
   `POST /api/characters/compile` (idempotent validate + derive; returns 200 `CompileResult`
   with `valid`, `violations`, `sheet` even when illegal), `POST /api/characters/generate`
-  (random quick-build), `GET|POST /api/users/me/characters` and `GET /api/users/me/characters/{id}`
-  with per-user access; `CharacterDraftDto` / `CharacterSheetDto` (persisted snapshot) /
-  `ScoreSource` live in `tabletopapi`. `CharacterJourneyIT` covers the full journey including
-  standard array, point-buy, 4d6, illegal drafts and the generate happy path. Web UI in
-  `feature/chargen`: `CharactersPage` (list + quick-build with preview/save/revise) and
-  `CharacterWizardPage` (10-step guided flow with skill/spell pick caps mirroring the server)
-  and `CharacterSheetPage`; routes at `/characters`, `/characters/new`, `/characters/:id`.
+  (random quick-build), `POST /api/characters/roll-scores` (server-authoritative base-score
+  roll; rejects standard array / point-buy), `GET|POST /api/users/me/characters` and
+  `GET /api/users/me/characters/{id}` with per-user access; `CharacterDraftDto` /
+  `CharacterSheetDto` (persisted snapshot) / `ScoreSource` live in `tabletopapi`.
+  `CharacterJourneyIT` covers the full journey including standard array, point-buy, 4d6,
+  illegal drafts and the generate happy path. Web UI in `feature/chargen`: `CharactersPage`
+  (list + quick-build with preview/save/revise) and `CharacterWizardPage` (10-step guided
+  flow with skill/spell pick caps mirroring the server) and `CharacterSheetPage`; routes at
+  `/characters`, `/characters/new`, `/characters/:id`.
+- **Starting gold & equipment (decided, §8):** starting equipment is **bought from the class's
+  PHB starting wealth** and never granted free; the purse uses the **average of the PHB
+  wealth-by-class pool** (deterministic, server-side) and the **server validates the budget on
+  compile** — SRD `cost` is the price authority, the wizard's bundled price map is display-only.
+  Gold travels as `startingGoldGp` / `spentGoldGp` **in the sheet snapshot only**, so no DDL
+  changes touch the Railway Postgres (`ddl-auto=validate`). Expanded classes beyond the SRD
+  core (Artificer, blood hunters, ...) need a **non-SRD data feed** (homebrew import vs licensed
+  API) and are **deferred (R24)** pending that decision.
 
 - Do we need friends list / permanent groups, or is invite-code enough for now?
 - Exact D&D 5e sheet fields — confirm which sets matter for v1.
@@ -619,7 +654,11 @@ on upstream failure; the Spring side routes `/api/srd/*` through it via `Gateway
 - SRD: keep the live proxy, or eventually mirror 5e-bits data into our own DB?
 - SRD version pinning: stay on `2014` — when to consider the `2024` ruleset?
 - SRD multilingual (`?lang=`): worth supporting beyond English?
-- Score sources: add standard array / point-buy / 4d6 alongside the house-rule d20?
+- ~~Score sources: add standard array / point-buy / 4d6 alongside the house-rule d20?~~
+  **Decided:** all four are implemented; the rolled sources are server-authoritative (§8).
+- **Expanded classes (R24):** the SRD only ships the 12 core classes — where should an
+  Artificer / homebrew class catalog come from (curated import into our DB, a third-party
+  licensed API, or a GM-facing homebrew class editor)?
 - House-rule d20: always on, or a configurable table/room option?
 - Beyond level 3: leveling up existing characters (not just creating at 1–3)?
 - Monster-generation **LLM provider**: which vendor/key to standardize on for the gateway (§9b)?

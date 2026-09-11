@@ -10,10 +10,10 @@ vi.mock('../lib/srd', async (importOriginal) => {
 
 vi.mock('../lib/characters', async (importOriginal) => {
   const actual = await importOriginal()
-  return { ...actual, compileCharacter: vi.fn(), createCharacter: vi.fn() }
+  return { ...actual, compileCharacter: vi.fn(), createCharacter: vi.fn(), rollScores: vi.fn() }
 })
 
-import { createCharacter, compileCharacter } from '../lib/characters'
+import { createCharacter, compileCharacter, rollScores } from '../lib/characters'
 import { srdDetail, srdList, srdSubresource } from '../lib/srd'
 
 beforeEach(() => {
@@ -90,6 +90,7 @@ function setupSrd() {
       equipment: [
         { index: 'leather-armor', name: 'Leather Armor' },
         { index: 'shield', name: 'Shield' },
+        { index: 'plate-armor', name: 'Plate Armor' },
       ],
     }
     return { results: byCollection[collection] ?? [] }
@@ -170,8 +171,8 @@ async function walkToReview() {
   fireEvent.click(await screen.findByRole('checkbox', { name: 'Sacred Flame' }))
   fireEvent.click(screen.getByRole('button', { name: 'Next' }))
 
-  fireEvent.click(await screen.findByRole('checkbox', { name: 'Leather Armor' }))
-  fireEvent.click(screen.getByRole('checkbox', { name: 'Shield' }))
+  fireEvent.click(await screen.findByRole('checkbox', { name: /Leather Armor/ }))
+  fireEvent.click(screen.getByRole('checkbox', { name: /Shield/ }))
   fireEvent.click(screen.getByRole('button', { name: 'Next' }))
 
   await screen.findByText('Review your choices')
@@ -184,6 +185,75 @@ describe('CharacterWizardPage', () => {
 
     const name = await screen.findByLabelText('Character name')
     expect(name).toHaveValue('Zog')
+  })
+
+  it('forces a server roll for rolled score methods before continuing', async () => {
+    setupSrd()
+    renderWizard()
+
+    fireEvent.change(screen.getByLabelText('Character name'), { target: { value: 'Tordek' } })
+    fireEvent.change(screen.getByLabelText('Ability scores'), { target: { value: 'FOUR_D6_DROP_LOWEST' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+
+    const rollButton = await screen.findByRole('button', { name: 'Roll ability scores' })
+    expect(rollButton).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled()
+    expect(screen.getAllByRole('spinbutton')[0]).toBeDisabled()
+    expect(rollScores).not.toHaveBeenCalled()
+  })
+
+  it('applies the server roll to the scores and unlocks the next step', async () => {
+    setupSrd()
+    rollScores.mockResolvedValue({
+      scoreSource: 'FOUR_D6_DROP_LOWEST',
+      strength: 15,
+      dexterity: 14,
+      constitution: 13,
+      intelligence: 12,
+      wisdom: 10,
+      charisma: 8,
+    })
+    renderWizard()
+
+    fireEvent.change(screen.getByLabelText('Character name'), { target: { value: 'Tordek' } })
+    fireEvent.change(screen.getByLabelText('Ability scores'), { target: { value: 'FOUR_D6_DROP_LOWEST' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Roll ability scores' }))
+
+    await waitFor(() => expect(rollScores).toHaveBeenCalledWith({ scoreSource: 'FOUR_D6_DROP_LOWEST' }))
+    expect(await screen.findByRole('button', { name: 'Roll again' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Next' })).toBeEnabled()
+    expect(screen.getByDisplayValue('15')).toBeInTheDocument()
+  })
+
+  it('blocks continuing when the class starting-gold budget is blown', async () => {
+    setupSrd()
+    renderWizard()
+
+    fireEvent.change(screen.getByLabelText('Character name'), { target: { value: 'Tordek' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Use the standard array (as written)' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Dwarf' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Cleric' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Next' })).toBeEnabled())
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Life' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Acolyte' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'Medicine' }))
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Religion' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'Sacred Flame' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+
+    const plate = await screen.findByRole('checkbox', { name: /Plate Armor/ })
+    fireEvent.click(plate)
+    expect(screen.getByRole('alert')).toHaveTextContent(/more than your class's starting gold/)
+    expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled()
   })
 
   it('guides through all steps, compiles a legal sheet and creates the character', async () => {

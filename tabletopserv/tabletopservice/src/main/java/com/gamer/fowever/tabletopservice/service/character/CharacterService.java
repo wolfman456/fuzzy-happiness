@@ -6,6 +6,8 @@ import com.gamer.fowever.tabletopapi.dto.CharacterSheetDto;
 import com.gamer.fowever.tabletopapi.dto.CharacterSummaryDto;
 import com.gamer.fowever.tabletopapi.dto.CompileResult;
 import com.gamer.fowever.tabletopapi.dto.GenerateCharacterRequest;
+import com.gamer.fowever.tabletopapi.dto.RollScoresRequest;
+import com.gamer.fowever.tabletopapi.dto.RollScoresResult;
 import com.gamer.fowever.tabletopapi.support.ApiException;
 import com.gamer.fowever.tabletopservice.domain.Character;
 import com.gamer.fowever.tabletopservice.domain.Dnd5eCharacter;
@@ -58,7 +60,8 @@ public class CharacterService {
                             List<EquipmentFact> equipmentFacts) {
     }
 
-    private record EquipmentFact(String index, boolean armor, boolean shield, int baseAc, boolean dexBonus) {
+    private record EquipmentFact(String index, boolean armor, boolean shield, int baseAc, boolean dexBonus,
+                                 int goldCostGp) {
     }
 
     private record CastingRow(int cantrips, Map<Integer, Integer> slots) {
@@ -118,6 +121,25 @@ public class CharacterService {
                 raceIndex, classIndex, subclass, backgroundIndex,
                 new HashSet<>(skillPicks), new HashSet<>(spells), new HashSet<>(equipment));
         return compile(actor, draft);
+    }
+
+    /**
+     * Server-authoritative ability-score roll for the rolled methods. Unlike
+     * {@link #generate} this touches no SRD data and only ever returns the six
+     * pre-racial base scores, so the Wizard can roll before the race is chosen;
+     * standard array and point-buy are assigned by the player instead and empty
+     * score-pool requires no roll.
+     */
+    public RollScoresResult rollScores(RollScoresRequest request) {
+        ScoreSource source = request.scoreSource();
+        if (source != ScoreSource.FOUR_D6_DROP_LOWEST && source != ScoreSource.HOUSE_RULE_D20) {
+            throw ApiException.badRequest(source + " is not a rolled score method — assign standard array or point-buy values instead");
+        }
+        Random random = request.seedOrDefault() == 0 ? new SecureRandom() : new Random(request.seedOrDefault());
+        Map<String, Integer> base = rollBaseScores(source, random);
+        return new RollScoresResult(source,
+                base.get("str"), base.get("dex"), base.get("con"),
+                base.get("int"), base.get("wis"), base.get("cha"));
     }
 
     @Transactional
@@ -312,6 +334,11 @@ public class CharacterService {
                 violations.add("equipmentIndexes: '" + index + "' is not a known SRD equipment item");
             }
         }
+        int budget = ChargenRules.startingGoldClassBudget(draft.classIndex());
+        int spent = facts.equipmentFacts().stream().mapToInt(EquipmentFact::goldCostGp).sum();
+        if (spent > budget) {
+            violations.add("equipmentIndexes: total cost " + spent + " gp exceeds the " + budget + " gp starting budget");
+        }
     }
 
     private CharacterSheetDto derive(CharacterDraftDto draft, SrdFacts facts) {
@@ -344,6 +371,8 @@ public class CharacterService {
         List<String> features = featuresUpTo(facts.classLevels(), level);
         List<String> spells = sortAndStrip(draft.spellIndexes());
         List<String> equipment = sortedNonBlank(draft.equipmentIndexes());
+        int startingGoldGp = ChargenRules.startingGoldClassBudget(draft.classIndex());
+        int spentGoldGp = facts.equipmentFacts().stream().mapToInt(EquipmentFact::goldCostGp).sum();
 
         CharacterSheetDto core = new CharacterSheetDto(
                 null, draft.name(), level, draft.scoreSource(),
@@ -352,7 +381,7 @@ public class CharacterService {
                 scores.get("int"), scores.get("wis"), scores.get("cha"),
                 proficiencyBonus, hitPoints, armorClass, speed,
                 savingThrows, classSkills, backgroundSkills, skillPicks, spells, spellSlots,
-                features, equipment, null);
+                features, equipment, startingGoldGp, spentGoldGp, null);
         JsonNode snapshot = toNode(toJson(core));
         return new CharacterSheetDto(
                 null, draft.name(), level, draft.scoreSource(),
@@ -361,7 +390,7 @@ public class CharacterService {
                 scores.get("int"), scores.get("wis"), scores.get("cha"),
                 proficiencyBonus, hitPoints, armorClass, speed,
                 savingThrows, classSkills, backgroundSkills, skillPicks, spells, spellSlots,
-                features, equipment, snapshot);
+                features, equipment, startingGoldGp, spentGoldGp, snapshot);
     }
 
     private CharacterSheetDto withId(Long id, CharacterSheetDto sheet) {
@@ -373,7 +402,7 @@ public class CharacterService {
                 sheet.proficiencyBonus(), sheet.hitPoints(), sheet.armorClass(), sheet.speedFeet(),
                 sheet.savingThrows(), sheet.classSkills(), sheet.backgroundSkills(), sheet.skillPicks(),
                 sheet.spellIndexes(), sheet.spellSlots(), sheet.featureIndexes(), sheet.equipmentIndexes(),
-                sheet.sheetSnapshot());
+                sheet.startingGoldGp(), sheet.spentGoldGp(), sheet.sheetSnapshot());
     }
 
     private CharacterSummaryDto toSummary(Character character) {
@@ -405,7 +434,10 @@ public class CharacterService {
         JsonNode ac = detail.get("armor_class");
         int baseAc = ac != null ? ac.path("base").asInt(0) : 0;
         boolean dexBonus = ac != null && ac.path("dex_bonus").asBoolean(false);
-        return new EquipmentFact(index, armor, shield, baseAc, dexBonus);
+        JsonNode cost = detail.get("cost");
+        int goldCostGp = cost != null
+                ? ChargenRules.equipmentGoldCostGp(cost.path("quantity").asInt(0), cost.path("unit").asText("gp")) : 0;
+        return new EquipmentFact(index, armor, shield, baseAc, dexBonus, goldCostGp);
     }
 
     private Map<String, Integer> rollBaseScores(ScoreSource source, Random random) {
