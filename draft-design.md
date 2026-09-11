@@ -535,7 +535,10 @@ lower, digit, special) with a **confirm-password field** (R16), separate require
 name** (R17), **PII encrypted at rest** with an `emailKey` blind index (R18), 24h JWT with
 no refresh token, single-use 24h email-verification tokens with a 60s resend cooldown, roles
 `USER`/`MODERATOR`/`ADMIN` with a **bootstrap admin seeded on every profile when
-`tabletopserv.admin.password` is set** (R20) · **frontend (implemented):** Tailwind CSS v4,
+`tabletopserv.admin.password` is set** (R20) — the verification-email **send is non-fatal**
+(R26): a delivery failure logs a WARN, keeps the created account and persisted token, and
+leaves `/api/auth/verify` + `/api/auth/resend-verification` working once mail is configured
+(the send used to be in-transaction, so any SMTP outage 500'd and rolled back registration) · **frontend (implemented):** Tailwind CSS v4,
 react-router, JWT in
 `localStorage` restored via `GET /api/users/me`, Node 24 pinned, backend CORS restricted to
 the configured `tabletopserv.cors.allowed-origins` (default the Vite dev origin); no Vite
@@ -922,6 +925,14 @@ datasource `PGHOST`/`PGPORT`/`PGDATABASE`/`PGUSER`/`PGPASSWORD` (referenced from
 service). The gateway needs the **same** `GATEWAY_TOKEN`. The web service needs `VITE_API_URL`
 (backend public URL) set **before** its build, then a redeploy. `.railway/railway.ts` marks the
 secrets `preserve()` so a later `railway config apply` never overwrites dashboard values.
+
+> **Live-deploy gap (observed 2026-09-11):** `SMTP_*` is currently *unset* on the backend, so no
+> verification email has ever been deliverable from prod. Before R26 this made registration
+> **500 and roll back** (the send ran inside the @Transactional register); R26 makes the send
+> non-fatal, so accounts create fine, but **no account can complete
+> `/api/auth/verify` until `SMTP_HOST`/`SMTP_PORT`/`SMTP_USER`/`SMTP_PASSWORD` are set** (defaults
+> port 587 + STARTTLS in `application-prod.properties`). Set those four keys and re-test the
+> register→verify journey.
 
 ### Lifecycle
 

@@ -33,6 +33,7 @@ Status key: ✅ landed · 🔨 in progress · ⏭ deferred (post-MVP)
 - As a Player I want the character wizard to generate my ability scores using the dice-roll method I chose (server-side rolls for rolled methods) instead of letting me assign any numbers, so my hero is legal. (R23) ✅ landed
 - As a Player I want the class list to include expanded classes beyond the free SRD core (e.g. Artificer) so I can play the class I want. (R24) ⏭ deferred (needs a non-SRD data source / homebrew expansion, draft-design research)
 - As a Player I want my starting equipment to be purchased from my class/background starting gold rather than granted for free, so my kit matches my wealth. (R25) ✅ landed
+- As a Player I want registration not to hard-fail when the verification email can't be sent, so I'm still signed up and can verify through a resent link once the mail server is reachable. (R26) 🔨 in progress
 
 ## MVP definition (agreed 2026-09-08)
 
