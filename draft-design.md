@@ -35,6 +35,14 @@
 > sheet carries `startingGoldGp` / `spentGoldGp` (snapshot-only — no schema change), with the
 > server compile rejecting over-budget kits. Expanded classes beyond the SRD core (R24) stay
 > deferred pending a data-source/licensing decision (§8).
+> Draft v0.17 (in `feature/ui-polish`) ships the **UI polish batch (R29, R30)**: the
+> authenticated pages swap the flat zinc-100 backdrop for the **same themed backdrop as the
+> auth screens** — `dragon-bg.jpg` + a scrim, shared via a `ThemedBackdrop` component used by
+> `ShellLayout` and the standalone email-verify page — so no screen is a blank white page
+> (R29). The top-header nav links move into a **slide-in sidebar drawer** (R30) opened from a
+> ☰ menu button in the header (`aria-expanded`/`aria-controls`, backdrop + Escape to close,
+> `NavLink` active highlighting), keeping the header slim; the header itself becomes
+> translucent (`bg-white/80 backdrop-blur`).
 > Draft v0.16 (in `feature/chargen-dice-and-gold`) makes the **wizard's dice and gold match the
 > server exactly**: rolled methods are now the **default** score source with **per-ability 🎲 roll
 > buttons + "Roll all ability scores"** (a ~2 s running-number animation per roll; no arrow
@@ -562,7 +570,11 @@ there is no token-version revocation, same as username changes) · **frontend (i
 react-router, JWT in
 `localStorage` restored via `GET /api/users/me`, Node 24 pinned, backend CORS restricted to
 the configured `tabletopserv.cors.allowed-origins` (default the Vite dev origin); no Vite
-`/api` proxy — the SPA calls the backend cross-origin with `VITE_API_URL` · **sessions &
+`/api` proxy — the SPA calls the backend cross-origin with `VITE_API_URL` · **app shell (R29/R30):**
+a shared `ThemedBackdrop` (`dragon-bg.jpg` + scrim) behind every authenticated page and the
+email-verify screen so no page is flat white; the top-header nav links live in a slide-in
+sidebar drawer opened from a ☰ button (backdrop/Escape close, `NavLink` active states) instead
+of inline in the header · **sessions &
 live chat (implemented):** STOMP over `/ws` with the JWT in a `?token=` query param
 (handshake principal + channel interceptor), snapshot replay via `@SubscribeMapping` on
 `/app/sessions/{id}` + live `SessionEventDto` broadcasts on `/topic/sessions/{id}`,
