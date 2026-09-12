@@ -2,7 +2,6 @@ package com.gamer.fowever.tabletopservice.web;
 
 import com.gamer.fowever.tabletopservice.domain.GameSession;
 import com.gamer.fowever.tabletopapi.SessionStatus;
-import com.gamer.fowever.tabletopservice.repository.EmailVerificationTokenRepository;
 import com.gamer.fowever.tabletopservice.repository.GameSessionRepository;
 import com.gamer.fowever.tabletopservice.repository.UserRepository;
 import com.jayway.jsonpath.JsonPath;
@@ -14,8 +13,6 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -32,8 +29,6 @@ class SessionFlowTest {
     private MockMvc mvc;
     @Autowired
     private UserRepository userRepository;
-    @Autowired
-    private EmailVerificationTokenRepository tokenRepository;
     @Autowired
     private GameSessionRepository sessionRepository;
 
@@ -191,11 +186,6 @@ class SessionFlowTest {
                                 + "\"password\":\"Password1!\","
                                 + "\"confirmPassword\":\"Password1!\"}"))
                 .andExpect(status().isCreated());
-
-        List<com.gamer.fowever.tabletopservice.domain.EmailVerificationToken> tokens = tokenRepository.findAll();
-        String token = tokens.getLast().getToken();
-        mvc.perform(get("/api/auth/verify").param("token", token))
-                .andExpect(status().isOk());
 
         MvcResult login = mvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
