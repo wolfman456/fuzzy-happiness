@@ -1,6 +1,5 @@
 package com.gamer.fowever.tabletopservice.web;
 
-import com.gamer.fowever.tabletopservice.repository.EmailVerificationTokenRepository;
 import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,8 +27,6 @@ class BattleMapFlowTest {
 
     @Autowired
     private MockMvc mvc;
-    @Autowired
-    private EmailVerificationTokenRepository tokenRepository;
 
     @Test
     void fullBattleMapFlow() throws Exception {
@@ -368,11 +365,6 @@ class BattleMapFlowTest {
                                 + "\"password\":\"Password1!\","
                                 + "\"confirmPassword\":\"Password1!\"}"))
                 .andExpect(status().isCreated());
-
-        List<com.gamer.fowever.tabletopservice.domain.EmailVerificationToken> tokens = tokenRepository.findAll();
-        String token = tokens.getLast().getToken();
-        mvc.perform(get("/api/auth/verify").param("token", token))
-                .andExpect(status().isOk());
 
         MvcResult login = mvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)

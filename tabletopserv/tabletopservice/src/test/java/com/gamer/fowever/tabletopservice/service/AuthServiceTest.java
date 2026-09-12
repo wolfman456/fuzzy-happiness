@@ -84,11 +84,10 @@ class AuthServiceTest {
     }
 
     @Test
-    void registersUserAsUnverifiedAndSendsVerificationEmail() {
+    void registersUserAsVerifiedAndSendsNoVerificationEmail() {
         when(userRepository.existsByUsernameIgnoreCase("aria")).thenReturn(false);
         when(userRepository.existsByEmailKey(PiiCrypto.emailKey("aria@example.com"))).thenReturn(false);
         when(passwordEncoder.encode("Password1!")).thenReturn("encoded-hash");
-        when(tokenRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(userRepository.save(any())).thenAnswer(invocation -> {
             User saved = invocation.getArgument(0);
             if (saved.getId() == null) {
@@ -100,20 +99,14 @@ class AuthServiceTest {
         RegisterResponse response = service.register(REGISTER);
 
         assertThat(response.userId()).isEqualTo(1L);
-        assertThat(response.message()).contains("verify");
+        assertThat(response.message()).contains("log in");
         verify(userRepository).save(org.mockito.ArgumentMatchers.argThat(user ->
-                user.getAuthRole() == AuthRole.USER && !user.isEmailVerified()
+                user.getAuthRole() == AuthRole.USER && user.isEmailVerified()
                         && user.getPasswordHash().equals("encoded-hash")
                         && user.getUsername().equals("aria")
                         && user.getRealName().equals("Aria Ashton")));
-
-        ArgumentCaptor<EmailVerificationToken> tokenCaptor = ArgumentCaptor.forClass(EmailVerificationToken.class);
-        verify(tokenRepository).save(tokenCaptor.capture());
-        assertThat(tokenCaptor.getValue().getToken()).hasSize(64);
-        assertThat(tokenCaptor.getValue().getExpiresAt()).isAfter(LocalDateTime.now());
-
-        verify(emailSender).sendVerificationEmail(eq("aria@example.com"),
-                contains("/api/auth/verify?token=" + tokenCaptor.getValue().getToken()));
+        verify(tokenRepository, never()).save(any());
+        verify(emailSender, never()).sendVerificationEmail(any(), any());
     }
 
     @Test
@@ -174,12 +167,16 @@ class AuthServiceTest {
     }
 
     @Test
-    void rejectsUnverifiedLogin() {
-        when(userRepository.findByUsernameIgnoreCaseOrEmailKey("aria", PiiCrypto.emailKey("aria"))).thenReturn(Optional.of(user(false)));
+    void logsInUserWithEmailUnverified() {
+        User user = user(false);
+        when(userRepository.findByUsernameIgnoreCaseOrEmailKey("aria", PiiCrypto.emailKey("aria"))).thenReturn(Optional.of(user));
+        when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
+                .thenReturn(mock(org.springframework.security.core.Authentication.class));
+        when(jwtService.generateToken(user)).thenReturn("jwt-token");
 
-        assertThatThrownBy(() -> service.login(new LoginRequest("aria", "Password1!")))
-                .isInstanceOf(ApiException.class)
-                .hasMessageContaining("verified");
+        AuthResponse response = service.login(new LoginRequest("aria", "Password1!"));
+
+        assertThat(response.token()).isEqualTo("jwt-token");
     }
 
     @Test
@@ -299,30 +296,6 @@ class AuthServiceTest {
         verify(tokenRepository).save(captor.capture());
         assertThat(captor.getValue().getToken()).hasSize(64);
         verify(emailSender).sendVerificationEmail(eq("aria@example.com"), contains(captor.getValue().getToken()));
-    }
-
-    @Test
-    void registerSucceedsWhenVerificationEmailCannotBeSent() {
-        when(userRepository.existsByUsernameIgnoreCase("aria")).thenReturn(false);
-        when(userRepository.existsByEmailKey(PiiCrypto.emailKey("aria@example.com"))).thenReturn(false);
-        when(passwordEncoder.encode("Password1!")).thenReturn("encoded-hash");
-        when(userRepository.save(any())).thenAnswer(invocation -> {
-            User saved = invocation.getArgument(0);
-            if (saved.getId() == null) {
-                saved.setId(1L);
-            }
-            return saved;
-        });
-        when(tokenRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
-        doThrow(new RuntimeException("smtp unreachable")).when(emailSender).sendVerificationEmail(any(), any());
-
-        RegisterResponse response = service.register(REGISTER);
-
-        assertThat(response.userId()).isEqualTo(1L);
-        ArgumentCaptor<EmailVerificationToken> tokenCaptor = ArgumentCaptor.forClass(EmailVerificationToken.class);
-        verify(tokenRepository).save(tokenCaptor.capture());
-        assertThat(tokenCaptor.getValue().getToken()).hasSize(64);
-        verify(emailSender).sendVerificationEmail(any(), any());
     }
 
     @Test

@@ -7,10 +7,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 
 import java.util.Map;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 /**
- * Common helpers for functional journeys: register→verify→login against the packaged
+ * Common helpers for functional journeys: register→login against the packaged
  * backend subprocess, then drive sessions/maps/etc. over its real HTTP interface.
  * Extending this base boots the backend once per fork JVM via {@link BackendExtension}.
  */
@@ -29,8 +27,8 @@ public abstract class FunctionalTestBase {
     }
 
     /**
-     * Registers a fresh user, waits for the dev console verification email, verifies,
-     * logs in, and returns a bearer JWT.
+     * Registers a fresh user (auto-verified on registration — email verification is
+     * disabled) and returns a bearer JWT for that user.
      */
     protected static String registerVerifyLogin(String username) throws Exception {
         String email = username + "@example.com";
@@ -39,10 +37,6 @@ public abstract class FunctionalTestBase {
                         "dateOfBirth", "1990-01-15", "username", username,
                         "password", PASSWORD, "confirmPassword", PASSWORD))),
                 201, "register " + username);
-
-        String verifyUrl = backend().awaitVerificationUrl(email);
-        assertThat(verifyUrl).as("verification email for %s", username).isNotBlank();
-        Api.requireStatus(Api.get(verifyUrl, null), 200, "verify " + username);
 
         Api.Response login = Api.post(baseUrl() + "/api/auth/login", null,
                 Api.body(Map.of("identifier", username, "password", PASSWORD)));

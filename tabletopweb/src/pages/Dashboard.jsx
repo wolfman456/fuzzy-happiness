@@ -17,14 +17,7 @@ export default function Dashboard() {
           </div>
           <div>
             <dt className="text-zinc-500">Email</dt>
-            <dd className="font-medium">
-              {user.email}{' '}
-              {user.emailVerified ? (
-                <span className="ml-1 rounded bg-green-100 px-1.5 py-0.5 text-xs text-green-700">verified</span>
-              ) : (
-                <span className="ml-1 rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700">unverified</span>
-              )}
-            </dd>
+            <dd className="font-medium">{user.email}</dd>
           </div>
           <div>
             <dt className="text-zinc-500">Role</dt>

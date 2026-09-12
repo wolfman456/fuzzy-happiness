@@ -52,7 +52,10 @@ See `AGENTS.md` for repo layout, commands, and conventions.
 
 ## Status
 
-Iterative build; design draft in [`draft-design.md`](draft-design.md) (Draft v0.17).
+Iterative build; the shipped MVP design is **locked** in [`design-v1.md`](design-v1.md)
+(Draft v0.18). Live bug fixes against that design are tracked in
+[`design-v1-fixes.md`](design-v1-fixes.md); forward-looking work moves to
+`design-draft-v2.md`.
 
 Delivered:
 
@@ -99,7 +102,7 @@ Delivered:
   DTO), `/user/queue/dice` subscription in `src/lib/stomp.js`. 115 frontend tests (Vitest),
   oxlint + build clean.
 - Design flush (no code) — `feature/gateway-monster-3d`: Draft v0.9 documents three researched
-  areas in `draft-design.md`: homebrew **monster generation** (§9b — replicate the Cros.land
+  areas in `design-v1.md`: homebrew **monster generation** (§9b — replicate the Cros.land
   CR-driven "chassis" math engine + our own LLM; the original has no public API), a dedicated
   **Express egress gateway** (§16 — `tabletopgateway/`, all outbound SRD/LLM calls route
   through it), and an optional **3D battle-map viewport** via React Three Fiber + drei (§17).
@@ -195,7 +198,7 @@ backend tests, jacoco gate met. Frontend: `src/lib/monsters.js` (CR/role/edition
   created account and its persisted token, and leaves `/api/auth/verify` +
   `/api/auth/resend-verification` working once mail is configured (previously a send failure
   inside the @Transactional `register()` 500'd and rolled the account back — observed live on
-  prod where `SMTP_*` is still unset, see [`draft-design.md` §19](draft-design.md)). 2 new unit
+  prod where `SMTP_*` is still unset, see [`design-v1.md` §19](design-v1.md)). 2 new unit
   tests; `./mvnw test` 241 green, jacoco ≥90% met.
 - **Profile editing + password change** — `feature/profile-and-password`
   (R27). Signed-in users can now edit their display name and real name
@@ -207,6 +210,16 @@ backend tests, jacoco gate met. Frontend: `src/lib/monsters.js` (CR/role/edition
   revocation, matching username changes). 6 new backend tests (`./mvnw test` 247 green, jacoco
   ≥90% met — incl. functional `editsProfileAndChangesPassword` IT) and 9 new frontend tests
   (177 Vitest green, oxlint + build clean).
+- **Email verification disabled (live-bug fix #45/#46)** — `fix/disable-email-verification`
+  (Draft v0.18, §12/§14/§19). Prod `SMTP_*` is unset, so no verification email was ever
+  deliverable and every fresh registration was locked out of login. Registration now
+  **auto-verifies** (account usable immediately, `emailVerified: true`) and the login gate is
+  gone; the SMTP + token plumbing stays dormant (`/api/auth/verify`, `/api/auth/resend-verification`,
+  24h TTL, 60s resend cooldown, console/SMTP senders all unchanged), so re-enabling is a
+  2-line change + dashboard vars (Wants.md R31). Frontend: register success becomes "Account
+  created", the login 403 hint and the dashboard verified/unverified badge are removed.
+  Backend tests reworked (auto-verify asserted, login-without-verify covered, token-list
+  helpers dropped from the web/IT suites) — `./mvnw test` green, jacoco ≥90%.
 
 Next: production deploys (R14 — Railway auto-deploy from GitHub, rootDirectory per service), the
 optional 3D viewport (§17), and the rest of the game table (multi-map, fog of war, turn timers,
@@ -216,7 +229,7 @@ conditions). The out-of-MVP list lives in [Wants.md](Wants.md).
 
 One project, three services + managed Postgres, connected over **private networking**
 (`<service>.railway.internal` — the gateway keeps **no public domain**). Full spec in
-[draft-design.md §19](draft-design.md#19-deployment-railway).
+[design-v1.md §19](design-v1.md#19-deployment-railway).
 
 | Service | App dir | Build | Health check |
 |---|---|---|---|
@@ -236,11 +249,14 @@ Dashboard secrets per service; `.railway/railway.ts` marks them `preserve()` so 
 never clobbers them.
 
 - **backend:** `SPRING_PROFILES_ACTIVE=prod`, `JWT_SECRET`, `PII_SECRET`,
-  `ADMIN_USERNAME` `ADMIN_PASSWORD`, `SMTP_HOST` `SMTP_PORT` `SMTP_USER` `SMTP_PASSWORD`,
+  `ADMIN_USERNAME` `ADMIN_PASSWORD`,
   `CORS_ALLOWED_ORIGINS` (`https://gamenight.bond`, `https://www.gamenight.bond`, and the web
   service's `*.up.railway.app` URL), `FRONTEND_URL=https://gamenight.bond`,
   `GATEWAY_URL` (`http://gateway.railway.internal`), `GATEWAY_TOKEN`; datasource `PGHOST`
   `PGPORT` `PGDATABASE` `PGUSER` `PGPASSWORD` (referenced from the Postgres service).
+  `SMTP_HOST` `SMTP_PORT` `SMTP_USER` `SMTP_PASSWORD` are **optional today** — email
+  verification is disabled (registrations auto-verify), so they're only needed when
+  verification is re-enabled (§19).
 - **gateway:** `GATEWAY_TOKEN` (same value as backend).
 - **web:** `VITE_API_URL` (backend public URL) — read at **build time**, so change it and
   redeploy.

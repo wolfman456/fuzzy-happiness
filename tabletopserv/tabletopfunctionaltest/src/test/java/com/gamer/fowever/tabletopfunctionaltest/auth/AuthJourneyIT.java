@@ -14,7 +14,7 @@ class AuthJourneyIT extends FunctionalTestBase {
     private static final String WEAK = "short";
 
     @Test
-    void fullRegisterVerifyLoginFlow() throws Exception {
+    void fullRegisterLoginFlow() throws Exception {
         String username = "itagm";
         String email = username + "@example.com";
         Api.requireStatus(Api.post(baseUrl() + "/api/auth/register", null,
@@ -23,18 +23,9 @@ class AuthJourneyIT extends FunctionalTestBase {
                         "password", PASSWORD, "confirmPassword", PASSWORD))),
                 201, "register");
 
-        Api.Response preVerify = Api.post(baseUrl() + "/api/auth/login", null,
-                Api.body(Map.of("identifier", username, "password", PASSWORD)));
-        assertThat(preVerify.status())
-                .as("login must be rejected until the email is verified").isEqualTo(403);
-
-        String verifyUrl = backend().awaitVerificationUrl(email);
-        assertThat(verifyUrl).as("dev console email must carry the verify link").isNotBlank();
-        Api.requireStatus(Api.get(verifyUrl, null), 200, "verify");
-
         Api.Response login = Api.post(baseUrl() + "/api/auth/login", null,
                 Api.body(Map.of("identifier", email, "password", PASSWORD)));
-        Api.requireStatus(login, 200, "login after verification");
+        Api.requireStatus(login, 200, "login immediately after auto-verified registration");
         String jwt = Api.json(login.body()).get("token").asText();
 
         JsonNode me = Api.json(Api.get(baseUrl() + "/api/users/me", jwt).body());
@@ -109,15 +100,11 @@ class AuthJourneyIT extends FunctionalTestBase {
     @Test
     void userCanChangeOwnUsername() throws Exception {
         String username = "itarename";
-        String email = username + "@example.com";
         Api.requireStatus(Api.post(baseUrl() + "/api/auth/register", null,
-                Api.body(Map.of("displayName", "Rena", "realName", "Rena R", "email", email,
+                Api.body(Map.of("displayName", "Rena", "realName", "Rena R", "email", username + "@example.com",
                         "dateOfBirth", "1990-01-15", "username", username,
                         "password", PASSWORD, "confirmPassword", PASSWORD))),
                 201, "register");
-
-        String verifyUrl = backend().awaitVerificationUrl(email);
-        Api.requireStatus(Api.get(verifyUrl, null), 200, "verify");
 
         Api.Response login = Api.post(baseUrl() + "/api/auth/login", null,
                 Api.body(Map.of("identifier", username, "password", PASSWORD)));
@@ -154,8 +141,6 @@ class AuthJourneyIT extends FunctionalTestBase {
                         "dateOfBirth", "1990-01-15", "username", "reat2",
                         "password", PASSWORD, "confirmPassword", PASSWORD))),
                 201, "register two");
-        String verifyUrl = backend().awaitVerificationUrl("itaa@example.com");
-        Api.requireStatus(Api.get(verifyUrl, null), 200, "verify one");
 
         Api.Response login = Api.post(baseUrl() + "/api/auth/login", null,
                 Api.body(Map.of("identifier", "reat1", "password", PASSWORD)));
@@ -169,15 +154,11 @@ class AuthJourneyIT extends FunctionalTestBase {
     @Test
     void editsProfileAndChangesPassword() throws Exception {
         String username = "itaprofile";
-        String email = username + "@example.com";
         Api.requireStatus(Api.post(baseUrl() + "/api/auth/register", null,
-                Api.body(Map.of("displayName", "Prof", "realName", "Prof P", "email", email,
+                Api.body(Map.of("displayName", "Prof", "realName", "Prof P", "email", username + "@example.com",
                         "dateOfBirth", "1990-01-15", "username", username,
                         "password", PASSWORD, "confirmPassword", PASSWORD))),
                 201, "register");
-
-        String verifyUrl = backend().awaitVerificationUrl(email);
-        Api.requireStatus(Api.get(verifyUrl, null), 200, "verify");
 
         Api.Response login = Api.post(baseUrl() + "/api/auth/login", null,
                 Api.body(Map.of("identifier", username, "password", PASSWORD)));
