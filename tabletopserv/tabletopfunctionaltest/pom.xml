@@ -10,7 +10,7 @@
     </parent>
     <artifactId>tabletopfunctionaltest</artifactId>
     <name>tabletopfunctionaltest</name>
-    <description>Functional/E2E suites — boot the packaged tabletopservice JAR as a subprocess against a real Postgres (Testcontainers) and a recorded-fixture gateway stub (draft-design.md §18).</description>
+    <description>Functional/E2E suites — boot the packaged tabletopservice JAR as a subprocess against a real Postgres (Testcontainers) and a recorded-fixture gateway stub (design-v1.md §18).</description>
 
     <properties>
         <testcontainers.version>1.20.6</testcontainers.version>

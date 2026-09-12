@@ -1,11 +1,11 @@
 # Session
 
-Pick up where we left off: opencode session resumes via `/sessions`; if starting fresh, read this file plus `draft-design.md` (§8 Character Generation, §9 SRD Integration, §13 Roadmap are the strategic sections) and `AGENTS.md`.
+Pick up where we left off: opencode session resumes via `/sessions`; if starting fresh, read this file plus `design-v1.md` (§8 Character Generation, §9 SRD Integration, §13 Roadmap are the strategic sections) and `AGENTS.md`.
 
 ## Where we are
 
 - Current branch: **`feature/backend-modules-gateway`** (created off `develop` for the backend restructure + gateway + SRD rewire).
-- **Draft v0.10** (backend restructure + gateway + SRD rewire) landed on this branch. The prior branch (`feature/gateway-monster-3d`) delivered design flush v0.9 in `draft-design.md`.
+- **Draft v0.10** (backend restructure + gateway + SRD rewire) landed on this branch. The prior branch (`feature/gateway-monster-3d`) delivered design flush v0.9 in `design-v1.md`.
 - **Backend structure:** `tabletopserv/` is now a **multi-module Maven reactor**:
   - `tabletopapi` — inbound REST contract only (interfaces + DTOs, `com.gamer.fowever.tabletopapi`, no business logic).
   - `tabletopservice` — `*ControllerImpl implements *Api`, services, domain, repos, security, config, STOMP glue, runnable JAR (`com.gamer.fowever.tabletopservice`). jacoco ≥ 90% line gate **here only**.
@@ -33,7 +33,7 @@ Pick up where we left off: opencode session resumes via `/sessions`; if starting
 - Homebrew monster generation (§9b) via the gateway `llm-monsters` route (Stage 3b).
 - Optional 3D battle-map viewport (§17) via React Three Fiber + drei.
 - Functional test module (§18) scaffolded when the first E2E suite is needed.
-- Deferrals recorded in `draft-design.md` §14 (standard array/point-buy/4d6, house-rule d20 config, leveling >3, SRD mirror/multilingual/2024, JWT refresh).
+- Deferrals recorded in `design-v1.md` §14 (standard array/point-buy/4d6, house-rule d20 config, leveling >3, SRD mirror/multilingual/2024, JWT refresh).
 
 ## Gotchas
 

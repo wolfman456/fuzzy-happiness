@@ -1,7 +1,7 @@
 # Maps Resources — Free Battle Map Research
 
 **Context:** we need battle maps beyond the plain 2D grid before we start on the 3D
-generation work (draft-design §17). The 2D grid battle map track 1 is landed; this
+generation work (design-v1 §17). The 2D grid battle map track 1 is landed; this
 research covers where to source map *images* and assets to drop under/over the grid,
 and what map-making tooling exists for producing our own later.
 
