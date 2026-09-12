@@ -100,6 +100,12 @@ Map house rules: 10 ft per square, per-turn budget `floor(speedFeet / 10)` squar
 Status codes: `400` validation / `401` bad or missing JWT / `403` forbidden /
 `404` not found / `409` duplicate / `429` resend cooldown / `500` fallback.
 
+Observability: every response carries an `X-Correlation-Id` (reused from the request when
+present) and all SLF4J lines for that request log it via MDC; `SrdClient`/`GatewayClient`
+per-call timings and `CharacterService` compile/save entry-exit traces are logged at `debug`,
+5xx failures at `error` with full stacks. The gateway echoes the same id and logs one structured
+line per request (see `tabletopgateway`).
+
 ## Configuration
 
 - Profiles: `dev` (default — H2, console email, bootstrap admin) and `prod`
@@ -120,4 +126,5 @@ Status codes: `400` validation / `401` bad or missing JWT / `403` forbidden /
   sent as `X-Gateway-Token`).
 - `tabletopserv.cors.allowed-origins` (env `CORS_ALLOWED_ORIGINS`, default
   `http://localhost:5173`) lists the origins allowed to call `/api/**`; the prod profile
-  defaults to an empty list (no cross-origin access) until overridden.
+  defaults to an empty list (no cross-origin access) until overridden. `X-Correlation-Id` is
+  exposed to browsers via `Access-Control-Expose-Headers` and accepted as a request header.

@@ -14,6 +14,8 @@ import com.gamer.fowever.tabletopservice.domain.Dnd5eCharacter;
 import com.gamer.fowever.tabletopservice.domain.User;
 import com.gamer.fowever.tabletopservice.repository.CharacterRepository;
 import com.gamer.fowever.tabletopservice.service.SrdClient;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.core.JacksonException;
@@ -42,6 +44,8 @@ import java.util.TreeSet;
 @Service
 public class CharacterService {
 
+    private static final Logger log = LoggerFactory.getLogger(CharacterService.class);
+
     private static final List<String> ABILITIES = List.of("str", "dex", "con", "int", "wis", "cha");
 
     private final SrdClient srd;
@@ -68,15 +72,22 @@ public class CharacterService {
     }
 
     public CompileResult compile(User actor, CharacterDraftDto draft) {
+        long start = System.nanoTime();
+        log.debug("compile start user={} name={} class={} race={} level={}",
+                actor.getId(), draft.name(), draft.classIndex(), draft.raceIndex(), draft.startingLevel());
         List<String> violations = new ArrayList<>();
         SrdFacts facts = loadFacts(draft, violations);
         if (violations.isEmpty()) {
             validate(draft, facts, violations);
         }
         if (!violations.isEmpty()) {
+            log.debug("compile invalid user={} violations={} tookMs={}",
+                    actor.getId(), violations.size(), elapsedMs(start));
             return CompileResult.invalid(violations);
         }
-        return CompileResult.ok(derive(draft, facts));
+        CompileResult result = CompileResult.ok(derive(draft, facts));
+        log.debug("compile ok user={} tookMs={}", actor.getId(), elapsedMs(start));
+        return result;
     }
 
     public CompileResult generate(User actor, GenerateCharacterRequest request) {
@@ -144,6 +155,8 @@ public class CharacterService {
 
     @Transactional
     public CharacterSheetDto create(User actor, CharacterDraftDto draft) {
+        long start = System.nanoTime();
+        log.debug("create start user={} name={}", actor.getId(), draft.name());
         CompileResult result = compile(actor, draft);
         if (!result.valid()) {
             throw ApiException.badRequest("character is not legal: " + String.join("; ", result.violations()));
@@ -175,6 +188,7 @@ public class CharacterService {
         entity.setProficiencyBonus(sheet.proficiencyBonus());
         entity.setSheetSnapshot(toJson(sheet));
         Dnd5eCharacter saved = (Dnd5eCharacter) characterRepository.saveAndFlush(entity);
+        log.debug("create done user={} id={} tookMs={}", actor.getId(), saved.getId(), elapsedMs(start));
         return withId(saved.getId(), sheet);
     }
 
@@ -391,6 +405,10 @@ public class CharacterService {
                 proficiencyBonus, hitPoints, armorClass, speed,
                 savingThrows, classSkills, backgroundSkills, skillPicks, spells, spellSlots,
                 features, equipment, startingGoldGp, spentGoldGp, snapshot);
+    }
+
+    private static long elapsedMs(long startNanos) {
+        return (System.nanoTime() - startNanos) / 1_000_000L;
     }
 
     private CharacterSheetDto withId(Long id, CharacterSheetDto sheet) {

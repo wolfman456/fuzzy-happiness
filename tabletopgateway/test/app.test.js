@@ -16,14 +16,17 @@ function makeApp(overrides = {}) {
   let clock = 0;
   const fetchFn = overrides.fetchFn ?? (async () => okResponse({ name: 'races' }));
   const dnsLookup = overrides.dnsLookup ?? (async () => [{ address: '8.8.8.8' }]);
+  const logger = overrides.logger ?? (() => {});
   return {
     app: createApp({
       token: TOKEN,
       now: () => clock,
       fetchFn,
       dnsLookup,
+      logger,
       ...overrides.options,
     }),
+    logger,
     setClock: (value) => {
       clock = value;
     },
@@ -222,5 +225,40 @@ describe('createApp', () => {
     const { app } = makeApp({ options: { routes }, fetchFn });
     const res = await request(app).get('/api/srd/races').set('x-gateway-token', TOKEN);
     expect(res.status).toBe(502);
+  });
+
+  it('logs a structured request line with the correlation id and cache status', async () => {
+    const logger = vi.fn();
+    const { app } = makeApp({ logger });
+    const res = await request(app)
+      .get('/api/srd/races')
+      .set('x-gateway-token', TOKEN)
+      .set('x-correlation-id', 'corr-test-1');
+    expect(res.status).toBe(200);
+    expect(res.headers['x-correlation-id']).toBe('corr-test-1');
+    expect(logger).toHaveBeenCalledTimes(1);
+    const [entry] = logger.mock.calls[0];
+    expect(entry.status).toBe(200);
+    expect(entry.corr).toBe('corr-test-1');
+    expect(entry.cache).toBe('MISS');
+    expect(entry.method).toBe('GET');
+    expect(entry.path).toBe('/api/srd/races');
+    expect(entry.ms).toBeGreaterThanOrEqual(0);
+  });
+
+  it('logs 502 upstream failures and keeps the correlation id', async () => {
+    const logger = vi.fn();
+    const fetchFn = vi.fn(async () => {
+      throw new Error('ECONNREFUSED');
+    });
+    const { app } = makeApp({ logger, fetchFn });
+    const res = await request(app)
+      .get('/api/srd/races')
+      .set('x-gateway-token', TOKEN)
+      .set('x-correlation-id', 'corr-fail-2');
+    expect(res.status).toBe(502);
+    expect(logger).toHaveBeenCalledTimes(1);
+    expect(logger.mock.calls[0][0].status).toBe(502);
+    expect(logger.mock.calls[0][0].corr).toBe('corr-fail-2');
   });
 });

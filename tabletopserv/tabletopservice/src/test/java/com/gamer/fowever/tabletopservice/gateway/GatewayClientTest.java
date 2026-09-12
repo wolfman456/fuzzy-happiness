@@ -1,8 +1,10 @@
 package com.gamer.fowever.tabletopservice.gateway;
 
+import com.gamer.fowever.tabletopservice.support.CorrelationIdFilter;
 import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.slf4j.MDC;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -22,6 +24,7 @@ class GatewayClientTest {
         if (server != null) {
             server.stop(0);
         }
+        MDC.clear();
     }
 
     @Test
@@ -106,5 +109,27 @@ class GatewayClientTest {
 
         assertThat(body).contains("level=1");
         assertThat(body).contains("school=evocation");
+    }
+
+    @Test
+    void propagatesMdcCorrelationIdAsXCorrelationIdHeader() throws IOException {
+        server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/api/srd/races", exchange -> {
+            String correlationId = exchange.getRequestHeaders().getFirst("X-Correlation-Id");
+            byte[] body = ("{\"corr\":\"" + correlationId + "\"}").getBytes(StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(200, body.length);
+            try (OutputStream os = exchange.getResponseBody()) {
+                os.write(body);
+            }
+        });
+        server.start();
+
+        GatewayClient client = new GatewayClient(
+                "http://127.0.0.1:" + server.getAddress().getPort(), "test-token");
+
+        MDC.put(CorrelationIdFilter.MDC_KEY, "corr-mdc-1");
+        String body = client.get("/api/srd/races", Map.of());
+
+        assertThat(body).contains("\"corr\":\"corr-mdc-1\"");
     }
 }
