@@ -52,7 +52,10 @@ See `AGENTS.md` for repo layout, commands, and conventions.
 
 ## Status
 
-Iterative build; design draft in [`draft-design.md`](draft-design.md) (Draft v0.17).
+Iterative build; the shipped MVP design is **locked** in [`design-v1.md`](design-v1.md)
+(Draft v0.18). Live bug fixes against that design are tracked in
+[`design-v1-fixes.md`](design-v1-fixes.md); forward-looking work moves to
+`design-draft-v2.md`.
 
 Delivered:
 
@@ -99,7 +102,7 @@ Delivered:
   DTO), `/user/queue/dice` subscription in `src/lib/stomp.js`. 115 frontend tests (Vitest),
   oxlint + build clean.
 - Design flush (no code) — `feature/gateway-monster-3d`: Draft v0.9 documents three researched
-  areas in `draft-design.md`: homebrew **monster generation** (§9b — replicate the Cros.land
+  areas in `design-v1.md`: homebrew **monster generation** (§9b — replicate the Cros.land
   CR-driven "chassis" math engine + our own LLM; the original has no public API), a dedicated
   **Express egress gateway** (§16 — `tabletopgateway/`, all outbound SRD/LLM calls route
   through it), and an optional **3D battle-map viewport** via React Three Fiber + drei (§17).
@@ -195,7 +198,7 @@ backend tests, jacoco gate met. Frontend: `src/lib/monsters.js` (CR/role/edition
   created account and its persisted token, and leaves `/api/auth/verify` +
   `/api/auth/resend-verification` working once mail is configured (previously a send failure
   inside the @Transactional `register()` 500'd and rolled the account back — observed live on
-  prod where `SMTP_*` is still unset, see [`draft-design.md` §19](draft-design.md)). 2 new unit
+  prod where `SMTP_*` is still unset, see [`design-v1.md` §19](design-v1.md)). 2 new unit
   tests; `./mvnw test` 241 green, jacoco ≥90% met.
 - **Profile editing + password change** — `feature/profile-and-password`
   (R27). Signed-in users can now edit their display name and real name
@@ -226,7 +229,7 @@ conditions). The out-of-MVP list lives in [Wants.md](Wants.md).
 
 One project, three services + managed Postgres, connected over **private networking**
 (`<service>.railway.internal` — the gateway keeps **no public domain**). Full spec in
-[draft-design.md §19](draft-design.md#19-deployment-railway).
+[design-v1.md §19](design-v1.md#19-deployment-railway).
 
 | Service | App dir | Build | Health check |
 |---|---|---|---|

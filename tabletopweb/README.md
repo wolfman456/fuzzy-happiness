@@ -61,4 +61,4 @@ the GM (hidden frame on the topic + full frame on `/user/queue/dice`, merged by 
 `InitiativeRail` shows the ordered list with the current turn highlighted; GMs set the order
 from tokens/custom labels (blank score = auto d20), reroll/remove entries and advance turns.
 Platform plan: see the root `README.md`
-and `draft-design.md`; repo conventions in `AGENTS.md`.
+and `design-v1.md`; repo conventions in `AGENTS.md`.

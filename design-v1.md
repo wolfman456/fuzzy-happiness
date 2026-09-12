@@ -1,4 +1,11 @@
-# Fuzzy Happiness — Tabletop Game Platform (Initial Design Draft)
+# Fuzzy Happiness — Tabletop Game Platform (Design v1)
+
+> ## ⛔ LOCKED — MVP shipped 2026-09-12
+>
+> This is the **frozen v1 design** that the MVP shipped against. It is read-only for
+> reference: no new behavior goes into this document. Bugs and fixes against this design are
+> tracked in **[`design-v1-fixes.md`](design-v1-fixes.md)**, and all forward-looking work moves
+> to **`design-draft-v2.md`**.
 
 > Draft v0.15 (in `feature/auth-hardening`) ships the **auth hardening batch (R15–R18, R20)**:
 > a themed sign-in/sign-up background (R15), password typed twice on registration (R16),

@@ -47,7 +47,7 @@ Session endpoints (members only; GM = creator, roles `GM`/`PLAYER`/`SPECTATOR`):
 | `GET /api/sessions/{id}` | session snapshot incl. `recentEvents` |
 | `POST /api/sessions/{id}/leave` | leave the session |
 
-SRD endpoints (routed through the **gateway** — see `draft-design.md` §9/§16):
+SRD endpoints (routed through the **gateway** — see `design-v1.md` §9/§16):
 
 | Method & path | Description |
 |---|---|
