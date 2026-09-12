@@ -109,9 +109,9 @@ export function startingGoldClassBudget(classIndex) {
 
 /**
  * SRD list prices (in gp) for the starter kit a level-1 adventurer actually
- * buys, taken from dnd5eapi's equipment `cost`. This is display-only: the
- * backend validates the total spend against the actual SRD cost on compile.
- * Items missing from the map show "—" and are still selectable.
+ * buys, taken from dnd5eapi's equipment `cost`. This is a display bootstrap
+ * only: the wizard prefers the live SRD price and the backend always validates
+ * against the live cost on compile, so the running total matches.
  */
 export const STARTER_EQUIPMENT_PRICES = {
   backpack: 2,
@@ -181,6 +181,22 @@ export const STARTER_EQUIPMENT_PRICES = {
 export function equipmentPriceGp(index) {
   const price = STARTER_EQUIPMENT_PRICES[index]
   return typeof price === 'number' ? price : null
+}
+
+/**
+ * Server-parity conversion of a live SRD equipment `cost` ({quantity, unit})
+ * into whole gold pieces. Mirrors ChargenRules.equipmentGoldCostGp so the
+ * wizard's running total equals what `compile` actually charges (sub-gp prices
+ * truncate to 0 gp).
+ */
+export function equipmentCostGp(cost) {
+  const quantity = cost?.quantity ?? 0
+  const copper =
+    cost?.unit === 'pp' ? quantity * 1000
+      : cost?.unit === 'sp' ? quantity * 10
+        : cost?.unit === 'cp' ? quantity
+          : quantity * 100
+  return Math.floor(copper / 100)
 }
 
 export function compileCharacter(draft) {

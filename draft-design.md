@@ -35,6 +35,14 @@
 > sheet carries `startingGoldGp` / `spentGoldGp` (snapshot-only — no schema change), with the
 > server compile rejecting over-budget kits. Expanded classes beyond the SRD core (R24) stay
 > deferred pending a data-source/licensing decision (§8).
+> Draft v0.16 (in `feature/chargen-dice-and-gold`) makes the **wizard's dice and gold match the
+> server exactly**: rolled methods are now the **default** score source with **per-ability 🎲 roll
+> buttons + "Roll all ability scores"** (a ~2 s running-number animation per roll; no arrow
+> steppers for rolled methods); the race-bonus map is keyed to full ability names so base scores
+> seed correctly on quick-build restore and the bonus applies exactly once; and the equipment
+> shop prices **every selected item from the live SRD `cost`** (the static map is bootstrap only),
+> with the class kit **auto-trimming itself to the starting gold budget** when it would blow the
+> purse — so the wizard's spent total always equals what compile charges (R28).
 > **Status:** Draft v0.10 — accounts/auth end-to-end (backend `feature/spring-security` + web UI
 > in `feature/frontend-auth`), Stage 1 "Sessions & chat" (lobby with invite codes,
 > create/join/leave, live chat + presence over STOMP, in `feature/sessions`), the first
@@ -223,28 +231,32 @@ sheet with derived stats.
   (random scores/race/class/subclass/background, permitted skill & spell picks) and
   returns a preview; the user can push it into the wizard to edit, or save as-is.
 
-**Ability scores (score sources):** the **2014 PHB standard array is the v1 default**
-(15, 14, 13, 12, 10, 8 — PHB p.13). Selectable alternatives: **27-point point-buy**
-(scores 8–15 per the PHB cost table), **4d6-drop-lowest** rolled six times, and the
-existing house rule — **6 × d20**. **Rolls are server-authoritative (`SecureRandom`)
-and the wizard enforces them**: picked a rolled method and the dice simply aren't handed
-to the player — `POST /api/characters/roll-scores` returns the six **base scores** (a seeded
-variant exists for functional tests) and the score inputs stay locked until a roll lands.
-Standard array and point-buy are **constrained assignment** (the client mirrors the server's
-legality check so Next stays gated). Choosing a race applies its **ability bonus** to the base
-scores client-side — the draft the server compiles always carries final scores once the race
-is added, which is how characters with racial bonuses stay legal.
+**Ability scores (score sources):** the wizard **defaults to a rolled method —
+4d6-drop-lowest** (server-authoritative dice). Selectable alternatives: the **2014 PHB
+standard array** (15, 14, 13, 12, 10, 8 — PHB p.13), **27-point point-buy** (scores 8–15 per
+the PHB cost table), and the existing house rule — **6 × d20**. **Rolls are server-authoritative
+(`SecureRandom`) and the wizard enforces them**: each ability gets its own **🎲 roll button** and
+there is a **"Roll all ability scores"** button; a roll runs a ~2 s animated number before locking
+in the server's value (`POST /api/characters/roll-scores` returns the six **base scores**; a seeded
+variant exists for functional tests). Rolled methods show no arrow/stepper inputs — the dice are the
+only way in — and Next stays gated until all six abilities are set. Standard array and point-buy
+are **constrained assignment** with dropdowns (8–15) and the class of client caps that mirror the
+server's legality check. Choosing a race applies its **ability bonus** to the base scores, and the
+bonus map is keyed to full ability names so a quick-build draft (which carries **final**
+bonus-included scores) is seeded by *removing* the bonus once — the draft the server compiles always
+carries final scores and never double-applies a racial bonus.
 
 **Starting gold & equipment (equipment shop):** starting equipment is **tied to the class's
 starting wealth** and **bought**, not granted free. Each class gets a purse equal to the
 **average of its PHB wealth-by-class pool** (PHB p.143 — e.g. fighter 5d4×10 gp averages
 125 gp; needle-fine amounts are server-derived). The equipment step is a **budgeted shop**:
-every SRD item shows its price (from the SRD `cost`, converted to gp), a running spent /
-remaining total gates Next, the class's recommended starter kit (from the class record's
-`starting_equipment` + first `starting_equipment_options` choice) is offered as one-click
-auto-select, and **compile rejects any kit over budget**. Gold is carried on the sheet as
-`startingGoldGp` / `spentGoldGp` **in the snapshot only** — no new DB columns, so nothing
-drifts against prod's `ddl-auto=validate` schema.
+every item's price is fetched live from the SRD `cost` the moment it's picked (a small static
+map boots the display, but the live price always wins), a running spent / remaining total gates
+Next, the class's recommended starter kit (from the class record's `starting_equipment` + first
+`starting_equipment_options` choice) is offered as one-click auto-select and **trims itself to
+the starting budget** (most-expensive items dropped first), and **compile rejects any kit over
+budget**. Gold is carried on the sheet as `startingGoldGp` / `spentGoldGp` **in the snapshot
+only** — no new DB columns, so nothing drifts against prod's `ddl-auto=validate` schema.
 
 **Starting level:** configurable **1–3** at creation. **Hit points follow the PHB (p.15):**
 level 1 = max hit die + CON modifier, then the hit die + CON per level. **Proficiency

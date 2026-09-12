@@ -3,5 +3,6 @@
   "index": "leather-armor",
   "name": "Leather Armor",
   "equipment_category": { "index": "armor", "name": "Armor" },
-  "armor_class": { "base": 11, "dex_bonus": true }
+  "armor_class": { "base": 11, "dex_bonus": true },
+  "cost": { "quantity": 10, "unit": "gp" }
 }
