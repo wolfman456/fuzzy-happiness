@@ -18,7 +18,7 @@ outranks an informational one).
 | #45 | New accounts couldn't log in: `SMTP_*` unset in prod → no verification email was ever deliverable (design-v1 §19). Registration is now auto-verified; the login verified-gate is removed; verification stays dormant until mail is configured | high | P1 | ✅ fixed | `fix/disable-email-verification` (PR B) |
 | #46 | Age-gate mismatch: frontend used a ms-years approximation (`13×365.25`) while the backend uses `Period.between` — a user exactly 13 by calendar could be rejected client-side | medium | P2 | 🔧 open | frontend gate to backend logic |
 | #48 | Chargen subclass list only offers the single SRD example archetype per class (design-v1 §8) | high | P2 | 🔧 open (triage PR A) | curated catalog (planned PR D) |
-| #49 | Intermittent chargen "compile/save" failure on first attempt (serial blocking SRD calls, no timeouts, compile inside `@Transactional`, Hikari pool 5) — zero observability | high | P2 | 🔧 open (triage PR A) | logging-first (planned PR C) |
+| #49 | Intermittent chargen "compile/save" failure on first attempt (serial blocking SRD calls, no timeouts, compile inside `@Transactional`, Hikari pool 5) — zero observability | high | P2 | 🔧 fixing (PR C) | logging-only observability (PR C) |
 | #50 | Background list only offers Acolyte (SRD) instead of the PHB backgrounds (design-v1 §8) | medium | P3 | 🔧 open (triage PR A) | curated catalog (planned PR D) |
 | #51 | Class list beyond the SRD core (e.g. Artificer) — design-v1 defers this as R24 | low | P4 | ⏭ deferred | needs non-SRD data source |
 
@@ -29,3 +29,13 @@ outranks an informational one).
   verified gate. SMTP + token plumbing is preserved (endpoints, TTL, cooldown, senders), so
   re-enabling is a 2-line change plus `SMTP_*`/`FRONTEND_URL` dashboard vars (design-v1 §19);
   tracked as Wants.md R31.
+- **2026-09-12 — logging-only observability for the compile/save flake (#49, PR C).** No behavior
+  or response-body changes. A `CorrelationIdFilter` reuses or generates `X-Correlation-Id` per
+  request — echoed back on the response header (also exposed via CORS) and in SLF4J/MDC log lines.
+  `GatewayClient` per-call timing/logs and propagates the same id upstream; `SrdClient` logs each
+  SRD fetch; `CharacterService.compile`/`create` log entry/exit timing inside the save transaction;
+  `GlobalExceptionHandler` now logs full stacks for unhandled 500s and 5xx `ApiException`s; the
+  gateway logs one structured line per request (method, path, status, correlation id, cache
+  status, duration); the frontend `api()` surfaces `status` + `correlationId` on `ApiError`, so a
+  failed chargen can be traced end-to-end. Next (planned PR D): curated PHB subclass/background
+  catalog for #48/#50.

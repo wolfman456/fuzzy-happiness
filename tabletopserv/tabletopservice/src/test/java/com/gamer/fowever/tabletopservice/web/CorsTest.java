@@ -8,6 +8,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -41,5 +42,20 @@ class CorsTest {
         mvc.perform(get("/api/auth/login")
                         .header(HttpHeaders.ORIGIN, "http://evil.example"))
                 .andExpect(header().doesNotExist(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN));
+    }
+
+    @Test
+    void exposesCorrelationIdHeaderViaCors() throws Exception {
+        mvc.perform(get("/api/auth/login")
+                        .header(HttpHeaders.ORIGIN, "http://localhost:5173"))
+                .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS,
+                        containsString("X-Correlation-Id")));
+    }
+
+    @Test
+    void echoesInboundCorrelationIdOnResponses() throws Exception {
+        mvc.perform(get("/api/auth/login")
+                        .header("X-Correlation-Id", "from-client-9"))
+                .andExpect(header().string("X-Correlation-Id", "from-client-9"));
     }
 }

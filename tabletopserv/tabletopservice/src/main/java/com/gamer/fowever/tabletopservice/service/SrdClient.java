@@ -3,6 +3,8 @@ package com.gamer.fowever.tabletopservice.service;
 import com.gamer.fowever.tabletopapi.support.ApiException;
 import com.gamer.fowever.tabletopservice.gateway.GatewayClient;
 import com.gamer.fowever.tabletopservice.gateway.GatewayClientException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import tools.jackson.core.JacksonException;
@@ -14,6 +16,8 @@ import java.util.Set;
 
 @Service
 public class SrdClient {
+
+    private static final Logger log = LoggerFactory.getLogger(SrdClient.class);
 
     private static final Set<String> COLLECTIONS = Set.of(
             "races", "classes", "subclasses", "subraces", "backgrounds", "ability-scores", "skills",
@@ -64,13 +68,18 @@ public class SrdClient {
             body = gatewayClient.get(path, params);
         } catch (GatewayClientException ex) {
             if (ex.getStatus() >= HttpStatus.INTERNAL_SERVER_ERROR.value()) {
+                log.warn("srd fetch failed path={} status={} error={}", path, ex.getStatus(), ex.getMessage());
                 throw ApiException.badGateway("rules data unavailable");
             }
+            log.debug("srd fetch rejected path={} status={} body={}", path, ex.getStatus(), ex.getMessage());
             throw new ApiException(HttpStatus.valueOf(ex.getStatus()), ex.getMessage());
         }
         try {
-            return objectMapper.readTree(body);
+            JsonNode node = objectMapper.readTree(body);
+            log.debug("srd fetch ok path={} bytes={}", path, body.length());
+            return node;
         } catch (JacksonException ex) {
+            log.warn("srd parse failed path={} bytes={}", path, body.length());
             throw ApiException.badGateway("rules data unavailable");
         }
     }
