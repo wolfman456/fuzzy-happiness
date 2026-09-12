@@ -164,7 +164,8 @@ additional games can be plugged in later.
   and broadcasts events to everyone subscribed to that session's topic.
 - **Auth (implemented):** `spring-security` accounts with **JWT bearer** (24h, HS-signed,
   jjwt) for REST, roles `USER`/`MODERATOR`/`ADMIN`, bcrypt password hashing, and email
-  verification (login is blocked until the address is confirmed). Auth endpoints landed in
+  verification — **currently disabled by default** (2026-09-12): registration auto-verifies
+  and login has no verified gate until prod SMTP is configured (§19). Auth endpoints landed in
   `feature/spring-security` — see [§12 API Surface](#12-proposed-api-surface-initial).
 - **Discord VoIP:** Discord has **no public API to programmatically join a voice
   channel** — see [§10 Discord VoIP Integration](#10-discord-voip-integration).
@@ -483,9 +484,11 @@ WS     /ws                          STOMP endpoint; topics as in §6
 `feature/frontend-auth`); the sessions slice landed in `feature/sessions` (Draft v0.6); the
 SRD slice landed in `feature/backend-modules-gateway` (Draft v0.10 — `/api/srd/*` now routes
 through the egress gateway, §16); the monster slice landed in `feature/monster-generation`
-(Draft v0.11 — §9b). Unverified users get `403` on login until
-`/api/auth/verify` confirms their email; the `resend` endpoint is intentionally
-enumeration-safe (always `202`). Outbound SRD calls exit the backend via the Express egress
+(Draft v0.11 — §9b). **Email verification is disabled by default (2026-09-12 — see §19):
+registrations auto-verify** and login no longer returns `403` for unverified accounts;
+`/api/auth/verify` + `/api/auth/resend-verification` still exist and work (the `resend`
+endpoint is intentionally enumeration-safe, always `202`) but are dormant until mail is
+configured. Outbound SRD calls exit the backend via the Express egress
 gateway (§16) — the `/api/srd/*` controllers are frontends (api interfaces in `tabletopapi`,
 impls in `tabletopservice`) for gateway-backed data; the `/api/monsters/*` endpoints are
 fully local (deterministic engine in `tabletopservice`), with the future LLM flavor route as
@@ -570,6 +573,9 @@ no refresh token, single-use 24h email-verification tokens with a 60s resend coo
 (R26): a delivery failure logs a WARN, keeps the created account and persisted token, and
 leaves `/api/auth/verify` + `/api/auth/resend-verification` working once mail is configured
 (the send used to be in-transaction, so any SMTP outage 500'd and rolled back registration);
+**verification currently disabled at registration** (2026-09-12, live-bug fix — prod SMTP is
+unset; registrations auto-verify and login has no verified gate, with the SMTP + token
+plumbing left dormant so re-enabling is a 2-line change, §19);
 **authenticated account editing** (R27): `PATCH /api/users/me/profile` edits display/real name,
 `PATCH /api/users/me/password` verifies the current BCrypt hash, enforces the same password
 policy and re-hashes (email, date of birth, role stay immutable; existing JWTs remain valid —
@@ -956,7 +962,7 @@ build in the correct app directory; manual `railway up` remains available as an 
 ### Variables (per service, dashboard)
 
 Backend needs (prod profile refuses to boot clean without them): `SPRING_PROFILES_ACTIVE=prod`,
-`JWT_SECRET`, `PII_SECRET`, `ADMIN_USERNAME`/`ADMIN_PASSWORD`, `SMTP_HOST`/`SMTP_PORT`/`SMTP_USER`/`SMTP_PASSWORD`,
+`JWT_SECRET`, `PII_SECRET`, `ADMIN_USERNAME`/`ADMIN_PASSWORD`,
 `CORS_ALLOWED_ORIGINS` (the web's public URLs: `https://gamenight.bond`,
 `https://www.gamenight.bond`, plus the `*.up.railway.app` URL), `FRONTEND_URL=https://gamenight.bond`,
 `GATEWAY_URL`, `GATEWAY_TOKEN`, and the
@@ -965,13 +971,16 @@ service). The gateway needs the **same** `GATEWAY_TOKEN`. The web service needs 
 (backend public URL) set **before** its build, then a redeploy. `.railway/railway.ts` marks the
 secrets `preserve()` so a later `railway config apply` never overwrites dashboard values.
 
-> **Live-deploy gap (observed 2026-09-11):** `SMTP_*` is currently *unset* on the backend, so no
-> verification email has ever been deliverable from prod. Before R26 this made registration
-> **500 and roll back** (the send ran inside the @Transactional register); R26 makes the send
-> non-fatal, so accounts create fine, but **no account can complete
-> `/api/auth/verify` until `SMTP_HOST`/`SMTP_PORT`/`SMTP_USER`/`SMTP_PASSWORD` are set** (defaults
-> port 587 + STARTTLS in `application-prod.properties`). Set those four keys and re-test the
-> register→verify journey.
+> **Live-deploy gap — resolved (2026-09-12):** `SMTP_*` is *unset* on the backend, so no
+> verification email was ever deliverable from prod and every fresh registration was locked
+> out. **Email verification is now disabled by default**: registration auto-verifies (accounts
+> are usable immediately) and the login gate is removed. The SMTP + token plumbing stays
+> dormant — `/api/auth/verify`, `/api/auth/resend-verification`, the 24h-token TTL, the 60s
+> resend cooldown and the `ConsoleEmailSender`/SMTP sender are unchanged. **To re-enable:**
+> set `SMTP_HOST`/`SMTP_PORT`/`SMTP_USER`/`SMTP_PASSWORD` and the `FRONTEND_URL` (for the
+> emailed link) in the dashboard, then flip two lines in `AuthService.register` (drop
+> `setEmailVerified(true)`, restore the token issue + send) and `AuthService.login` (restore
+> the verified check). Re-enable leads a future iteration (Wants.md R31).
 
 ### Lifecycle
 

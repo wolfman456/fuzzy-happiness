@@ -210,6 +210,16 @@ backend tests, jacoco gate met. Frontend: `src/lib/monsters.js` (CR/role/edition
   revocation, matching username changes). 6 new backend tests (`./mvnw test` 247 green, jacoco
   ≥90% met — incl. functional `editsProfileAndChangesPassword` IT) and 9 new frontend tests
   (177 Vitest green, oxlint + build clean).
+- **Email verification disabled (live-bug fix #45/#46)** — `fix/disable-email-verification`
+  (Draft v0.18, §12/§14/§19). Prod `SMTP_*` is unset, so no verification email was ever
+  deliverable and every fresh registration was locked out of login. Registration now
+  **auto-verifies** (account usable immediately, `emailVerified: true`) and the login gate is
+  gone; the SMTP + token plumbing stays dormant (`/api/auth/verify`, `/api/auth/resend-verification`,
+  24h TTL, 60s resend cooldown, console/SMTP senders all unchanged), so re-enabling is a
+  2-line change + dashboard vars (Wants.md R31). Frontend: register success becomes "Account
+  created", the login 403 hint and the dashboard verified/unverified badge are removed.
+  Backend tests reworked (auto-verify asserted, login-without-verify covered, token-list
+  helpers dropped from the web/IT suites) — `./mvnw test` green, jacoco ≥90%.
 
 Next: production deploys (R14 — Railway auto-deploy from GitHub, rootDirectory per service), the
 optional 3D viewport (§17), and the rest of the game table (multi-map, fog of war, turn timers,
@@ -239,11 +249,14 @@ Dashboard secrets per service; `.railway/railway.ts` marks them `preserve()` so 
 never clobbers them.
 
 - **backend:** `SPRING_PROFILES_ACTIVE=prod`, `JWT_SECRET`, `PII_SECRET`,
-  `ADMIN_USERNAME` `ADMIN_PASSWORD`, `SMTP_HOST` `SMTP_PORT` `SMTP_USER` `SMTP_PASSWORD`,
+  `ADMIN_USERNAME` `ADMIN_PASSWORD`,
   `CORS_ALLOWED_ORIGINS` (`https://gamenight.bond`, `https://www.gamenight.bond`, and the web
   service's `*.up.railway.app` URL), `FRONTEND_URL=https://gamenight.bond`,
   `GATEWAY_URL` (`http://gateway.railway.internal`), `GATEWAY_TOKEN`; datasource `PGHOST`
   `PGPORT` `PGDATABASE` `PGUSER` `PGPASSWORD` (referenced from the Postgres service).
+  `SMTP_HOST` `SMTP_PORT` `SMTP_USER` `SMTP_PASSWORD` are **optional today** — email
+  verification is disabled (registrations auto-verify), so they're only needed when
+  verification is re-enabled (§19).
 - **gateway:** `GATEWAY_TOKEN` (same value as backend).
 - **web:** `VITE_API_URL` (backend public URL) — read at **build time**, so change it and
   redeploy.

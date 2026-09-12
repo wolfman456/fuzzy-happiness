@@ -41,18 +41,6 @@ describe('LoginPage', () => {
     expect(login).toHaveBeenCalledWith({ identifier: 'aria@example.com', password: 'Password1!' })
   })
 
-  it('shows the verify-email hint on 403', async () => {
-    renderLogin({
-      ...baseValue,
-      login: vi.fn().mockRejectedValue(new ApiError(403, 'Email not verified.')),
-    })
-    fireEvent.change(screen.getByLabelText(/username or email/i), { target: { value: 'aria' } })
-    fireEvent.change(screen.getByLabelText(/^password$/i), { target: { value: 'Password1!' } })
-    fireEvent.click(screen.getByRole('button', { name: /log in/i }))
-
-    expect(await screen.findByRole('alert')).toHaveTextContent(/not verified/i)
-  })
-
   it('shows an invalid-credentials message on 401', async () => {
     renderLogin({
       ...baseValue,

@@ -30,14 +30,8 @@ describe('Dashboard', () => {
     expect(screen.getByText(/welcome, aria/i)).toBeInTheDocument()
     expect(screen.getByText('aria@example.com')).toBeInTheDocument()
     expect(screen.getByText('USER')).toBeInTheDocument()
-    expect(screen.getByText(/verified/i)).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: /sessions/i })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: /characters/i })).toBeInTheDocument()
-  })
-
-  it('marks an unverified email', () => {
-    renderDashboard({ ...user, emailVerified: false })
-    expect(screen.getByText(/unverified/i)).toBeInTheDocument()
   })
 
   it('shows the admin section for ADMIN users', () => {

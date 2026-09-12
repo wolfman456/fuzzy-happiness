@@ -39,13 +39,13 @@ function fillValidForm() {
 }
 
 describe('RegisterPage', () => {
-  it('registers a valid profile and shows the verify prompt', async () => {
+  it('registers a valid profile and shows the welcome prompt', async () => {
     const register = vi.fn().mockResolvedValue({})
     renderRegister({ ...baseValue, register })
     fillValidForm()
     fireEvent.click(screen.getByRole('button', { name: /create account/i }))
 
-    expect(await screen.findByText(/check your inbox/i)).toBeInTheDocument()
+    expect(await screen.findByText(/account created/i)).toBeInTheDocument()
     expect(register).toHaveBeenCalledWith(expect.objectContaining({ username: 'aria', realName: 'Aria Ashton' }))
   })
 

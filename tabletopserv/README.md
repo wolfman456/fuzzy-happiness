@@ -26,9 +26,9 @@ Auth endpoints (JSON; business errors via `GlobalExceptionHandler`):
 
 | Method & path | Description |
 |---|---|
-| `POST /api/auth/register` | create account (display name + **real name**, email, DoB ≥ 13, strict password entered twice) → `201` + verification email |
-| `POST /api/auth/login` | login by username **or** email → 24h JWT; `403` until email verified |
-| `GET /api/auth/verify?token=` | confirm email (single-use, 24h expiry) |
+| `POST /api/auth/register` | create account (display name + **real name**, email, DoB ≥ 13, strict password entered twice) → `201`; **auto-verified** until email verification is re-enabled (§19) |
+| `POST /api/auth/login` | login by username **or** email → 24h JWT |
+| `GET /api/auth/verify?token=` | confirm email (single-use, 24h expiry; dormant until SMTP is configured) |
 | `POST /api/auth/resend-verification` | resend verification link (60s cooldown; always `202`, enumeration-safe) |
 | `GET /api/users/me` | current user profile (JWT required) |
 | `GET /api/admin/users` | admin-only user listing |
@@ -97,13 +97,14 @@ Map house rules: 10 ft per square, per-turn budget `floor(speedFeet / 10)` squar
 (race table 25/30/35/40 ft), diagonal moves cost Chebyshev distance, budget resets on turn
 `START` / `END` / `NEW_ROUND`, over-budget moves rejected with `400`.
 
-Status codes: `400` validation / `401` bad or missing JWT / `403` unverified or forbidden /
+Status codes: `400` validation / `401` bad or missing JWT / `403` forbidden /
 `404` not found / `409` duplicate / `429` resend cooldown / `500` fallback.
 
 ## Configuration
 
 - Profiles: `dev` (default — H2, console email, bootstrap admin) and `prod`
-  (`application-prod.properties` — PostgreSQL, SMTP, required secrets).
+  (`application-prod.properties` — PostgreSQL, required secrets). Email verification is
+  disabled by default; SMTP config (below) is only needed to re-enable it (§19).
 - Settings overridable via env: see `tabletopserv.*` keys in `application.properties`
   (JWT secret + expiry, verification TTL + cooldown, bootstrap admin defaults, PII secret,
   frontend URL, CORS origins, gateway URL/token) and the `*_*` env placeholders in

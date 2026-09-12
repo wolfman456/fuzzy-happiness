@@ -91,10 +91,9 @@ public class AuthService {
                 request.dateOfBirth(), passwordEncoder.encode(request.password()));
         user.setRealName(request.realName());
         user.setAuthRole(AuthRole.USER);
-        user.setEmailVerified(false);
+        user.setEmailVerified(true);
         userRepository.save(user);
-        issueVerificationToken(user);
-        return new RegisterResponse(user.getId(), "Account created. Check your email to verify your address.");
+        return new RegisterResponse(user.getId(), "Account created. You can now log in.");
     }
 
     @Transactional
@@ -102,9 +101,6 @@ public class AuthService {
         User user = userRepository.findByUsernameIgnoreCaseOrEmailKey(request.identifier(),
                         PiiCrypto.emailKey(request.identifier()))
                 .orElseThrow(() -> ApiException.unauthorized("Invalid username/email or password"));
-        if (!user.isEmailVerified()) {
-            throw ApiException.forbidden("Email not verified. Check your inbox or request a new link.");
-        }
         try {
             authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(user.getUsername(), request.password()));
         } catch (BadCredentialsException ex) {

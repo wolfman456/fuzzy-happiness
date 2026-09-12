@@ -76,10 +76,9 @@ export default function RegisterPage() {
     return (
       <AuthBackground>
         <div className="mx-auto w-full max-w-sm rounded-xl border border-zinc-700 bg-zinc-100 p-8 text-center shadow-xl">
-          <h1 className="mb-3 text-xl font-semibold">Check your inbox</h1>
+          <h1 className="mb-3 text-xl font-semibold">Account created</h1>
           <p className="text-sm text-zinc-600">
-            A verification link was sent to <strong>{form.email}</strong>. You can log in
-            once your email is confirmed (in dev the link is printed to the backend console).
+            Welcome aboard, <strong>{form.displayName}</strong>! Your account is ready — you can log in now.
           </p>
           <Link to="/login" className="mt-5 inline-block text-sm font-medium text-zinc-900 underline">
             Go to log in
