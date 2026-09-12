@@ -222,6 +222,8 @@ Character creation is a **draft → compile → finalize** flow. The frontend as
 draft of choices (as SRD `index` references, §9); the server compiles it into a valid
 sheet with derived stats.
 
+![Character wizard — ability scores step](docs/screenshots/Screenshot_20260911_180319.png)
+
 **Two entry modes:**
 
 - **Guided wizard** — step sequence: name → ability scores → race → class → subclass →

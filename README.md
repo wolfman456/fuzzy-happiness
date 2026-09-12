@@ -7,6 +7,8 @@ game on top of a shared, portable base. Development targets **Dungeons & Dragons
 the core (users, sessions, characters, game registry) stays generic so other systems can
 be added later.
 
+![Character wizard — ability scores step](docs/screenshots/Screenshot_20260911_180319.png)
+
 ## Why
 
 This project came up as my son has friends moving away and they want to continue to play
