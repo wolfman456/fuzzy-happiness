@@ -178,33 +178,48 @@ class DiceFlowTest {
         gmSession.subscribe("/app/sessions/" + created.id(), frameHandler((headers, payload) -> {
         }));
 
+        // Let the broker register the user-queue subscriptions before the first publish.
+        Thread.sleep(TimeUnit.MILLISECONDS.toMillis(500));
+
         Map<String, Object> hidden = null;
         Map<String, Object> full = null;
-        long deadline = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(10);
-        while (full == null && System.currentTimeMillis() < deadline) {
+        String matchedRollId = null;
+        long deadline = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(30);
+        while (System.currentTimeMillis() < deadline) {
             mvc.perform(post("/api/sessions/" + created.id() + "/roll")
                             .header("Authorization", "Bearer " + jwtService.generateToken(gm))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("{\"expression\":\"d100\",\"privateRoll\":true}"))
                     .andExpect(status().isOk());
-            if (gmHiddenLatch.await(1, TimeUnit.SECONDS)) {
+            if (gmHiddenLatch.await(250, TimeUnit.MILLISECONDS)) {
                 hidden = gmHiddenTopic.get();
             }
-            playerHiddenLatch.await(1, TimeUnit.SECONDS);
-            if (gmFullLatch.await(1, TimeUnit.SECONDS)) {
+            playerHiddenLatch.await(250, TimeUnit.MILLISECONDS);
+            if (gmFullLatch.await(250, TimeUnit.MILLISECONDS)) {
                 full = gmFullQueue.get();
+            }
+            if (hidden != null && full != null && playerHiddenTopic.get() != null) {
+                String candidate = String.valueOf(hidden.get("rollId"));
+                if (candidate.equals(String.valueOf(full.get("rollId")))
+                        && candidate.equals(String.valueOf(playerHiddenTopic.get().get("rollId")))) {
+                    matchedRollId = candidate;
+                    break;
+                }
             }
         }
 
+        assertThat(hidden).as("hidden frame broadcast on the session topic").isNotNull();
         assertThat(full).as("private roll delivered to the GM user queue").isNotNull();
+        assertThat(playerHiddenTopic.get()).isNotNull();
         assertThat(hidden.get("hidden")).isEqualTo(Boolean.TRUE);
         assertThat(hidden).doesNotContainKey("rolls");
         assertThat(hidden).doesNotContainKey("total");
-        assertThat(playerHiddenTopic.get().get("rollId")).isEqualTo(hidden.get("rollId"));
+        assertThat(hidden.get("rollId")).isEqualTo(matchedRollId);
+        assertThat(playerHiddenTopic.get().get("rollId")).isEqualTo(matchedRollId);
         assertThat(full.get("hidden")).isEqualTo(Boolean.TRUE);
         assertThat(full).containsKey("rolls");
         assertThat(full).containsKey("total");
-        assertThat(full.get("rollId")).isEqualTo(hidden.get("rollId"));
+        assertThat(full.get("rollId")).isEqualTo(matchedRollId);
         assertThat(((java.util.List<?>) full.get("rolls"))).hasSize(1);
         assertThat((Integer) full.get("total")).isBetween(1, 100);
     }
