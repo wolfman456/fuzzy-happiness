@@ -1,7 +1,6 @@
 package com.gamer.fowever.tabletopservice.web;
 
-import com.gamer.fowever.tabletopservice.domain.EmailVerificationToken;
-import com.gamer.fowever.tabletopservice.repository.EmailVerificationTokenRepository;
+import com.gamer.fowever.tabletopservice.domain.User;
 import com.gamer.fowever.tabletopservice.repository.UserRepository;
 import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.Test;
@@ -13,7 +12,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
+import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -29,8 +28,6 @@ class AuthFlowTest {
 
     @Autowired
     private MockMvc mvc;
-    @Autowired
-    private EmailVerificationTokenRepository tokenRepository;
     @Autowired
     private UserRepository userRepository;
 
@@ -48,30 +45,17 @@ class AuthFlowTest {
         mvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON).content(REGISTER_BODY))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("verify")));
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("log in")));
 
-        List<EmailVerificationToken> tokens = tokenRepository.findAll();
-        assertThat(tokens).hasSize(1);
-        assertThat(userRepository.findByUsernameIgnoreCase("aria").orElseThrow().isEmailVerified()).isFalse();
-        String token = tokens.get(0).getToken();
-
-        mvc.perform(post("/api/auth/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"identifier\":\"aria@example.com\",\"password\":\"Password1!\"}"))
-                .andExpect(status().isForbidden());
-
-        mvc.perform(get("/api/auth/verify").param("token", token))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$").value("Email verified. You can now log in."));
-        assertThat(tokenRepository.count()).isZero();
         assertThat(userRepository.findByUsernameIgnoreCase("aria").orElseThrow().isEmailVerified()).isTrue();
 
         MvcResult login = mvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"identifier\":\"aria\",\"password\":\"Password1!\"}"))
+                        .content("{\"identifier\":\"aria@example.com\",\"password\":\"Password1!\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.tokenType").value("Bearer"))
                 .andExpect(jsonPath("$.user.username").value("aria"))
+                .andExpect(jsonPath("$.user.emailVerified").value(true))
                 .andReturn();
         String jwt = JsonPath.read(login.getResponse().getContentAsString(), "$.token");
 
@@ -127,13 +111,19 @@ class AuthFlowTest {
                         .content("{\"identifier\":\"missing-user\"}"))
                 .andExpect(status().isAccepted());
 
-        mvc.perform(post("/api/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON).content(REGISTER_BODY))
-                .andExpect(status().isCreated());
+        User unverified = new User("unverified-user", "Unverified", "unverified@example.com",
+                LocalDate.of(1990, 1, 15), "encoded-hash");
+        unverified.setEmailVerified(false);
+        userRepository.saveAndFlush(unverified);
 
         mvc.perform(post("/api/auth/resend-verification")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"identifier\":\"aria\"}"))
+                        .content("{\"identifier\":\"unverified-user\"}"))
+                .andExpect(status().isAccepted());
+
+        mvc.perform(post("/api/auth/resend-verification")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"identifier\":\"unverified-user\"}"))
                 .andExpect(status().isTooManyRequests());
     }
 
@@ -173,9 +163,6 @@ class AuthFlowTest {
         mvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON).content(REGISTER_BODY))
                 .andExpect(status().isCreated());
-        List<EmailVerificationToken> tokens = tokenRepository.findAll();
-        mvc.perform(get("/api/auth/verify").param("token", tokens.get(0).getToken()))
-                .andExpect(status().isOk());
 
         MvcResult login = mvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -209,10 +196,6 @@ class AuthFlowTest {
                                 + "\"dateOfBirth\":\"1990-01-15\",\"username\":\"other\",\"password\":\"Password1!\","
                                 + "\"confirmPassword\":\"Password1!\"}"))
                 .andExpect(status().isCreated());
-        List<EmailVerificationToken> tokens = tokenRepository.findAll();
-        for (EmailVerificationToken token : tokens) {
-            mvc.perform(get("/api/auth/verify").param("token", token.getToken())).andExpect(status().isOk());
-        }
 
         MvcResult login = mvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -245,8 +228,6 @@ class AuthFlowTest {
         mvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON).content(REGISTER_BODY))
                 .andExpect(status().isCreated());
-        mvc.perform(get("/api/auth/verify").param("token", tokenRepository.findAll().get(0).getToken()))
-                .andExpect(status().isOk());
 
         MvcResult login = mvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -290,8 +271,6 @@ class AuthFlowTest {
         mvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON).content(REGISTER_BODY))
                 .andExpect(status().isCreated());
-        mvc.perform(get("/api/auth/verify").param("token", tokenRepository.findAll().get(0).getToken()))
-                .andExpect(status().isOk());
 
         MvcResult login = mvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)

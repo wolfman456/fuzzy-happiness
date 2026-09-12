@@ -24,11 +24,7 @@ export default function LoginPage() {
       navigate('/', { replace: true })
     } catch (err) {
       setError(
-        err.status === 403
-          ? 'This email is not verified yet. Check your inbox or request a new link.'
-          : err.status === 401
-            ? 'Invalid username/email or password.'
-            : err.message,
+        err.status === 401 ? 'Invalid username/email or password.' : err.message,
       )
     } finally {
       setSubmitting(false)

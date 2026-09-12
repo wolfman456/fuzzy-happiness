@@ -40,6 +40,7 @@ Status key: ✅ landed · 🔨 in progress · ⏭ deferred (post-MVP)
 - As a Player I want the app's navigation tucked into a slide-in sidebar that opens from a menu button in the top bar, so screens stay uncluttered and the top header stays slim. (R30) ✅ landed (PR #43)
 - As a Player I want each class in the character wizard to offer all of its Player's Handbook subclass options — not just the single SRD example archetype — so I can build the hero I planned.
 - As a Player I want the full standard Player's Handbook background list in the character wizard — not just Acolyte from the SRD — so I can pick the origin I planned.
+- As a Player I want my email address verified with a login link after registration once production email delivery is configured, so my account is tied to an address I actually control — until prod SMTP is set up accounts are auto-verified on registration so nobody is locked out. (R31) 🔨 in progress
 
 ## MVP definition (agreed 2026-09-08)
 

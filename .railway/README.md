@@ -29,8 +29,10 @@ railway up    # tabletopweb/     Dockerfile build -> web
 ## Secrets to set in the dashboard (per service environment)
 
 Backend boot requires (prod profile): `JWT_SECRET`, `ADMIN_PASSWORD`,
-`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `CORS_ALLOWED_ORIGINS`,
-`GATEWAY_TOKEN`. The gateway needs the **same** `GATEWAY_TOKEN`. The web service
+`CORS_ALLOWED_ORIGINS`, `GATEWAY_TOKEN`. `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`,
+`SMTP_PASSWORD` are **optional** right now — email verification is disabled (registration
+auto-verifies), so they only matter when verification is re-enabled (see `draft-design.md`
+§19). The gateway needs the **same** `GATEWAY_TOKEN`. The web service
 needs `VITE_API_URL` (backend's public URL, e.g. `https://<backend>.up.railway.app`)
 set **before building** — then redeploy so the bundle picks it up.
 
