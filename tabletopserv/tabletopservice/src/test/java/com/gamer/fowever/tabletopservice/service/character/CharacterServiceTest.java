@@ -27,6 +27,7 @@ import tools.jackson.databind.node.ObjectNode;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.time.LocalDate;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -70,6 +71,15 @@ class CharacterServiceTest {
             + "\"cost\":{\"quantity\":10,\"unit\":\"gp\"}}";
     private static final String CLUB = "{\"index\":\"club\",\"equipment_category\":{\"index\":\"weapon\"},"
             + "\"cost\":{\"quantity\":1,\"unit\":\"sp\"}}";
+    private static final String WIZARD = "{\"index\":\"wizard\",\"name\":\"Wizard\",\"hit_die\":6,"
+            + "\"subclass_level\":2,\"spellcasting\":{},\"saving_throws\":[{\"index\":\"int\"},{\"index\":\"wis\"}],"
+            + "\"proficiency_choices\":[{\"choose\":2,\"from\":{\"options\":["
+            + "{\"item\":{\"index\":\"skill-arcana\"}},{\"item\":{\"index\":\"skill-history\"}}]}}],"
+            + "\"subclasses\":[{\"index\":\"evocation\"}]}";
+    private static final String WIZARD_LEVELS = "[{\"level\":1,\"prof_bonus\":2,\"features\":[{\"index\":\"spellcasting\"}],"
+            + "\"spellcasting\":{\"cantrips_known\":3,\"spell_slots_level_1\":2}}]";
+    private static final String WIZARD_SPELLS = "{\"count\":2,\"results\":["
+            + "{\"index\":\"fire-bolt\",\"level\":0},{\"index\":\"magic-missile\",\"level\":1}]}";
 
     @Mock
     private SrdClient srd;
@@ -82,7 +92,7 @@ class CharacterServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new CharacterService(srd, characterRepository, objectMapper);
+        service = new CharacterService(srd, new ChargenCatalog(), characterRepository, objectMapper);
     }
 
     @Test
@@ -247,6 +257,52 @@ class CharacterServiceTest {
     }
 
     @Test
+    void compileAcceptsCuratedPhbBackground() {
+        stubCommonCatalog();
+        CharacterDraftDto draft = draftBuilder(legalDraft()).backgroundIndex("urchin").build();
+
+        CompileResult result = service.compile(user(5L), draft);
+
+        assertThat(result.valid()).isTrue();
+        assertThat(result.sheet().backgroundIndex()).isEqualTo("urchin");
+    }
+
+    @Test
+    void compileAcceptsCuratedPhbSubclassAtRequiredLevel() {
+        stubCommonCatalog();
+        CharacterDraftDto draft = draftBuilder(legalDraft()).subclassIndex("light").build();
+
+        CompileResult result = service.compile(user(5L), draft);
+
+        assertThat(result.valid()).isTrue();
+        assertThat(result.sheet().subclassIndex()).isEqualTo("light");
+    }
+
+    @Test
+    void compileRejectsCuratedPhbSubclassBelowRequiredLevel() {
+        stubWizard();
+        CharacterDraftDto draft = wizardDraft();
+
+        CompileResult result = service.compile(user(5L), draft);
+
+        assertThat(result.valid()).isFalse();
+        assertThat(result.violations()).anyMatch(v -> v.contains("evocation") && v.contains("level 2"));
+    }
+
+    @Test
+    void catalogExposesPhbBackgroundsAndSubclasses() {
+        var dto = service.catalog();
+
+        assertThat(dto.backgrounds()).hasSize(13);
+        assertThat(dto.backgrounds()).extracting("index").contains("urchin", "noble", "soldier");
+        assertThat(dto.subclasses()).isNotEmpty();
+        assertThat(dto.subclasses())
+                .anyMatch(s -> s.classIndex().equals("cleric") && s.index().equals("light") && s.level() == 1);
+        assertThat(dto.subclasses())
+                .anyMatch(s -> s.classIndex().equals("wizard") && s.index().equals("evocation") && s.level() == 2);
+    }
+
+    @Test
     void compileToleratesUnknownRaceWithoutNpe() {
         stubCommonCatalog();
         CharacterDraftDto draft = draftBuilder(legalDraft())
@@ -374,7 +430,7 @@ class CharacterServiceTest {
         CharacterSheetDto sheet = result.sheet();
         assertThat(sheet.raceIndex()).isEqualTo("dwarf");
         assertThat(sheet.classIndex()).isEqualTo("cleric");
-        assertThat(sheet.backgroundIndex()).isEqualTo("acolyte");
+        assertThat(sheet.backgroundIndex()).isIn(allowedBackgrounds());
         assertThat(sheet.strength()).isBetween(3, 18);
         assertThat(sheet.dexterity()).isBetween(3, 18);
         assertThat(sheet.constitution()).isBetween(3, 18);
@@ -404,6 +460,49 @@ class CharacterServiceTest {
         assertThat(result.sheet().name()).isEqualTo("Surprise Me");
     }
 
+    @Test
+    void generateSamplesCuratedPhbBackgroundsWithoutSrdDetail() {
+        when(srd.list("races", Map.of())).thenReturn(objectMapper.readTree(RACES));
+        when(srd.list("classes", Map.of())).thenReturn(objectMapper.readTree(CLASSES));
+        when(srd.list("backgrounds", Map.of())).thenReturn(objectMapper.readTree("{\"results\":[]}"));
+        when(srd.list("skills", Map.of())).thenReturn(objectMapper.readTree(SKILLS));
+        when(srd.list("equipment", Map.of())).thenReturn(objectMapper.readTree(EQUIPMENT));
+        when(srd.detail("races", "dwarf")).thenReturn(objectMapper.readTree(DWARF));
+        when(srd.detail("classes", "cleric")).thenReturn(objectMapper.readTree(CLERIC));
+        when(srd.subresource("classes", "cleric", "levels", Map.of())).thenReturn(objectMapper.readTree(CLERIC_LEVELS));
+        when(srd.subresource("classes", "cleric", "spells", Map.of())).thenReturn(objectMapper.readTree(CLERIC_SPELLS));
+        stubEquipmentDetails();
+
+        CompileResult result = service.generate(user(5L),
+                new GenerateCharacterRequest("Curated", ScoreSource.STANDARD_ARRAY, 1, 5));
+
+        assertThat(result.valid()).isTrue();
+        assertThat(new ChargenCatalog().backgroundIndexes()).contains(result.sheet().backgroundIndex());
+        verify(srd, never()).detail(eq("backgrounds"), any());
+    }
+
+    @Test
+    void generateSamplesCuratedPhbSubclasses() {
+        when(srd.list("races", Map.of())).thenReturn(objectMapper.readTree(RACES));
+        when(srd.list("classes", Map.of())).thenReturn(objectMapper.readTree(CLASSES));
+        when(srd.list("backgrounds", Map.of())).thenReturn(objectMapper.readTree(BACKGROUNDS));
+        when(srd.list("skills", Map.of())).thenReturn(objectMapper.readTree(SKILLS));
+        when(srd.list("equipment", Map.of())).thenReturn(objectMapper.readTree(EQUIPMENT));
+        when(srd.detail("races", "dwarf")).thenReturn(objectMapper.readTree(DWARF));
+        when(srd.detail("classes", "cleric")).thenReturn(objectMapper.readTree(CLERIC));
+        when(srd.detail("backgrounds", "acolyte")).thenReturn(objectMapper.readTree(
+                "{\"index\":\"acolyte\",\"name\":\"Acolyte\",\"starting_equipment\":[]}"));
+        when(srd.subresource("classes", "cleric", "levels", Map.of())).thenReturn(objectMapper.readTree(CLERIC_LEVELS));
+        when(srd.subresource("classes", "cleric", "spells", Map.of())).thenReturn(objectMapper.readTree(CLERIC_SPELLS));
+        stubEquipmentDetails();
+
+        CompileResult result = service.generate(user(5L),
+                new GenerateCharacterRequest("Curated", ScoreSource.STANDARD_ARRAY, 1, 4));
+
+        assertThat(result.valid()).isTrue();
+        assertThat(result.sheet().subclassIndex()).isIn(new ChargenCatalog().subclassesFor("cleric"));
+    }
+
     private void stubEquipmentDetails() {
         when(srd.detail("equipment", "leather-armor")).thenReturn(objectMapper.readTree(LEATHER));
         when(srd.detail("equipment", "shield")).thenReturn(objectMapper.readTree(SHIELD));
@@ -427,6 +526,39 @@ class CharacterServiceTest {
         when(srd.detail("equipment", "leather-armor")).thenReturn(objectMapper.readTree(LEATHER));
         when(srd.detail("equipment", "shield")).thenReturn(objectMapper.readTree(SHIELD));
         when(srd.detail("equipment", "club")).thenReturn(objectMapper.readTree(CLUB));
+    }
+
+    private void stubWizard() {
+        when(srd.list("races", Map.of())).thenReturn(objectMapper.readTree(RACES));
+        when(srd.list("classes", Map.of())).thenReturn(objectMapper.readTree(
+                "{\"results\":[{\"index\":\"wizard\"}]}"));
+        when(srd.list("backgrounds", Map.of())).thenReturn(objectMapper.readTree(BACKGROUNDS));
+        when(srd.list("skills", Map.of())).thenReturn(objectMapper.readTree(
+                "{\"results\":[{\"index\":\"arcana\"},{\"index\":\"history\"}]}"));
+        when(srd.list("equipment", Map.of())).thenReturn(objectMapper.readTree(EQUIPMENT));
+        when(srd.detail("races", "dwarf")).thenReturn(objectMapper.readTree(DWARF));
+        when(srd.detail("classes", "wizard")).thenReturn(objectMapper.readTree(WIZARD));
+        when(srd.detail("equipment", "leather-armor")).thenReturn(objectMapper.readTree(LEATHER));
+        when(srd.detail("equipment", "shield")).thenReturn(objectMapper.readTree(SHIELD));
+        when(srd.subresource("classes", "wizard", "levels", Map.of())).thenReturn(objectMapper.readTree(WIZARD_LEVELS));
+        when(srd.subresource("classes", "wizard", "spells", Map.of())).thenReturn(objectMapper.readTree(WIZARD_SPELLS));
+    }
+
+    private CharacterDraftDto wizardDraft() {
+        return new CharacterDraftDto(
+                "Merlin", 15, 14, 15, 12, 10, 8, ScoreSource.STANDARD_ARRAY, 1,
+                "dwarf", "wizard", "evocation", "sage",
+                Set.of("skill-arcana", "skill-history"),
+                Set.of("fire-bolt", "magic-missile"),
+                Set.of("leather-armor", "shield"));
+    }
+
+    private Set<String> allowedBackgrounds() {
+        Set<String> allowed = new HashSet<>(Set.of("acolyte"));
+        for (ChargenCatalog.BackgroundRef background : new ChargenCatalog().backgrounds()) {
+            allowed.add(background.index());
+        }
+        return allowed;
     }
 
     private void stubCatalog() {

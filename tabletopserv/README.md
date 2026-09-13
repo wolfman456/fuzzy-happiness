@@ -9,7 +9,7 @@ builds as an executable JAR with embedded Tomcat.
 |---|---|---|
 | `tabletopapi` | `com.gamer.fowever.tabletopapi` | Inbound REST contract — controller **interfaces** + DTOs + shared error types. No business logic. |
 | `tabletopservice` | `com.gamer.fowever.tabletopservice` | `*ControllerImpl implements *Api` + services, domain, repos, security, config, STOMP glue, `application*.properties`, runnable JAR. jacoco ≥ 90% line gate here. |
-| `tabletopfunctionaltest` | *(blank)* | Future functional/E2E suites (§18) — commented out of parent `<modules>` until first suite is written. |
+| `tabletopfunctionaltest` | `com.gamer.fowever.tabletopfunctionaltest` | Functional/E2E `*IT` suites (§18) that boot the packaged `tabletopservice` JAR against test fixtures — run at `./mvnw verify` only. |
 
 ## Commands (run from this directory)
 
@@ -54,6 +54,22 @@ SRD endpoints (routed through the **gateway** — see `design-v1.md` §9/§16):
 | `GET /api/srd/{collection}` | list — allowlisted collections: races, classes, subclasses, subraces, ability-scores, skills, proficiencies, equipment, equipment-categories, spells, features, traits, feats, conditions, languages, monsters |
 | `GET /api/srd/{collection}/{index}` | detail by SRD index |
 | `GET /api/srd/spells?level=&school=` | spells with optional curated query passthrough |
+
+Chargen endpoints (JWT required; validated against the SRD allow-lists **and** the curated
+PHB catalog):
+
+| Method & path | Description |
+|---|---|
+| `POST /api/characters/compile` | validate + derive a draft into a `CharacterSheetDto` |
+| `POST /api/characters/generate` | legal random quick-build (`name`, `scoreSource`, `startingLevel`, `seed`) |
+| `POST /api/characters/roll-scores` | server-authoritative ability-score roll (rolled methods only) |
+| `GET /api/characters/catalog` | curated 2014 PHB catalog: 13 backgrounds + per-class PHB subclass options `{classIndex, index, name, level}` |
+
+The curated catalog (design-v1-fixes #48/#50) is index/name/level data only — no rulebook text
+and no DB/DDL change (`ddl-auto=validate` in prod). `compile`/`create` merge it with the SRD
+data, so curated backgrounds and subclasses validate (subclass start levels are honored);
+quick-build samples the merged pools deterministically and never fetches SRD detail for a
+non-SRD background.
 
 Realtime (STOMP over `/ws?token=<jwt>`, membership-private):
 

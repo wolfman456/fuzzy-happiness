@@ -1,6 +1,7 @@
 package com.gamer.fowever.tabletopservice.web;
 
 import com.gamer.fowever.tabletopapi.CharacterApi;
+import com.gamer.fowever.tabletopapi.dto.ChargenCatalogDto;
 import com.gamer.fowever.tabletopapi.dto.CharacterDraftDto;
 import com.gamer.fowever.tabletopapi.dto.CharacterSheetDto;
 import com.gamer.fowever.tabletopapi.dto.CharacterSummaryDto;
@@ -31,6 +32,11 @@ public class CharacterControllerImpl implements CharacterApi {
     @Override
     public CompileResult compile(@Valid @RequestBody CharacterDraftDto draft, Authentication authentication) {
         return characterService.compile((User) authentication.getPrincipal(), draft);
+    }
+
+    @Override
+    public ChargenCatalogDto catalog(Authentication authentication) {
+        return characterService.catalog();
     }
 
     @Override
