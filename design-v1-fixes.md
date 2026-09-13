@@ -16,7 +16,7 @@ outranks an informational one).
 | # | Issue | Severity | Priority | Status | Resolution |
 |---|-------|----------|----------|--------|------------|
 | #45 | New accounts couldn't log in: `SMTP_*` unset in prod → no verification email was ever deliverable (design-v1 §19). Registration is now auto-verified; the login verified-gate is removed; verification stays dormant until mail is configured | high | P1 | ✅ fixed | `fix/disable-email-verification` (PR B) |
-| #46 | Age-gate mismatch: frontend used a ms-years approximation (`13×365.25`) while the backend uses `Period.between` — a user exactly 13 by calendar could be rejected client-side | medium | P2 | 🔧 open | frontend gate to backend logic |
+| #46 | Age-gate mismatch: frontend used a ms-years approximation (`13×365.25`) while the backend uses `Period.between` — a user exactly 13 by calendar could be rejected client-side | medium | P2 | ✅ fixed | calendar-year gate (PR E) |
 | #48 | Chargen subclass list only offers the single SRD example archetype per class (design-v1 §8) | high | P2 | ✅ fixed | curated catalog (PR D) |
 | #49 | Intermittent chargen "compile/save" failure on first attempt (serial blocking SRD calls, no timeouts, compile inside `@Transactional`, Hikari pool 5) — zero observability | high | P2 | 🔧 fixing (PR C) | logging-only observability (PR C) |
 | #50 | Background list only offers Acolyte (SRD) instead of the PHB backgrounds (design-v1 §8) | medium | P3 | ✅ fixed | curated catalog (PR D) |
@@ -48,3 +48,9 @@ outranks an informational one).
   and uses curated rows for the background step and subclass step, falling back to SRD when the
   endpoint is unavailable. The SRD example archetype keeps its canonical index so existing characters
   and quick-builds stay valid.
+- **2026-09-13 — calendar-year age gate on registration (#46, PR E).** `RegisterPage` no longer
+  blocks on a `13 × 365.25`-day ms approximation, which rejected a user exactly 13 by calendar
+  (or slightly older, depending on time of day and leap years). The new `src/lib/age.js` helper
+  mirrors the backend's `Period.between(dateOfBirth, today).getYears()` semantics (whole calendar
+  years, birthday-not-yet-reached) and is used for the inline DOB check; the backend `AuthService`
+  gate is unchanged and remains authoritative.

@@ -89,6 +89,19 @@ describe('RegisterPage', () => {
     expect(baseValue.register).not.toHaveBeenCalled()
   })
 
+  it('accepts a user who turns 13 today (calendar years, not ms approximation)', () => {
+    const today = new Date()
+    const dob = `${today.getFullYear() - 13}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(
+      today.getDate(),
+    ).padStart(2, '0')}`
+    renderRegister({ ...baseValue })
+    fillValidForm()
+    fireEvent.change(screen.getByLabelText(/date of birth/i), { target: { value: dob } })
+    fireEvent.click(screen.getByRole('button', { name: /create account/i }))
+
+    expect(screen.queryByText(/at least 13/i)).not.toBeInTheDocument()
+  })
+
   it('maps a username conflict to the username field', async () => {
     renderRegister({
       ...baseValue,
