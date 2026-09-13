@@ -604,7 +604,9 @@ export default function CharacterWizardPage() {
     if (step === 1 && !baseScoresLegal()) return false
     if (step === 2 && !draft.raceIndex) return false
     if (step === 3 && !draft.classIndex) return false
-    if (step === 4 && hasSubclasses && !draft.subclassIndex) return false
+    if (step === 4 && hasSubclasses && draft.startingLevel >= requiredSubclassLevel && !draft.subclassIndex) {
+      return false
+    }
     if (step === 5 && !draft.backgroundIndex) return false
     if (raceError && step >= 2) return false
     if (step === 8 && (overBudget || unpricedSelected.length > 0 || pricing)) return false
@@ -681,13 +683,13 @@ export default function CharacterWizardPage() {
               />
             </label>
             <label className="block">
-              <span className="text-sm font-medium text-zinc-700">Starting level (1–3)</span>
+              <span className="text-sm font-medium text-zinc-700">Starting level (1–20)</span>
               <select
                 value={draft.startingLevel}
                 onChange={(event) => update('startingLevel', Number(event.target.value))}
                 className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
               >
-                {[1, 2, 3].map((level) => (
+                {Array.from({ length: 20 }, (_, i) => i + 1).map((level) => (
                   <option key={level} value={level}>
                     Level {level}
                   </option>
@@ -767,7 +769,7 @@ export default function CharacterWizardPage() {
               <>
                 <p className="text-sm text-zinc-500">
                   {draft.startingLevel < requiredSubclassLevel
-                    ? `Subclasses unlock at level ${requiredSubclassLevel}.`
+                    ? `Subclasses unlock at level ${requiredSubclassLevel} — nothing to choose yet.`
                     : 'Choose your subclass.'}
                 </p>
                 {draft.startingLevel >= requiredSubclassLevel && (
@@ -878,6 +880,7 @@ export default function CharacterWizardPage() {
             compiledDraft={compiledDraft}
             classSkills={classSkills}
             hasSubclasses={hasSubclasses}
+            requiredSubclassLevel={requiredSubclassLevel}
             budget={budget}
             spentGold={spentGold}
             busy={busy}
@@ -1214,7 +1217,7 @@ function SkillGroup({ title, rows, picks, onToggle }) {
   )
 }
 
-function ReviewStep({ draft, result, compiledDraft, classSkills, hasSubclasses, budget, spentGold, busy, onCompile, onCreate, saving }) {
+function ReviewStep({ draft, result, compiledDraft, classSkills, hasSubclasses, requiredSubclassLevel, budget, spentGold, busy, onCompile, onCreate, saving }) {
   const selectedSkills = draft.skillPickIndexes
   const backgroundPicks = selectedSkills.filter((pick) => !classSkills.includes(pick))
 
@@ -1229,7 +1232,15 @@ function ReviewStep({ draft, result, compiledDraft, classSkills, hasSubclasses, 
         <ReviewRow label="Class" value={draft.classIndex || '—'} />
         <ReviewRow
           label="Subclass"
-          value={draft.subclassIndex ? draft.subclassIndex : hasSubclasses ? '—' : 'none'}
+          value={
+            draft.subclassIndex
+              ? draft.subclassIndex
+              : !hasSubclasses
+                ? 'none'
+                : draft.startingLevel < requiredSubclassLevel
+                  ? `none (unlocks at level ${requiredSubclassLevel})`
+                  : '—'
+          }
         />
         <ReviewRow label="Background" value={draft.backgroundIndex || '—'} />
         <ReviewRow label="Skills" value={selectedSkills.length ? selectedSkills.join(', ') : 'none'} />
