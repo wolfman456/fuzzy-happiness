@@ -142,6 +142,25 @@ describe('createApp', () => {
     expect(Array.isArray(res.body)).toBe(true);
   });
 
+  it('forwards an allowlisted subclass levels subresource', async () => {
+    const fetchFn = vi.fn(async (url) => {
+      expect(new URL(url).pathname).toBe('/api/2014/subclasses/light/levels');
+      return okResponse([{ level: 1, prof_bonus: 2, features: [{ index: 'disciple-of-life' }] }]);
+    });
+    const { app } = makeApp({ fetchFn });
+    const res = await request(app).get('/api/srd/subclasses/light/levels').set('x-gateway-token', TOKEN);
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
+  });
+
+  it('rejects unlisted subclass subresources with 403', async () => {
+    const { app } = makeApp();
+    expect((await request(app).get('/api/srd/subclasses/light/spells').set('x-gateway-token', TOKEN)).status)
+      .toBe(403);
+    expect((await request(app).get('/api/srd/subclasses/light/extra').set('x-gateway-token', TOKEN)).status)
+      .toBe(403);
+  });
+
   it('rejects unlisted subresources with 403', async () => {
     const { app } = makeApp();
     expect((await request(app).get('/api/srd/classes/cleric/proficiencies').set('x-gateway-token', TOKEN)).status)

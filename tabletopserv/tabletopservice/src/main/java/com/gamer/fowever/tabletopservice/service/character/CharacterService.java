@@ -65,7 +65,7 @@ public class CharacterService {
     private record SrdFacts(Set<String> races, Set<String> classes, Set<String> backgrounds,
                             Set<String> skills, Set<String> equipment,
                             JsonNode race, JsonNode classRecord, JsonNode classLevels, JsonNode classSpells,
-                            List<EquipmentFact> equipmentFacts) {
+                            JsonNode subclassLevels, List<EquipmentFact> equipmentFacts) {
     }
 
     private record EquipmentFact(String index, boolean armor, boolean shield, int baseAc, boolean dexBonus,
@@ -246,6 +246,11 @@ public class CharacterService {
                 ? srd.subresource("classes", draft.classIndex(), "levels", Map.of()) : null;
         JsonNode classSpells = isCaster(classRecord)
                 ? srd.subresource("classes", draft.classIndex(), "spells", Map.of()) : null;
+        // Subclass features only merge from SRD-listed subclasses; curated PHB-only
+        // archetypes (e.g. a domain absent from the SRD feed) simply contribute nothing.
+        String subclass = draft.subclassIndex();
+        JsonNode subclassLevels = classRecord != null && isPresent(indexSetOf(classRecord, "subclasses"), subclass)
+                ? srd.subresource("subclasses", subclass, "levels", Map.of()) : null;
 
         List<EquipmentFact> equipmentFacts = new ArrayList<>();
         for (String index : draft.equipmentIndexes()) {
@@ -254,7 +259,7 @@ public class CharacterService {
             }
         }
         return new SrdFacts(races, classes, backgrounds, skills, equipment,
-                race, classRecord, classLevels, classSpells, equipmentFacts);
+                race, classRecord, classLevels, classSpells, subclassLevels, equipmentFacts);
     }
 
     private void validate(CharacterDraftDto draft, SrdFacts facts, List<String> violations) {
@@ -319,11 +324,10 @@ public class CharacterService {
 
     private void validateSpells(CharacterDraftDto draft, SrdFacts facts, List<String> violations) {
         Set<String> picks = normalizeSet(draft.spellIndexes());
-        if (picks.isEmpty()) {
-            return;
-        }
         if (!isCaster(facts.classRecord())) {
-            violations.add("spellIndexes: this class cannot cast spells");
+            if (!picks.isEmpty()) {
+                violations.add("spellIndexes: this class cannot cast spells");
+            }
             return;
         }
         JsonNode classSpells = facts.classSpells();
@@ -337,6 +341,8 @@ public class CharacterService {
         CastingRow row = castingRow(facts.classLevels(), draft.startingLevel());
         int maxSlot = row == null ? 0 : row.slots().keySet().stream().mapToInt(Integer::intValue).max().orElse(0);
         int cantripsKnown = row == null ? 0 : row.cantrips();
+        long availableCantrips = byIndex.values().stream().filter(level -> level == 0).count();
+        int cantripsRequired = (int) Math.min(cantripsKnown, availableCantrips);
         int cantrips = 0;
         int leveledCount = 0;
         for (String pick : picks) {
@@ -356,6 +362,10 @@ public class CharacterService {
         }
         if (cantrips > cantripsKnown) {
             violations.add("spellIndexes: no more than " + cantripsKnown + " cantrips at " + draft.startingLevel() + " level");
+        }
+        if (cantrips < cantripsRequired) {
+            violations.add("spellIndexes: this class knows " + cantripsRequired + " cantrips at "
+                    + draft.startingLevel() + " level - pick at least " + cantripsRequired);
         }
         if (leveledCount > 0 && maxSlot == 0) {
             violations.add("spellIndexes: this class has no spell slots at " + draft.startingLevel() + " level");
@@ -405,7 +415,7 @@ public class CharacterService {
 
         int proficiencyBonus = profBonusAt(facts.classLevels(), level);
         Map<Integer, Integer> spellSlots = spellSlotsAt(facts.classLevels(), level);
-        List<String> features = featuresUpTo(facts.classLevels(), level);
+        List<String> features = collectedFeatures(facts, level);
         List<String> spells = sortAndStrip(draft.spellIndexes());
         List<String> equipment = sortedNonBlank(draft.equipmentIndexes());
         int startingGoldGp = ChargenRules.startingGoldClassBudget(draft.classIndex());
@@ -697,16 +707,38 @@ public class CharacterService {
         return found[0];
     }
 
-    private List<String> featuresUpTo(JsonNode classLevels, int level) {
+    /**
+     * Merged alphabetical feature index list for a compiled sheet: class level-up
+     * features, subclass features up to the starting level (SRD-listed subclasses
+     * only) and the race's traits.
+     */
+    private List<String> collectedFeatures(SrdFacts facts, int level) {
         Set<String> features = new TreeSet<>();
+        attachClassFeatures(features, facts.classLevels(), level);
+        attachClassFeatures(features, facts.subclassLevels(), level);
+        attachRaceTraits(features, facts.race());
+        return new ArrayList<>(features);
+    }
+
+    private void attachClassFeatures(Set<String> into, JsonNode classLevels, int level) {
         if (classLevels != null && classLevels.isArray()) {
             classLevels.forEach(row -> {
                 if (row.path("level").asInt() <= level) {
-                    row.path("features").forEach(feature -> features.add(feature.path("index").asText()));
+                    row.path("features").forEach(feature -> into.add(feature.path("index").asText()));
                 }
             });
         }
-        return new ArrayList<>(features);
+    }
+
+    private void attachRaceTraits(Set<String> into, JsonNode race) {
+        if (race != null) {
+            race.path("traits").forEach(trait -> {
+                String index = trait.path("index").asText();
+                if (!index.isBlank()) {
+                    into.add(index);
+                }
+            });
+        }
     }
 
     private Map<Integer, Integer> spellSlotsAt(JsonNode classLevels, int level) {

@@ -1,0 +1,23 @@
+[
+  {
+    "level": 1,
+    "prof_bonus": 2,
+    "features": [
+      { "index": "disciple-of-life", "name": "Disciple of Life", "url": "/api/2014/features/disciple-of-life" }
+    ]
+  },
+  {
+    "level": 2,
+    "prof_bonus": 2,
+    "features": [
+      { "index": "channel-divinity", "name": "Channel Divinity", "url": "/api/2014/features/channel-divinity" }
+    ]
+  },
+  {
+    "level": 3,
+    "prof_bonus": 2,
+    "features": [
+      { "index": "channel-divinity-preserve-life", "name": "Channel Divinity: Preserve Life", "url": "/api/2014/features/channel-divinity-preserve-life" }
+    ]
+  }
+]

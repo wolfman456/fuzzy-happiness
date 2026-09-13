@@ -21,6 +21,8 @@ outranks an informational one).
 | #49 | Intermittent chargen "compile/save" failure on first attempt (serial blocking SRD calls, no timeouts, compile inside `@Transactional`, Hikari pool 5) — zero observability | high | P2 | 🔧 fixing (PR C) | logging-only observability (PR C) |
 | #50 | Background list only offers Acolyte (SRD) instead of the PHB backgrounds (design-v1 §8) | medium | P3 | ✅ fixed | curated catalog (PR D) |
 | #51 | Class list beyond the SRD core (e.g. Artificer) — design-v1 defers this as R24 | low | P4 | ⏭ deferred | needs non-SRD data source |
+| #52 | Chargen caster could skip the Spells step and still compile a "legal" sheet with **zero** spells (design-v1 §8) | high | P2 | ✅ fixed | `fix/chargen-bugs` (Bug A) |
+| #53 | Compiled sheet carried **no features**: class level-ups, subclass features and race traits were absent from the payload and zero UI rendered them (design-v1 §8) | medium | P2 | ✅ fixed | `fix/chargen-bugs` (Bug B) |
 
 ## Changelog
 
@@ -54,3 +56,17 @@ outranks an informational one).
   mirrors the backend's `Period.between(dateOfBirth, today).getYears()` semantics (whole calendar
   years, birthday-not-yet-reached) and is used for the inline DOB check; the backend `AuthService`
   gate is unchanged and remains authoritative.
+- **2026-09-13 — chargen caster spell floor (#52, Bug A).** A caster could dart from the Spells
+  page to Review with zero spells and the backend compiled the draft "legal" (`validateSpells`
+  early-returned on an empty pick set). `validateSpells` now requires a caster to pick at least
+  `min(cantrips_known, available cantrips)` for the chosen level; the wizard gates the Next button
+  the same way via `cantripsSelected < cantripsRequired`, shows a live "Pick at least N cantrips"
+  alert on the Spells step, and the non-caster path is unchanged. Compile now rejects a
+  cantrip-less caster (`sheet` null + violation) instead of silently certifying it.
+- **2026-09-13 — features on compiled sheets (#53, Bug B).** The sheet's `featureIndexes` now
+  merges class level-up features, subclass features up to the starting level and the race's
+  `traits` (previously only class features — and even those were never rendered). The gateway and
+  `SrdClient` allow the `subclasses → levels` subresource; `loadFacts` fetches it only for
+  SRD-listed subclasses (curated PHB-only archetypes contribute nothing). The sheet page gained a
+  Features section and the wizard Review gained a Features row (population requires a compile, so
+  the row reads "after compiling" until then).

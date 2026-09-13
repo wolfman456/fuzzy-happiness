@@ -72,6 +72,21 @@ export default function CharacterSheetPage() {
       </section>
 
       <section>
+        <h2 className="text-sm font-semibold text-zinc-700">Features</h2>
+        {!sheet.featureIndexes || sheet.featureIndexes.length === 0 ? (
+          <p className="mt-1 text-sm text-zinc-500">None</p>
+        ) : (
+          <ul className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {sheet.featureIndexes.map((feature) => (
+              <li key={feature} className="rounded-md border border-zinc-200 px-3 py-2 text-sm">
+                {feature}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section>
         <h2 className="text-sm font-semibold text-zinc-700">Skills</h2>
         {sheet.skillPicks.length === 0 ? (
           <p className="mt-1 text-sm text-zinc-500">None</p>
