@@ -14,9 +14,16 @@ const battleMapMock = vi.hoisted(() => ({
   addToken: vi.fn(),
 }))
 
+const srdMock = vi.hoisted(() => ({
+  srdList: vi.fn(),
+  srdDetail: vi.fn(),
+}))
+
 vi.mock('../lib/battleMap', () => battleMapMock)
 
 vi.mock('../lib/monsters', () => monstersMock)
+
+vi.mock('../lib/srd', () => srdMock)
 
 function makeMap() {
   return {
@@ -188,5 +195,58 @@ describe('MonsterGenerator', () => {
 
     expect(await screen.findByTestId('monster-error')).toHaveTextContent('Create a battle map first')
     expect(battleMapMock.addToken).not.toHaveBeenCalled()
+  })
+
+  it('searches the SRD for monsters by name', async () => {
+    srdMock.srdList.mockResolvedValue({
+      count: 1,
+      results: [{ index: 'goblin', name: 'Goblin' }],
+    })
+    renderGenerator()
+
+    fireEvent.change(screen.getByTestId('monster-search-input'), { target: { value: 'goblin' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }))
+
+    expect(await screen.findByTestId('monster-search-results')).toHaveTextContent('Goblin')
+    expect(srdMock.srdList).toHaveBeenCalledWith('monsters', { name: 'goblin' })
+  })
+
+  it('shows an empty state when no SRD monsters match', async () => {
+    srdMock.srdList.mockResolvedValue({ count: 0, results: [] })
+    renderGenerator()
+
+    fireEvent.change(screen.getByTestId('monster-search-input'), { target: { value: 'yeti' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }))
+
+    expect(await screen.findByTestId('monster-search-empty')).toHaveTextContent(/no SRD monsters match/i)
+  })
+
+  it('adds an SRD monster to the map', async () => {
+    srdMock.srdList.mockResolvedValue({
+      count: 1,
+      results: [{ index: 'goblin', name: 'Goblin' }],
+    })
+    srdMock.srdDetail.mockResolvedValue({
+      index: 'goblin',
+      name: 'Goblin',
+      speed: { walk: '30 ft.' },
+    })
+    renderGenerator()
+
+    fireEvent.change(screen.getByTestId('monster-search-input'), { target: { value: 'goblin' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Add to map' }))
+
+    await waitFor(() => expect(srdMock.srdDetail).toHaveBeenCalledWith('monsters', 'goblin'))
+    const [, payload] = battleMapMock.addToken.mock.calls[0]
+    expect(payload).toMatchObject({
+      name: 'Goblin',
+      category: 'MONSTER_NPC',
+      speedFeet: 30,
+      posX: 0,
+      posY: 0,
+    })
+    expect(payload.color).toMatch(/^#[0-9a-fA-F]{6}$/)
+    expect((await screen.findByRole('status')).textContent).toMatch(/Goblin added/)
   })
 })

@@ -51,6 +51,18 @@ the chosen starting level was hard-blocked on the Subclass step.
 | #65 | Subclass step hard-blocks when subclasses unlock above the starting level (level 1–2 melee/martial) — nothing to choose yet | high | P2 | ✅ fixed | `fix/chargen-subclasses-level20` |
 | #66 | Curated subclasses cover PHB/SRD only (barbarian 2 of ~8 official) — expand to all official 2014 sources | medium | P3 | ✅ fixed | `fix/chargen-subclasses-level20` |
 
+## 2026-09-13 alpha pass (session battle map + monster search)
+
+Alpha run on the session page's GM tools surfaced two gaps: the battle-map empty state sent
+`createMap(..., { name: '' })` (the input never existed) so every valid submit bounced with
+`400 name: must not be blank`, and the monster generator could only roll the dice — there was no
+way to drop an existing SRD monster (e.g. a session-relevant goblin) onto the map by name.
+
+| # | Issue | Severity | Priority | Status | Resolution |
+|---|-------|----------|----------|--------|------------|
+| #67 | Battle-map setup: every submit sent an empty `name` → backend rejected with `400 name: must not be blank` (design-v1 §11) | high | P2 | ✅ fixed | `fix/session-battlemap-monster` |
+| #68 | Monster generator has no search — can't add an existing SRD monster to the map by name, only roll random statblocks | medium | P3 | ✅ fixed | `fix/session-battlemap-monster` |
+
 ## Changelog
 
 - **2026-09-12 — verification disabled until prod SMTP is configured (#45).** `AuthService.register`
@@ -117,3 +129,10 @@ the chosen starting level was hard-blocked on the Subclass step.
   "none (unlocks at level N)"); compile still rejects a chosen subclass below its required level.
   Backend derivation (prof bonus, spell slots, features, HP) already scaled to 20 with the SRD
   level rows.
+- **2026-09-13 — session battle-map name + SRD monster search (#67/#68).** The battle-map empty
+  state now carries an inline **Name** field and submits `createMap(id, { name })`, defaulting to
+  "Battle map" when left blank (fixing the `400 name: must not be blank` on every valid setup).
+  The monster generator gains a **find-an-SRD-monster** search: the GM types a name, `srdList
+  ('monsters', { name })` returns matching statblocks (already allow-listed in the gateway and
+  `SrdClient`), and "Add to map" resolves the detail and drops a token with the SRD speed
+  (`walk`, parsed to feet) and a stable per-index color, reusing the existing `addToken` flow.

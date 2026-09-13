@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { addToken } from '../lib/battleMap'
 import { TOKEN_COLORS } from '../lib/mapGeometry'
+import { srdDetail, srdList } from '../lib/srd'
 import {
   MONSTER_CRS,
   MONSTER_EDITIONS,
@@ -30,6 +31,16 @@ function firstFreeSquare(map) {
   return { x: 0, y: 0 }
 }
 
+function speedToFeet(speed) {
+  const raw = typeof speed === 'string' ? speed : speed?.walk ?? '30 ft.'
+  const feet = Number.parseInt(String(raw).replace(/[^\d]/g, ''), 10)
+  return Number.isFinite(feet) && feet > 0 ? feet : 30
+}
+
+function colorSeedFor(value) {
+  return [...String(value)].reduce((sum, ch) => sum + ch.charCodeAt(0), 0)
+}
+
 export default function MonsterGenerator({ sessionId, map, disabled, onMapChange }) {
   const [form, setForm] = useState(INITIAL_FORM)
   const [generated, setGenerated] = useState(null)
@@ -37,6 +48,9 @@ export default function MonsterGenerator({ sessionId, map, disabled, onMapChange
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
+  const [searchTerm, setSearchTerm] = useState('')
+  const [searchResults, setSearchResults] = useState([])
+  const [searchDone, setSearchDone] = useState(false)
 
   useEffect(() => {
     listMyMonsters()
@@ -90,6 +104,57 @@ export default function MonsterGenerator({ sessionId, map, disabled, onMapChange
       })
       onMapChange(next)
       setNotice(`${monster.name} added to the map at (${position.x}, ${position.y}).`)
+    } catch (callError) {
+      setError(callError.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function handleSearch(event) {
+    event.preventDefault()
+    if (busy) return
+    const term = searchTerm.trim()
+    if (!term) return
+    setBusy(true)
+    setError('')
+    setNotice('')
+    setSearchResults([])
+    setSearchDone(false)
+    try {
+      const data = await srdList('monsters', { name: term })
+      setSearchResults(data?.results ?? [])
+      setSearchDone(true)
+    } catch (callError) {
+      setError(callError.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function handleAddSrdMonster(result) {
+    if (busy) return
+    if (!map) {
+      setError('Create a battle map first, then add the monster.')
+      return
+    }
+    setBusy(true)
+    setError('')
+    setNotice('')
+    try {
+      const detail = await srdDetail('monsters', result.index)
+      const name = detail?.name ?? result.name
+      const position = firstFreeSquare(map)
+      const next = await addToken(sessionId, {
+        name,
+        category: 'MONSTER_NPC',
+        speedFeet: speedToFeet(detail?.speed),
+        color: TOKEN_COLORS[colorSeedFor(result.index) % TOKEN_COLORS.length],
+        posX: position.x,
+        posY: position.y,
+      })
+      onMapChange(next)
+      setNotice(`${name} added to the map at (${position.x}, ${position.y}).`)
     } catch (callError) {
       setError(callError.message)
     } finally {
@@ -204,6 +269,63 @@ export default function MonsterGenerator({ sessionId, map, disabled, onMapChange
           </button>
         </div>
       </form>
+
+      <form
+        onSubmit={handleSearch}
+        className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-zinc-200 p-3"
+        data-testid="monster-search-form"
+      >
+        <label className="text-sm font-medium text-zinc-700" htmlFor="monster-search-input">
+          Find an SRD monster
+        </label>
+        <input
+          id="monster-search-input"
+          type="text"
+          value={searchTerm}
+          onChange={(event) => setSearchTerm(event.target.value)}
+          placeholder="e.g. goblin, ancient dragon"
+          className="w-56 rounded-md border border-zinc-300 px-3 py-1.5 text-sm"
+          data-testid="monster-search-input"
+        />
+        <button
+          type="submit"
+          disabled={busy || disabled || !searchTerm.trim()}
+          className="rounded-md bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-40"
+          data-testid="monster-search"
+        >
+          {busy ? 'Searching…' : 'Search'}
+        </button>
+      </form>
+
+      {searchDone && searchResults.length === 0 && (
+        <p
+          role="status"
+          data-testid="monster-search-empty"
+          className="mt-2 text-sm text-zinc-500"
+        >
+          No SRD monsters match "{searchTerm.trim()}".
+        </p>
+      )}
+      {searchResults.length > 0 && (
+        <ul className="mt-2 divide-y divide-zinc-100" data-testid="monster-search-results">
+          {searchResults.map((result) => (
+            <li
+              key={result.index}
+              className="flex flex-wrap items-center justify-between gap-2 py-2"
+            >
+              <span className="text-sm font-medium">{result.name}</span>
+              <button
+                type="button"
+                disabled={busy || disabled}
+                onClick={() => handleAddSrdMonster(result)}
+                className="rounded border border-indigo-300 px-2 py-0.5 text-xs text-indigo-700 hover:bg-indigo-50 disabled:opacity-40"
+              >
+                Add to map
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
 
       {error && (
         <p role="alert" data-testid="monster-error" className="mt-3 text-sm text-red-700">
