@@ -67,6 +67,12 @@ npm run lint                # oxlint
 - **Secrets:** per-service dashboard vars; `.railway/railway.ts` marks them `preserve()` so `railway config apply` never overwrites. `ddl-auto` is `validate` in prod — schema migrations (Flyway) are a planned Stage 5 step; until then, no DDL changes may run against a Railway Postgres that has drifted.
 - Run the IaC SDK commands from the repo root with Node 24: `npx railway@latest login/link/config plan/config apply` (the root `package.json` pins the `railway` devDependency). `railway config plan` is safe; `config apply` creates the scaffolded resources and needs explicit user go-ahead.
 
+## Versioning & releases
+
+- **One unified semver across the whole repo** (see `RELEASES.md` for the scheme, history and the full cut-a-release checklist): `tabletopserv/pom.xml` (parent aggregator, inherited by the 3 modules), `tabletopweb/package.json` (+ lockfile), `tabletopgateway/package.json` (+ lockfile), repo-root `package.json`. Bump them all together — never one in isolation.
+- **`develop` = `X.Y.Z-SNAPSHOT`** (the next release); **`master` = `X.Y.Z`** (the live release) + annotated tag `vX.Y.Z`. Bump policy: breaking → major, feature → minor, bug fix → patch.
+- **Release step (round-close):** after the last PR propagates `develop` → `master`, strip `-SNAPSHOT` on `master`, commit "Release X.Y.Z", tag `vX.Y.Z` and push, then bump `develop` to `X.(Y+1).0-SNAPSHOT`. Keep `RELEASES.md` history current in the same change.
+
 ## CI
 
 - `.github/workflows/node.js.yml` — builds/tests the frontend on push/PR to `develop` (Node 24, `setup-node` caches via `cache-dependency-path: tabletopweb/package-lock.json`, runs in `tabletopweb/`). The frontend pins Node 24 (`tabletopweb/.nvmrc`, `engines >= 24`).

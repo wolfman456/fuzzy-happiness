@@ -147,3 +147,9 @@ way to drop an existing SRD monster (e.g. a session-relevant goblin) onto the ma
   ('monsters', { name })` returns matching statblocks (already allow-listed in the gateway and
   `SrdClient`), and "Add to map" resolves the detail and drops a token with the SRD speed
   (`walk`, parsed to feet) and a stable per-index color, reusing the existing `addToken` flow.
+- **2026-09-13 — unified repo versioning (#74).** The repo moves from three drifted versions
+  (pom `0.0.1-SNAPSHOT`, web `0.0.0`, gateway `0.1.0`) to one unified semver in lockstep across
+  `tabletopserv/pom.xml`, both `package.json` + lockfiles and the root `package.json`. `develop`
+  carries `1.1.0-SNAPSHOT` (next release); `master` holds the live `X.Y.Z` and each release is
+  tagged `vX.Y.Z`. Baseline `v1.0.0` tags the current live site. Scheme and cut-a-release
+  checklist live in `RELEASES.md` (AGENTS.md "Versioning & releases").
