@@ -77,9 +77,9 @@ export default function CharactersPage() {
             type="button"
             onClick={handleSurpriseMe}
             disabled={generating}
-            className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
+            className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50"
           >
-            {generating ? 'Rolling…' : 'Surprise me'}
+            {generating ? 'Rolling…' : 'Create Random Character'}
           </button>
         </div>
       </div>
@@ -123,7 +123,7 @@ export default function CharactersPage() {
 
       {characters.length === 0 && !loadError ? (
         <p className="text-sm text-zinc-500">
-          No characters yet — use the wizard to build your first hero, or hit “Surprise me”.
+          No characters yet — use the wizard to build your first hero, or hit “Create Random Character”.
         </p>
       ) : (
         <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">

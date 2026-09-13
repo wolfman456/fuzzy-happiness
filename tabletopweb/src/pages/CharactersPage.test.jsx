@@ -85,7 +85,7 @@ describe('CharactersPage', () => {
     renderPage()
 
     await screen.findByText(/No characters yet/)
-    fireEvent.click(screen.getByRole('button', { name: 'Surprise me' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Create Random Character' }))
 
     expect(await screen.findByText(/Quick build: Tordek/)).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Save this character' }))
@@ -101,7 +101,7 @@ describe('CharactersPage', () => {
     renderPage()
 
     await screen.findByText(/No characters yet/)
-    fireEvent.click(screen.getByRole('button', { name: 'Surprise me' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Create Random Character' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/unknown race: orc/)
     expect(screen.queryByText(/Quick build/)).not.toBeInTheDocument()
