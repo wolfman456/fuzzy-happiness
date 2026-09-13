@@ -26,4 +26,6 @@ number everywhere.
 - **v1.0.0 — 2026-09-13 (baseline).** Retroactive tag on the live-site code that shipped the
   MVP. Predates repo versioning, so the manifests on the tagged commit still read
   `0.0.1-SNAPSHOT` / `0.0.0` / `0.1.0`; from here on versions are unified (§74).
-- **v1.1.0 — (next release).** Current `develop` (`1.1.0-SNAPSHOT`).
+- **v1.1.0 — 2026-09-13.** Round-2 alpha fixes: chargen scale-up to 1–20 + all official 2014
+  subclasses, sheet/session readability, session battle-map name form + SRD monster search,
+  and unified repo versioning.
