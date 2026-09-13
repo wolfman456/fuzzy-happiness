@@ -2,14 +2,9 @@ import { useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
 import AuthBackground from '../components/AuthBackground'
+import { isAdult } from '../lib/age'
 
 const PASSWORD_PATTERN = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/
-const MIN_AGE_MS = 13 * 365.25 * 24 * 60 * 60 * 1000
-
-function isAdult(dateOfBirth) {
-  const dob = new Date(`${dateOfBirth}T00:00:00`)
-  return !Number.isNaN(dob.getTime()) && Date.now() - dob.getTime() >= MIN_AGE_MS
-}
 
 export default function RegisterPage() {
   const { register, isAuthenticated } = useAuth()
