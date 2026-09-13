@@ -193,26 +193,28 @@ export default function SessionPage() {
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-semibold">{session.name}</h1>
-          <p className="text-sm text-zinc-500">
-            {session.gameDisplayName} · {ROLE_LABEL[me?.role] ?? 'Player'} ·{' '}
-            {session.status}
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="rounded-md bg-zinc-900 px-3 py-1.5 font-mono text-sm tracking-widest text-white">
-            {inviteCode}
+      <header className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h1 className="text-xl font-semibold text-zinc-900">{session.name}</h1>
+            <p className="text-sm text-zinc-500">
+              {session.gameDisplayName} · {ROLE_LABEL[me?.role] ?? 'Player'} ·{' '}
+              {session.status}
+            </p>
           </div>
-          <button
-            type="button"
-            onClick={handleLeave}
-            disabled={leaving || isClosed}
-            className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
-          >
-            {leaving ? 'Leaving…' : 'Leave'}
-          </button>
+          <div className="flex items-center gap-3">
+            <div className="rounded-md bg-zinc-900 px-3 py-1.5 font-mono text-sm tracking-widest text-white">
+              {inviteCode}
+            </div>
+            <button
+              type="button"
+              onClick={handleLeave}
+              disabled={leaving || isClosed}
+              className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
+            >
+              {leaving ? 'Leaving…' : 'Leave'}
+            </button>
+          </div>
         </div>
       </header>
 
