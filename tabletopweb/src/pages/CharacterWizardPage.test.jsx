@@ -562,4 +562,25 @@ describe('CharacterWizardPage', () => {
     expect(await screen.findByText(/Subclasses unlock at level 3/)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Light Domain' })).not.toBeInTheDocument()
   })
+
+  it('jumps straight to an earlier step via the flow chips', async () => {
+    setupSrd()
+    renderWizard()
+
+    fireEvent.change(screen.getByLabelText('Character name'), { target: { value: 'Tordek' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Ability scores' }))
+    expect(screen.getByRole('button', { name: 'Roll all ability scores' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Basics' }))
+    expect(screen.getByLabelText('Character name')).toHaveValue('Tordek')
+  })
+
+  it('blocks jumping ahead from the flow until the current step is complete', async () => {
+    setupSrd()
+    renderWizard()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Race' }))
+    expect(screen.getByLabelText('Character name')).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent(/Complete this step before jumping ahead/)
+  })
 })

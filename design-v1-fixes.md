@@ -24,6 +24,20 @@ outranks an informational one).
 | #52 | Chargen caster could skip the Spells step and still compile a "legal" sheet with **zero** spells (design-v1 §8) | high | P2 | ✅ fixed | `fix/chargen-bugs` (Bug A) |
 | #53 | Compiled sheet carried **no features**: class level-ups, subclass features and race traits were absent from the payload and zero UI rendered them (design-v1 §8) | medium | P2 | ✅ fixed | `fix/chargen-bugs` (Bug B) |
 
+## 2026-09-13 alpha pass (chargen UI readability)
+
+Alpha run on chargen after the Bug A/B round produced four UI reports. All share one root
+cause: the wizard's page chrome (heading, step flow, Back/Next) and the "Create Random
+Character" quick-build button floated directly on the dark dragon backdrop (`ThemedBackdrop`),
+so ghost borders + default/zinc-400/700 ink + `disabled:opacity-*` rendered near-invisible.
+
+| # | Issue | Severity | Priority | Status | Resolution |
+|---|-------|----------|----------|--------|------------|
+| #59 | "Surprise me" quick-build button ghost-styled on the dragon backdrop → unreadable; label unclear about what it does | low | P3 | ✅ fixed | `fix/chargen-ui-readability` |
+| #60 | Wizard Back/Next buttons (and their disabled states) on the dark backdrop → dark-on-dark; both look dead on entry | medium | P3 | ✅ fixed | `fix/chargen-ui-readability` |
+| #61 | Wizard step flow is plain text — no jump navigation; only Back/Next can move | low | P3 | ✅ fixed | `fix/chargen-ui-readability` |
+| #62 | "Character wizard" heading uses default ink on the dark backdrop → only readable when highlighted | low | P3 | ✅ fixed | `fix/chargen-ui-readability` |
+
 ## Changelog
 
 - **2026-09-12 — verification disabled until prod SMTP is configured (#45).** `AuthService.register`
@@ -70,3 +84,12 @@ outranks an informational one).
   SRD-listed subclasses (curated PHB-only archetypes contribute nothing). The sheet page gained a
   Features section and the wizard Review gained a Features row (population requires a compile, so
   the row reads "after compiling" until then).
+- **2026-09-13 — chargen UI readability on the themed backdrop (#59–#62).** The wizard now renders
+  heading, step flow, step content and Back/Next inside one white card, so the `h1` ("Character
+  wizard", explicit `text-zinc-900`), the flow (`text-zinc-600` inactive / solid chip active) and
+  both nav buttons read on the light surface instead of fading into the dragon backdrop. The flow
+  chips are now buttons: backward jumps always allowed, forward jumps gated by the same
+  `canAdvance()` rule as Next (with an amber "Complete this step before jumping ahead" hint).
+  The Characters-page quick build is relabeled **"Create Random Character"**, restyled solid
+  (`bg-zinc-900 text-white`, matching "Guided wizard") so it no longer ghosts into the backdrop,
+  and the empty-state copy matches. UI only — no behavior or API changes.
