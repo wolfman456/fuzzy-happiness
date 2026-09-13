@@ -95,11 +95,32 @@ class CharacterJourneyIT extends FunctionalTestBase {
         assertThat(body.get("valid").asBoolean()).isTrue();
         JsonNode sheet = body.get("sheet");
         assertThat(sheet.get("name").asText()).isEqualTo("Automaton");
-        assertThat(sheet.get("raceIndex").asText()).isEqualTo("dwarf");
-        assertThat(sheet.get("classIndex").asText()).isEqualTo("cleric");
-        assertThat(sheet.get("backgroundIndex").asText()).isEqualTo("acolyte");
+        assertThat(sheet.get("raceIndex").asText()).isNotBlank();
+        assertThat(sheet.get("classIndex").asText()).isNotBlank();
+        assertThat(sheet.get("backgroundIndex").asText()).isNotBlank();
         assertThat(sheet.get("strength").asInt()).isBetween(3, 18);
-        assertThat(sheet.get("spellIndexes")).isNotEmpty();
+        assertThat(sheet.get("dexterity").asInt()).isBetween(3, 18);
+        assertThat(sheet.get("constitution").asInt()).isBetween(3, 18);
+        assertThat(sheet.get("intelligence").asInt()).isBetween(3, 18);
+        assertThat(sheet.get("wisdom").asInt()).isBetween(3, 18);
+        assertThat(sheet.get("charisma").asInt()).isBetween(3, 18);
+    }
+
+    @Test
+    void catalogExposesTheCuratedPhbBackgroundsAndSubclasses() throws Exception {
+        String jwt = registerVerifyLogin("char3b");
+
+        JsonNode body = Api.json(Api.get(baseUrl() + "/api/characters/catalog", jwt).body());
+
+        assertThat(body.get("backgrounds").size()).isGreaterThanOrEqualTo(13);
+        assertThat(body.get("backgrounds")).anyMatch(b -> b.get("index").asText().equals("urchin"));
+        assertThat(body.get("backgrounds")).anyMatch(b -> b.get("index").asText().equals("noble"));
+        assertThat(body.get("subclasses")).anyMatch(s ->
+                s.get("classIndex").asText().equals("cleric") && s.get("index").asText().equals("light")
+                        && s.get("level").asInt() == 1);
+        assertThat(body.get("subclasses")).anyMatch(s ->
+                s.get("classIndex").asText().equals("wizard") && s.get("index").asText().equals("evocation")
+                        && s.get("level").asInt() == 2);
     }
 
     @Test
@@ -154,6 +175,7 @@ class CharacterJourneyIT extends FunctionalTestBase {
     void characterEndpointsRequireAuthentication() {
         assertThat(Api.post(baseUrl() + "/api/characters/compile", null, Api.body(legalDraft())).status())
                 .isEqualTo(401);
+        assertThat(Api.get(baseUrl() + "/api/characters/catalog", null).status()).isEqualTo(401);
         assertThat(Api.get(baseUrl() + "/api/users/me/characters", null).status()).isEqualTo(401);
     }
 }

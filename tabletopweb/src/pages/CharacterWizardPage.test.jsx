@@ -10,10 +10,16 @@ vi.mock('../lib/srd', async (importOriginal) => {
 
 vi.mock('../lib/characters', async (importOriginal) => {
   const actual = await importOriginal()
-  return { ...actual, compileCharacter: vi.fn(), createCharacter: vi.fn(), rollScores: vi.fn() }
+  return {
+    ...actual,
+    compileCharacter: vi.fn(),
+    createCharacter: vi.fn(),
+    rollScores: vi.fn(),
+    getChargenCatalog: vi.fn(),
+  }
 })
 
-import { createCharacter, compileCharacter, rollScores } from '../lib/characters'
+import { createCharacter, compileCharacter, getChargenCatalog, rollScores } from '../lib/characters'
 import { srdDetail, srdList, srdSubresource } from '../lib/srd'
 
 beforeEach(() => {
@@ -91,6 +97,7 @@ const EQUIPMENT_COSTS = {
 }
 
 function setupSrd() {
+  getChargenCatalog.mockResolvedValue({ backgrounds: [], subclasses: [] })
   srdList.mockImplementation(async (collection) => {
     const byCollection = {
       races: [{ index: 'dwarf', name: 'Dwarf' }],
@@ -200,6 +207,27 @@ async function walkToEquipment() {
   fireEvent.click(screen.getByRole('button', { name: 'Next' }))
 
   await screen.findByRole('checkbox', { name: /Leather Armor/ })
+}
+
+async function walkToSubclassStep() {
+  fireEvent.change(screen.getByLabelText('Character name'), { target: { value: 'Tordek' } })
+  chooseStandardArray()
+
+  fireEvent.click(await screen.findByRole('button', { name: 'Use the standard array (as written)' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+
+  fireEvent.click(await screen.findByRole('button', { name: 'Dwarf' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+
+  fireEvent.click(await screen.findByRole('button', { name: 'Cleric' }))
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Next' })).toBeEnabled())
+  fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+}
+
+async function walkToBackgroundStep() {
+  await walkToSubclassStep()
+  fireEvent.click(await screen.findByRole('button', { name: /Life/ }))
+  fireEvent.click(screen.getByRole('button', { name: 'Next' }))
 }
 
 async function walkToReview() {
@@ -452,5 +480,57 @@ describe('CharacterWizardPage', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/unknown score source: CHEAT/)
     expect(screen.queryByRole('button', { name: 'Create character' })).not.toBeInTheDocument()
+  })
+
+  it('offers curated PHB subclasses for the chosen class', async () => {
+    setupSrd()
+    getChargenCatalog.mockResolvedValue({
+      backgrounds: [],
+      subclasses: [
+        { classIndex: 'cleric', index: 'life', name: 'Life Domain', level: 1 },
+        { classIndex: 'cleric', index: 'light', name: 'Light Domain', level: 1 },
+        { classIndex: 'cleric', index: 'war', name: 'War Domain', level: 1 },
+      ],
+    })
+    renderWizard()
+
+    await walkToSubclassStep()
+
+    expect(await screen.findByRole('button', { name: 'Light Domain' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'War Domain' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Life Domain' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Life' })).not.toBeInTheDocument()
+  })
+
+  it('offers curated PHB backgrounds instead of the SRD list', async () => {
+    setupSrd()
+    getChargenCatalog.mockResolvedValue({
+      backgrounds: [
+        { index: 'urchin', name: 'Urchin' },
+        { index: 'sage', name: 'Sage' },
+      ],
+      subclasses: [{ classIndex: 'cleric', index: 'life', name: 'Life Domain', level: 1 }],
+    })
+    renderWizard()
+
+    await walkToBackgroundStep()
+
+    expect(await screen.findByRole('button', { name: 'Urchin' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Sage' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Acolyte' })).not.toBeInTheDocument()
+  })
+
+  it('blocks the subclass step while below the curated unlock level', async () => {
+    setupSrd()
+    getChargenCatalog.mockResolvedValue({
+      backgrounds: [],
+      subclasses: [{ classIndex: 'cleric', index: 'light', name: 'Light Domain', level: 3 }],
+    })
+    renderWizard()
+
+    await walkToSubclassStep()
+
+    expect(await screen.findByText(/Subclasses unlock at level 3/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Light Domain' })).not.toBeInTheDocument()
   })
 })

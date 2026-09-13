@@ -1,5 +1,6 @@
 package com.gamer.fowever.tabletopapi;
 
+import com.gamer.fowever.tabletopapi.dto.ChargenCatalogDto;
 import com.gamer.fowever.tabletopapi.dto.CharacterDraftDto;
 import com.gamer.fowever.tabletopapi.dto.CharacterSheetDto;
 import com.gamer.fowever.tabletopapi.dto.CharacterSummaryDto;
@@ -28,6 +29,9 @@ public interface CharacterApi {
     @PostMapping(value = "/api/characters/compile", consumes = MediaType.APPLICATION_JSON_VALUE,
             produces = MediaType.APPLICATION_JSON_VALUE)
     CompileResult compile(@Valid @RequestBody CharacterDraftDto draft, Authentication authentication);
+
+    @GetMapping(value = "/api/characters/catalog", produces = MediaType.APPLICATION_JSON_VALUE)
+    ChargenCatalogDto catalog(Authentication authentication);
 
     @PostMapping(value = "/api/characters/generate", consumes = MediaType.APPLICATION_JSON_VALUE,
             produces = MediaType.APPLICATION_JSON_VALUE)

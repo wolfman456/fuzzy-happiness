@@ -9,6 +9,7 @@ import {
   createCharacter,
   equipmentCostGp,
   equipmentPriceGp,
+  getChargenCatalog,
   pointBuyCost,
   rollScores,
   startingGoldClassBudget,
@@ -118,7 +119,14 @@ export default function CharacterWizardPage() {
   const location = useLocation()
   const [step, setStep] = useState(0)
   const [draft, setDraft] = useState(initialDraft)
-  const [catalog, setCatalog] = useState({ races: [], classes: [], backgrounds: [], skills: [], equipment: [] })
+  const [catalog, setCatalog] = useState({
+    races: [],
+    classes: [],
+    backgrounds: [],
+    skills: [],
+    equipment: [],
+    subclasses: [],
+  })
   const [catalogError, setCatalogError] = useState('')
   const [classDetail, setClassDetail] = useState(null)
   const [classLevels, setClassLevels] = useState(null)
@@ -209,14 +217,20 @@ export default function CharacterWizardPage() {
       srdList('backgrounds'),
       srdList('skills'),
       srdList('equipment'),
+      getChargenCatalog(),
     ])
-      .then(([races, classes, backgrounds, skills, equipment]) => {
+      .then(([races, classes, backgrounds, skills, equipment, curated]) => {
+        const curatedBackgrounds = curated?.backgrounds ?? []
         setCatalog({
           races: srdRows(races),
           classes: srdRows(classes),
-          backgrounds: srdRows(backgrounds),
+          backgrounds:
+            curatedBackgrounds.length > 0
+              ? curatedBackgrounds.map((row) => ({ index: row.index, name: row.name }))
+              : srdRows(backgrounds),
           skills: srdRows(skills),
           equipment: srdRows(equipment),
+          subclasses: curated?.subclasses ?? [],
         })
       })
       .catch(() => setCatalogError('Could not load character options (SRD data unavailable)'))
@@ -275,8 +289,20 @@ export default function CharacterWizardPage() {
   )
   const classCap = classDetail?.proficiency_choices?.[0]?.choose ?? 2
   const skillCap = classCap + 2
-  const hasSubclasses = (classDetail?.subclasses ?? []).length > 0
-  const requiredSubclassLevel = subclassLevel(classDetail)
+  const subclassRows = useMemo(() => {
+    const curated = (catalog.subclasses ?? []).filter((row) => row.classIndex === draft.classIndex)
+    if (curated.length > 0) return curated
+    return (classDetail?.subclasses ?? []).map((item) => ({
+      classIndex: draft.classIndex,
+      index: item.index,
+      name: item.name,
+      level: subclassLevel(classDetail),
+    }))
+  }, [catalog.subclasses, draft.classIndex, classDetail])
+  const hasSubclasses = subclassRows.length > 0
+  const requiredSubclassLevel = subclassRows.length > 0
+    ? Math.min(...subclassRows.map((row) => row.level))
+    : subclassLevel(classDetail)
 
   const castingRow = useMemo(() => {
     if (!Array.isArray(classLevels)) return null
@@ -721,7 +747,7 @@ export default function CharacterWizardPage() {
                 {draft.startingLevel >= requiredSubclassLevel && (
                   <PickGrid
                     label="Subclass"
-                    rows={(classDetail.subclasses ?? []).map((item) => ({ index: item.index, name: item.name }))}
+                    rows={subclassRows.map(({ index, name }) => ({ index, name }))}
                     value={draft.subclassIndex}
                     onSelect={(value) => update('subclassIndex', value)}
                   />
