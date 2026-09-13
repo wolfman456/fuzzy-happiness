@@ -22,7 +22,7 @@ public record CharacterDraftDto(
         @Min(1) @Max(30) int wisdom,
         @Min(1) @Max(30) int charisma,
         @NotNull ScoreSource scoreSource,
-        @Min(1) @Max(3) int startingLevel,
+        @Min(1) @Max(20) int startingLevel,
         String raceIndex,
         String classIndex,
         String subclassIndex,

@@ -132,6 +132,24 @@ class CharacterServiceTest {
     }
 
     @Test
+    void compileDerivesLevel20Sheet() {
+        stubCommonCatalog();
+        when(srd.subresource("classes", "cleric", "levels", Map.of()))
+                .thenReturn(objectMapper.readTree(clericLevelsUpTo20()));
+        CharacterDraftDto draft = draftBuilder(legalDraft()).startingLevel(20).build();
+
+        CompileResult result = service.compile(user(5L), draft);
+
+        assertThat(result.valid()).isTrue();
+        CharacterSheetDto sheet = result.sheet();
+        assertThat(sheet.level()).isEqualTo(20);
+        assertThat(sheet.proficiencyBonus()).isEqualTo(6);
+        assertThat(sheet.hitPoints()).isEqualTo(143);
+        assertThat(sheet.spellSlots()).containsEntry(0, 5).containsEntry(9, 1);
+        assertThat(sheet.featureIndexes()).contains("divine-intervention", "ability-score-improvement");
+    }
+
+    @Test
     void compileRejectsIllegalScoreSet() {
         stubCommonCatalog();
         CharacterDraftDto draft = draftBuilder(legalDraft()).strength(18).build();
@@ -529,6 +547,28 @@ class CharacterServiceTest {
 
         assertThat(result.valid()).isTrue();
         assertThat(result.sheet().subclassIndex()).isIn(new ChargenCatalog().subclassesFor("cleric"));
+    }
+
+    private String clericLevelsUpTo20() {
+        StringBuilder json = new StringBuilder("[");
+        for (int level = 1; level <= 20; level++) {
+            if (level > 1) {
+                json.append(',');
+            }
+            String feature = level == 4 ? "ability-score-improvement"
+                    : level == 20 ? "divine-intervention" : "level-" + level;
+            json.append("{\"level\":").append(level)
+                    .append(",\"prof_bonus\":").append((level - 1) / 4 + 2)
+                    .append(",\"features\":[{\"index\":\"").append(feature).append("\"}]");
+            if (level == 20) {
+                json.append(",\"spellcasting\":{\"cantrips_known\":5,\"spell_slots_level_1\":4,")
+                        .append("\"spell_slots_level_2\":3,\"spell_slots_level_3\":3,\"spell_slots_level_4\":3,")
+                        .append("\"spell_slots_level_5\":3,\"spell_slots_level_6\":2,\"spell_slots_level_7\":2,")
+                        .append("\"spell_slots_level_8\":1,\"spell_slots_level_9\":1}");
+            }
+            json.append('}');
+        }
+        return json.append(']').toString();
     }
 
     private void stubEquipmentDetails() {

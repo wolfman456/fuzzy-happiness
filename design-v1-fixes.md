@@ -38,6 +38,19 @@ so ghost borders + default/zinc-400/700 ink + `disabled:opacity-*` rendered near
 | #61 | Wizard step flow is plain text — no jump navigation; only Back/Next can move | low | P3 | ✅ fixed | `fix/chargen-ui-readability` |
 | #62 | "Character wizard" heading uses default ink on the dark backdrop → only readable when highlighted | low | P3 | ✅ fixed | `fix/chargen-ui-readability` |
 
+## 2026-09-13 alpha pass (chargen scale-up)
+
+Alpha run against a real character (`/characters/:id`) surfaced three chargen gaps (design-v1 §8):
+the curated subclass catalog only covered the PHB/SRD options, the starting level was capped at 3
+despite the whole feature pipeline supporting 1–20, and a character whose subclasses unlock above
+the chosen starting level was hard-blocked on the Subclass step.
+
+| # | Issue | Severity | Priority | Status | Resolution |
+|---|-------|----------|----------|--------|------------|
+| #64 | Starting level capped at 1–3 (DTO `@Max(3)` + wizard dropdown) — should allow 1–20 | medium | P3 | ✅ fixed | `fix/chargen-subclasses-level20` |
+| #65 | Subclass step hard-blocks when subclasses unlock above the starting level (level 1–2 melee/martial) — nothing to choose yet | high | P2 | ✅ fixed | `fix/chargen-subclasses-level20` |
+| #66 | Curated subclasses cover PHB/SRD only (barbarian 2 of ~8 official) — expand to all official 2014 sources | medium | P3 | ✅ fixed | `fix/chargen-subclasses-level20` |
+
 ## Changelog
 
 - **2026-09-12 — verification disabled until prod SMTP is configured (#45).** `AuthService.register`
@@ -93,3 +106,14 @@ so ghost borders + default/zinc-400/700 ink + `disabled:opacity-*` rendered near
   The Characters-page quick build is relabeled **"Create Random Character"**, restyled solid
   (`bg-zinc-900 text-white`, matching "Guided wizard") so it no longer ghosts into the backdrop,
   and the empty-state copy matches. UI only — no behavior or API changes.
+- **2026-09-13 — chargen scale-up (#64/#65/#66).** The curated `ChargenCatalog` subclass set grows
+  from the PHB/SRD-only options to **all official 2014 subclasses** (PHB + XGtE + Tasha's + SCAG,
+  101 across the 12 classes) with correct per-class unlock levels (cleric/sorcerer/warlock 1,
+  druid/wizard 2, others 3); curated-only archetypes keep working exactly as before — SRD-listed
+  ones merge their features, others contribute name only. Starting level is raised from 3 to 20:
+  both request DTOs (`CharacterDraftDto`, `GenerateCharacterRequest`) relax to `@Max(20)` and the
+  wizard dropdown offers 1–20. The Subclass step now **defers** instead of blocking below the unlock
+  level ("Subclasses unlock at level N — nothing to choose yet", Next enabled, Review shows
+  "none (unlocks at level N)"); compile still rejects a chosen subclass below its required level.
+  Backend derivation (prof bonus, spell slots, features, HP) already scaled to 20 with the SRD
+  level rows.
