@@ -153,3 +153,9 @@ way to drop an existing SRD monster (e.g. a session-relevant goblin) onto the ma
   carries `1.1.0-SNAPSHOT` (next release); `master` holds the live `X.Y.Z` and each release is
   tagged `vX.Y.Z`. Baseline `v1.0.0` tags the current live site. Scheme and cut-a-release
   checklist live in `RELEASES.md` (AGENTS.md "Versioning & releases").
+- **2026-09-13 — chargen reroll + skill caps (#76/#77).** The ability-score step's "Roll all
+  again" was fully repeatable; it now allows exactly one full reroll per wizard character
+  (per-ability rolls and the quick-build stay as-is, UI-only). The Skills step enforced only a
+  combined `classCap + 2` cap, so a cleric could take 4 class skills; class-list picks are now
+  split-capped at `classCap` in both the wizard and the server-side compile validation, so client
+  and server agree.

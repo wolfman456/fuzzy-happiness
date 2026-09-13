@@ -29,3 +29,4 @@ number everywhere.
 - **v1.1.0 — 2026-09-13.** Round-2 alpha fixes: chargen scale-up to 1–20 + all official 2014
   subclasses, sheet/session readability, session battle-map name form + SRD monster search,
   and unified repo versioning.
+- **v1.2.0 — (next release).** Current `develop` (`1.2.0-SNAPSHOT`).
