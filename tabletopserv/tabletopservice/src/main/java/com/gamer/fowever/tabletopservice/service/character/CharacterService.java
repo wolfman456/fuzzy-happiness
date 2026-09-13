@@ -1,6 +1,7 @@
 package com.gamer.fowever.tabletopservice.service.character;
 
 import com.gamer.fowever.tabletopapi.ScoreSource;
+import com.gamer.fowever.tabletopapi.dto.ChargenCatalogDto;
 import com.gamer.fowever.tabletopapi.dto.CharacterDraftDto;
 import com.gamer.fowever.tabletopapi.dto.CharacterSheetDto;
 import com.gamer.fowever.tabletopapi.dto.CharacterSummaryDto;
@@ -49,11 +50,14 @@ public class CharacterService {
     private static final List<String> ABILITIES = List.of("str", "dex", "con", "int", "wis", "cha");
 
     private final SrdClient srd;
+    private final ChargenCatalog catalog;
     private final CharacterRepository characterRepository;
     private final ObjectMapper objectMapper;
 
-    public CharacterService(SrdClient srd, CharacterRepository characterRepository, ObjectMapper objectMapper) {
+    public CharacterService(SrdClient srd, ChargenCatalog catalog, CharacterRepository characterRepository,
+                            ObjectMapper objectMapper) {
         this.srd = srd;
+        this.catalog = catalog;
         this.characterRepository = characterRepository;
         this.objectMapper = objectMapper;
     }
@@ -101,11 +105,13 @@ public class CharacterService {
 
         String raceIndex = randomElement(races, random);
         String classIndex = randomElement(classes, random);
-        String backgroundIndex = randomElement(backgrounds, random);
+        Set<String> srdBackgrounds = indexSet(backgrounds);
+        String backgroundIndex = randomElement(allBackgrounds(srdBackgrounds), random);
 
         JsonNode race = srd.detail("races", raceIndex);
         JsonNode classRecord = srd.detail("classes", classIndex);
-        JsonNode background = srd.detail("backgrounds", backgroundIndex);
+        JsonNode background = srdBackgrounds.contains(backgroundIndex)
+                ? srd.detail("backgrounds", backgroundIndex) : null;
         JsonNode classLevels = srd.subresource("classes", classIndex, "levels", Map.of());
         boolean caster = isCaster(classRecord);
         JsonNode classSpells = caster ? srd.subresource("classes", classIndex, "spells", Map.of()) : null;
@@ -151,6 +157,22 @@ public class CharacterService {
         return new RollScoresResult(source,
                 base.get("str"), base.get("dex"), base.get("con"),
                 base.get("int"), base.get("wis"), base.get("cha"));
+    }
+
+    /**
+     * Static PHB-only catalog served independently of the live SRD feed (§8,
+     * design-v1-fixes #48/#50). The wizard uses it to offer the full PHB
+     * background list and each class's PHB subclass options; validation merges
+     * these indexes with the SRD allow-lists so compile stays consistent.
+     */
+    public ChargenCatalogDto catalog() {
+        List<ChargenCatalogDto.BackgroundOption> backgrounds = catalog.backgrounds().stream()
+                .map(b -> new ChargenCatalogDto.BackgroundOption(b.index(), b.name()))
+                .toList();
+        List<ChargenCatalogDto.SubclassOption> subclasses = catalog.subclasses().stream()
+                .map(s -> new ChargenCatalogDto.SubclassOption(s.classIndex(), s.index(), s.name(), s.level()))
+                .toList();
+        return new ChargenCatalogDto(backgrounds, subclasses);
     }
 
     @Transactional
@@ -210,7 +232,7 @@ public class CharacterService {
     private SrdFacts loadFacts(CharacterDraftDto draft, List<String> violations) {
         Set<String> races = indexSet(srd.list("races", Map.of()));
         Set<String> classes = indexSet(srd.list("classes", Map.of()));
-        Set<String> backgrounds = indexSet(srd.list("backgrounds", Map.of()));
+        Set<String> backgrounds = allBackgrounds(indexSet(srd.list("backgrounds", Map.of())));
         Set<String> skills = normalizeSet(indexSet(srd.list("skills", Map.of())));
         Set<String> equipment = indexSet(srd.list("equipment", Map.of()));
 
@@ -259,12 +281,13 @@ public class CharacterService {
         if (classRecord == null) {
             return;
         }
-        Set<String> subclasses = indexSetOf(classRecord, "subclasses");
+        Set<String> subclasses = new HashSet<>(indexSetOf(classRecord, "subclasses"));
+        subclasses.addAll(catalog.subclassesFor(draft.classIndex()));
         if (!subclasses.contains(subclass)) {
             violations.add("subclassIndex: '" + subclass + "' is not a subclass of '" + draft.classIndex() + "'");
             return;
         }
-        int required = subclassLevel(classRecord);
+        int required = requiredLevel(draft.classIndex(), subclass, classRecord);
         if (draft.startingLevel() < required) {
             violations.add("subclassIndex: '" + subclass + "' requires level " + required);
         }
@@ -538,11 +561,17 @@ public class CharacterService {
         if (classRecord == null || level < subclassLevel(classRecord)) {
             return null;
         }
-        List<String> subclasses = sortedIndexes(classRecord, "subclasses");
-        if (subclasses.isEmpty()) {
+        String classIndex = classRecord.path("index").asText();
+        Set<String> subclasses = new HashSet<>(indexSetOf(classRecord, "subclasses"));
+        subclasses.addAll(catalog.subclassesFor(classIndex));
+        List<String> eligible = subclasses.stream()
+                .filter(index -> level >= requiredLevel(classIndex, index, classRecord))
+                .sorted()
+                .toList();
+        if (eligible.isEmpty()) {
             return null;
         }
-        return subclasses.get(random.nextInt(subclasses.size()));
+        return eligible.get(random.nextInt(eligible.size()));
     }
 
     private List<String> randomSpells(JsonNode classSpells, JsonNode classLevels, int level, Random random) {
@@ -604,7 +633,29 @@ public class CharacterService {
         if (indexes.isEmpty()) {
             throw ApiException.badGateway("rules data unavailable");
         }
+        Collections.sort(indexes);
         return indexes.get(random.nextInt(indexes.size()));
+    }
+
+    private String randomElement(Set<String> set, Random random) {
+        List<String> indexes = new ArrayList<>(set);
+        indexes.removeIf(String::isBlank);
+        if (indexes.isEmpty()) {
+            throw ApiException.badGateway("rules data unavailable");
+        }
+        Collections.sort(indexes);
+        return indexes.get(random.nextInt(indexes.size()));
+    }
+
+    private Set<String> allBackgrounds(Set<String> srdBackgrounds) {
+        Set<String> all = new HashSet<>(srdBackgrounds);
+        all.addAll(catalog.backgroundIndexes());
+        return all;
+    }
+
+    private int requiredLevel(String classIndex, String subclassIndex, JsonNode classRecord) {
+        ChargenCatalog.SubclassRef curated = catalog.subclassOf(classIndex, subclassIndex);
+        return curated != null ? curated.level() : subclassLevel(classRecord);
     }
 
     private CastingRow castingRow(JsonNode classLevels, int level) {

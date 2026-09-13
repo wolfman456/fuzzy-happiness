@@ -17,9 +17,9 @@ outranks an informational one).
 |---|-------|----------|----------|--------|------------|
 | #45 | New accounts couldn't log in: `SMTP_*` unset in prod → no verification email was ever deliverable (design-v1 §19). Registration is now auto-verified; the login verified-gate is removed; verification stays dormant until mail is configured | high | P1 | ✅ fixed | `fix/disable-email-verification` (PR B) |
 | #46 | Age-gate mismatch: frontend used a ms-years approximation (`13×365.25`) while the backend uses `Period.between` — a user exactly 13 by calendar could be rejected client-side | medium | P2 | 🔧 open | frontend gate to backend logic |
-| #48 | Chargen subclass list only offers the single SRD example archetype per class (design-v1 §8) | high | P2 | 🔧 open (triage PR A) | curated catalog (planned PR D) |
+| #48 | Chargen subclass list only offers the single SRD example archetype per class (design-v1 §8) | high | P2 | ✅ fixed | curated catalog (PR D) |
 | #49 | Intermittent chargen "compile/save" failure on first attempt (serial blocking SRD calls, no timeouts, compile inside `@Transactional`, Hikari pool 5) — zero observability | high | P2 | 🔧 fixing (PR C) | logging-only observability (PR C) |
-| #50 | Background list only offers Acolyte (SRD) instead of the PHB backgrounds (design-v1 §8) | medium | P3 | 🔧 open (triage PR A) | curated catalog (planned PR D) |
+| #50 | Background list only offers Acolyte (SRD) instead of the PHB backgrounds (design-v1 §8) | medium | P3 | ✅ fixed | curated catalog (PR D) |
 | #51 | Class list beyond the SRD core (e.g. Artificer) — design-v1 defers this as R24 | low | P4 | ⏭ deferred | needs non-SRD data source |
 
 ## Changelog
@@ -37,5 +37,14 @@ outranks an informational one).
   `GlobalExceptionHandler` now logs full stacks for unhandled 500s and 5xx `ApiException`s; the
   gateway logs one structured line per request (method, path, status, correlation id, cache
   status, duration); the frontend `api()` surfaces `status` + `correlationId` on `ApiError`, so a
-  failed chargen can be traced end-to-end. Next (planned PR D): curated PHB subclass/background
-  catalog for #48/#50.
+  failed chargen can be traced end-to-end.
+- **2026-09-12 — curated PHB subclass/background catalog (#48/#50, PR D).** A `ChargenCatalog`
+  component in `tabletopservice` carries the 2014 PHB 13 backgrounds and each class's PHB subclass
+  options ({index, name, level}) — names/indices only, no rulebook text, no DB/DDL change. It is
+  served at `GET /api/characters/catalog` (`ChargenCatalogDto` in `tabletopapi`). `CharacterService`
+  merges the catalog with the SRD allow-lists: compiled drafts may use curated backgrounds and
+  curated subclasses (level-gated per subclass); quick-build samples the curated pools deterministically
+  (sorted indexes) and never fetches SRD detail for non-SRD backgrounds. The wizard loads the catalog
+  and uses curated rows for the background step and subclass step, falling back to SRD when the
+  endpoint is unavailable. The SRD example archetype keeps its canonical index so existing characters
+  and quick-builds stay valid.

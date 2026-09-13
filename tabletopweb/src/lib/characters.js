@@ -207,6 +207,11 @@ export function generateCharacter(body) {
   return api('/api/characters/generate', { method: 'POST', body })
 }
 
+/** Hand-curated PHB chargen catalog (see design-v1-fixes #48/#50). */
+export function getChargenCatalog() {
+  return api('/api/characters/catalog')
+}
+
 export function listMyCharacters() {
   return api('/api/users/me/characters')
 }
