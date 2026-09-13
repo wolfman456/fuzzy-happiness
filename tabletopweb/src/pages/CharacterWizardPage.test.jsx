@@ -329,6 +329,41 @@ describe('CharacterWizardPage', () => {
     vi.useRealTimers()
   })
 
+  it('allows exactly one full ability-score reroll, then disables the button', async () => {
+    setupSrd()
+    rollScores.mockResolvedValue({ scoreSource: 'FOUR_D6_DROP_LOWEST', strength: 16, dexterity: 11, constitution: 9, intelligence: 14, wisdom: 12, charisma: 7 })
+    renderWizard()
+
+    fireEvent.change(screen.getByLabelText('Character name'), { target: { value: 'Tordek' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+
+    const rollAll = () => screen.getByRole('button', { name: 'Roll all ability scores' })
+
+    vi.useFakeTimers()
+    fireEvent.click(rollAll())
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2000)
+    })
+    expect(rollAll()).toHaveTextContent('Roll all again')
+    expect(rollAll()).toBeEnabled()
+
+    fireEvent.click(rollAll())
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2000)
+    })
+    expect(rollAll()).toHaveTextContent('Reroll used')
+    expect(rollAll()).toBeDisabled()
+    expect(screen.getByText(/One reroll used/)).toBeInTheDocument()
+
+    fireEvent.click(rollAll())
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2000)
+    })
+    expect(rollAll()).toHaveTextContent('Reroll used')
+    expect(screen.getByLabelText('Roll Strength')).toBeEnabled()
+    vi.useRealTimers()
+  })
+
   it('assigns the standard array from the preset button with dropdowns', async () => {
     setupSrd()
     renderWizard()
@@ -497,6 +532,45 @@ describe('CharacterWizardPage', () => {
     fireEvent.click(await screen.findByRole('checkbox', { name: 'Spare the Dying' }))
     expect(screen.getByRole('button', { name: 'Next' })).toBeEnabled()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('caps class-list skill picks at the class maximum even under the combined cap', async () => {
+    setupSrd()
+    renderWizard()
+
+    fireEvent.change(screen.getByLabelText('Character name'), { target: { value: 'Tordek' } })
+    chooseStandardArray()
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Use the standard array (as written)' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Dwarf' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Cleric' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Next' })).toBeEnabled())
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Life' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Acolyte' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+
+    const history = await screen.findByRole('checkbox', { name: 'History' })
+    expect(history).not.toBeChecked()
+
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Medicine' }))
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Religion' }))
+    fireEvent.click(history)
+    await screen.findByRole('status')
+
+    expect(screen.getByRole('status')).toHaveTextContent(/allows at most 2 class skill picks/)
+    expect(history).not.toBeChecked()
+
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Insight' }))
+    expect(screen.getByRole('status')).toHaveTextContent(/allows at most 2 class skill picks/)
+    expect(screen.getByRole('checkbox', { name: 'Insight' })).not.toBeChecked()
   })
 
   it('lists violations instead of a create button when the sheet is illegal', async () => {

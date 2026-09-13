@@ -118,6 +118,7 @@ export default function CharacterWizardPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const [step, setStep] = useState(0)
+  const [rerollsUsed, setRerollsUsed] = useState(0)
   const [draft, setDraft] = useState(initialDraft)
   const [catalog, setCatalog] = useState({
     races: [],
@@ -373,6 +374,11 @@ export default function CharacterWizardPage() {
     const isOther = !classSkills.includes(value)
     if (!picks.includes(value)) {
       const others = picks.filter((pick) => !classSkills.includes(pick)).length
+      const classPicks = picks.filter((pick) => classSkills.includes(pick)).length
+      if (!isOther && classPicks >= classCap) {
+        setHint(`This class allows at most ${classCap} class skill pick${classCap === 1 ? '' : 's'}.`)
+        return
+      }
       if (isOther && others >= 2) {
         setHint('At most 2 skill picks may come from outside your class list (background picks).')
         return
@@ -474,6 +480,9 @@ export default function CharacterWizardPage() {
   }
 
   async function handleRollAll() {
+    if (rollingAbility !== null) return
+    const isReroll = ROLLED_SOURCES.has(draft.scoreSource) && isCompleteBase(baseScores)
+    if (isReroll && rerollsUsed >= 1) return
     setRollingAbility('ALL')
     setError('')
     try {
@@ -488,6 +497,7 @@ export default function CharacterWizardPage() {
         wisdom: rolled.wisdom,
         charisma: rolled.charisma,
       })
+      if (isReroll) setRerollsUsed((count) => count + 1)
     } catch (rollError) {
       setError(rollError.message)
     } finally {
@@ -724,6 +734,7 @@ export default function CharacterWizardPage() {
             onRollAll={handleRollAll}
             onSetScore={commitScores}
             onStandardArray={pickStandardArray}
+            rerollsUsed={rerollsUsed}
           />
         )}
 
@@ -942,6 +953,7 @@ function ScoreStep({
   onRollAll,
   onSetScore,
   onStandardArray,
+  rerollsUsed,
 }) {
   const { scoreSource } = draft
   const rolled = ROLLED_SOURCES.has(scoreSource)
@@ -954,6 +966,7 @@ function ScoreStep({
     : null
   const legal = validateBaseScores(scoreSource, baseScores ?? {})
   const busyRolling = rollingAbility !== null
+  const rerollExhausted = rerollsUsed >= 1
 
   const shownValue = (ability) => {
     if (rollPreview[ability] != null) return String(rollPreview[ability])
@@ -984,13 +997,19 @@ function ScoreStep({
           <button
             type="button"
             onClick={onRollAll}
-            disabled={busyRolling}
+            disabled={busyRolling || rerollExhausted}
             aria-label="Roll all ability scores"
             className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50"
           >
-            {rollingAbility === 'ALL' ? 'Rolling…' : rolledDone ? 'Roll all again' : 'Roll all'}
+            {rollingAbility === 'ALL' ? 'Rolling…' : rolledDone ? (rerollExhausted ? 'Reroll used' : 'Roll all again') : 'Roll all'}
           </button>
-          {rolledDone && <span className="text-sm text-zinc-500">Locked in — the race bonus is applied on the Race step.</span>}
+          {rolledDone && (
+            <span className="text-sm text-zinc-500">
+              {rerollExhausted
+                ? 'One reroll used — the full set is locked in. Per-ability rolls still work.'
+                : 'Locked in — you may reroll the whole set once. The race bonus is applied on the Race step.'}
+            </span>
+          )}
         </div>
       )}
 

@@ -317,6 +317,11 @@ public class CharacterService {
         if (picks.size() > cap) {
             violations.add("skillPickIndexes: no more than " + cap + " skill proficiencies for this class/background");
         }
+        int classPicks = picks.size() - outside.size();
+        int classCap = classChoiceCap(facts.classRecord());
+        if (classPicks > classCap) {
+            violations.add("skillPickIndexes: no more than " + classCap + " skill proficiencies from the class list");
+        }
         if (outside.size() > 2) {
             violations.add("skillPickIndexes: at most 2 skill picks may come from the background (outside the class list)");
         }

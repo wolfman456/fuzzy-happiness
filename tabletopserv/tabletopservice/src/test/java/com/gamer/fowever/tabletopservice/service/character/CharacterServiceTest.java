@@ -257,6 +257,23 @@ class CharacterServiceTest {
     }
 
     @Test
+    void compileRejectsMoreClassSkillsThanTheClassAllowsEvenUnderCombinedCap() {
+        stubCommonCatalog();
+        when(srd.detail("classes", "cleric")).thenReturn(objectMapper.readTree(
+                "{\"index\":\"cleric\",\"name\":\"Cleric\",\"hit_die\":8,"
+                        + "\"subclass_level\":1,\"spellcasting\":{},\"saving_throws\":[{\"index\":\"wis\"},{\"index\":\"cha\"}],"
+                        + "\"proficiency_choices\":[{\"choose\":1,\"from\":{\"options\":["
+                        + "{\"item\":{\"index\":\"skill-medicine\"}},{\"item\":{\"index\":\"skill-religion\"}}]}}],"
+                        + "\"subclasses\":[{\"index\":\"life\"}]}"));
+        CharacterDraftDto draft = draftBuilder(legalDraft()).build();
+
+        CompileResult result = service.compile(user(5L), draft);
+
+        assertThat(result.valid()).isFalse();
+        assertThat(result.violations()).anyMatch(v -> v.contains("no more than 1") && v.contains("class list"));
+    }
+
+    @Test
     void rollScoresProducesBaseScoresWithinRange() {
         RollScoresResult result = service.rollScores(new RollScoresRequest(ScoreSource.FOUR_D6_DROP_LOWEST, 7));
 
