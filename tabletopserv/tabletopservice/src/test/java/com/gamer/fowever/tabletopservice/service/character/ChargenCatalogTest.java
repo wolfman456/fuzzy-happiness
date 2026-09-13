@@ -77,6 +77,40 @@ class ChargenCatalogTest {
     }
 
     @Test
+    void subclassCatalogCoversAllOfficial2014Options() {
+        assertThat(catalog.subclassesFor("barbarian")).hasSize(8)
+                .contains("berserker", "totem-warrior", "ancestral-guardian", "storm-herald",
+                        "zealot", "beast", "wild-magic", "battlerager");
+        assertThat(catalog.subclassesFor("bard")).hasSize(7);
+        assertThat(catalog.subclassesFor("cleric")).hasSize(13)
+                .contains("arcana", "forge", "grave", "order", "peace", "twilight");
+        assertThat(catalog.subclassesFor("druid")).hasSize(7);
+        assertThat(catalog.subclassesFor("fighter")).hasSize(9)
+                .contains("arcane-archer", "cavalier", "samurai", "psi-warrior", "rune-knight",
+                        "purple-dragon-knight");
+        assertThat(catalog.subclassesFor("monk")).hasSize(8);
+        assertThat(catalog.subclassesFor("paladin")).hasSize(8);
+        assertThat(catalog.subclassesFor("ranger")).hasSize(7);
+        assertThat(catalog.subclassesFor("rogue")).hasSize(9);
+        assertThat(catalog.subclassesFor("sorcerer")).hasSize(7);
+        assertThat(catalog.subclassesFor("warlock")).hasSize(7);
+        assertThat(catalog.subclassesFor("wizard")).hasSize(11)
+                .contains("bladesinging", "war-magic", "scribes");
+    }
+
+    @Test
+    void curatorSubclassLevelsMatchOfficialUnlockLevels() {
+        assertThat(catalog.subclasses()).allSatisfy(ref -> {
+            int level = switch (ref.classIndex()) {
+                case "cleric", "sorcerer", "warlock" -> 1;
+                case "druid", "wizard" -> 2;
+                default -> 3;
+            };
+            assertThat(ref.level()).as(ref.classIndex() + "/" + ref.index()).isEqualTo(level);
+        });
+    }
+
+    @Test
     void subclassesForAndSubclassOfBehave() {
         assertThat(catalog.subclassesFor("cleric")).contains("life", "light", "knowledge");
         assertThat(catalog.subclassesFor("not-a-class")).isEmpty();

@@ -549,18 +549,30 @@ describe('CharacterWizardPage', () => {
     expect(screen.queryByRole('button', { name: 'Acolyte' })).not.toBeInTheDocument()
   })
 
-  it('blocks the subclass step while below the curated unlock level', async () => {
+  it('defers the subclass step while below the curated unlock level', async () => {
     setupSrd()
     getChargenCatalog.mockResolvedValue({
-      backgrounds: [],
+      backgrounds: [{ index: 'acolyte', name: 'Acolyte' }],
       subclasses: [{ classIndex: 'cleric', index: 'light', name: 'Light Domain', level: 3 }],
     })
     renderWizard()
 
     await walkToSubclassStep()
 
-    expect(await screen.findByText(/Subclasses unlock at level 3/)).toBeInTheDocument()
+    expect(await screen.findByText(/Subclasses unlock at level 3 — nothing to choose yet/)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Light Domain' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Next' })).toBeEnabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    expect(await screen.findByRole('button', { name: 'Acolyte' })).toBeInTheDocument()
+  })
+
+  it('offers starting levels 1 through 20', async () => {
+    setupSrd()
+    renderWizard()
+
+    const level = screen.getByLabelText('Starting level (1–20)')
+    const options = Array.from(level.options).map((option) => Number(option.value))
+    expect(options).toEqual(Array.from({ length: 20 }, (_, i) => i + 1))
   })
 
   it('jumps straight to an earlier step via the flow chips', async () => {
