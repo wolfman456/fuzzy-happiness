@@ -12,7 +12,7 @@ import jakarta.validation.constraints.Min;
 public record GenerateCharacterRequest(
         String name,
         ScoreSource scoreSource,
-        @Min(1) @Max(3) Integer startingLevel,
+        @Min(1) @Max(20) Integer startingLevel,
         Integer seed) {
 
     public ScoreSource scoreSourceOrDefault() {
