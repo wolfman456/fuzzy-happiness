@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
-import { ABILITIES, abilityModifier, getCharacter } from '../lib/characters'
+import { useNavigate, useParams } from 'react-router-dom'
+import { ABILITIES, abilityModifier, deleteCharacter, getCharacter } from '../lib/characters'
 
 const ABILITY_LABELS = {
   strength: 'Strength',
@@ -17,8 +17,11 @@ function signed(value) {
 
 export default function CharacterSheetPage() {
   const { id } = useParams()
+  const navigate = useNavigate()
   const [sheet, setSheet] = useState(null)
   const [error, setError] = useState('')
+  const [confirming, setConfirming] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     getCharacter(id)
@@ -38,15 +41,36 @@ export default function CharacterSheetPage() {
     return <p className="text-sm text-zinc-500">Loading character…</p>
   }
 
+  async function handleDelete() {
+    setDeleting(true)
+    try {
+      await deleteCharacter(id)
+      navigate('/characters')
+    } catch (deleteError) {
+      setError(deleteError.message)
+      setConfirming(false)
+      setDeleting(false)
+    }
+  }
+
   return (
     <section className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
       <div className="space-y-6">
-        <header>
-          <h1 className="text-2xl font-semibold text-zinc-900">{sheet.name}</h1>
-          <p className="text-sm text-zinc-500">
-            Level {sheet.level} · {sheet.raceIndex} {sheet.classIndex}
-            {sheet.subclassIndex ? ` (${sheet.subclassIndex})` : ''} · {sheet.backgroundIndex}
-          </p>
+        <header className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-semibold text-zinc-900">{sheet.name}</h1>
+            <p className="text-sm text-zinc-500">
+              Level {sheet.level} · {sheet.raceIndex} {sheet.classIndex}
+              {sheet.subclassIndex ? ` (${sheet.subclassIndex})` : ''} · {sheet.backgroundIndex}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setConfirming(true)}
+            className="rounded-md border border-red-200 px-3 py-1 text-sm text-red-700 hover:bg-red-50"
+          >
+            Delete character
+          </button>
         </header>
 
         <section className="grid grid-cols-1 gap-3 sm:grid-cols-4">
@@ -132,6 +156,40 @@ export default function CharacterSheetPage() {
           )}
         </section>
       </div>
+
+      {confirming && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-confirm-title"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-900/50 p-4"
+        >
+          <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-xl">
+            <h2 id="delete-confirm-title" className="font-semibold">Delete {sheet.name}?</h2>
+            <p className="mt-2 text-sm text-zinc-500">
+              This removes the character (and its sheet) for good. This can't be undone.
+            </p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirming(false)}
+                disabled={deleting}
+                className="rounded-md border border-zinc-300 px-3 py-1 text-sm text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={deleting}
+                className="rounded-md bg-red-700 px-3 py-1 text-sm font-medium text-white hover:bg-red-600 disabled:opacity-50"
+              >
+                {deleting ? 'Deleting…' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   )
 }

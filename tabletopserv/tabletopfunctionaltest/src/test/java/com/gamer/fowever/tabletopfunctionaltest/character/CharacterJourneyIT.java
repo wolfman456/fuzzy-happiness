@@ -168,6 +168,26 @@ class CharacterJourneyIT extends FunctionalTestBase {
     }
 
     @Test
+    void ownerDeletesCharacterAndOnlyTheOwner() throws Exception {
+        String jwt = registerVerifyLogin("char6");
+        String otherJwt = registerVerifyLogin("char6b");
+
+        Api.Response created = Api.post(baseUrl() + "/api/users/me/characters", jwt, Api.body(legalDraft()));
+        Api.requireStatus(created, 201, "create character");
+        long id = Api.json(created.body()).get("id").asLong();
+
+        assertThat(Api.delete(baseUrl() + "/api/users/me/characters/" + id, otherJwt).status())
+                .as("another user cannot delete the character").isEqualTo(404);
+
+        Api.requireStatus(Api.delete(baseUrl() + "/api/users/me/characters/" + id, jwt), 204, "delete character");
+
+        assertThat(Api.get(baseUrl() + "/api/users/me/characters/" + id, jwt).status())
+                .as("the character is gone after deletion").isEqualTo(404);
+        JsonNode mine = Api.json(Api.get(baseUrl() + "/api/users/me/characters", jwt).body());
+        assertThat(mine).isEmpty();
+    }
+
+    @Test
     void createRejectsIllegalDraftWithBadRequest() throws Exception {
         String jwt = registerVerifyLogin("char5");
 

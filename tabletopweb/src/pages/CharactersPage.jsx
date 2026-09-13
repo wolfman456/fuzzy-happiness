@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { createCharacter, generateCharacter, listMyCharacters, sheetToDraft } from '../lib/characters'
+import { createCharacter, deleteCharacter, generateCharacter, listMyCharacters, sheetToDraft } from '../lib/characters'
 
 export default function CharactersPage() {
   const navigate = useNavigate()
@@ -11,6 +11,8 @@ export default function CharactersPage() {
   const [pendingDraft, setPendingDraft] = useState(null)
   const [actionError, setActionError] = useState('')
   const [saving, setSaving] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState(null)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     listMyCharacters()
@@ -60,6 +62,21 @@ export default function CharactersPage() {
 
   function handleReviseInWizard() {
     navigate('/characters/new', { state: { draft: pendingDraft } })
+  }
+
+  async function handleDelete() {
+    if (!deleteTarget) return
+    setActionError('')
+    setDeleting(true)
+    try {
+      await deleteCharacter(deleteTarget.id)
+      setCharacters((current) => current.filter((character) => character.id !== deleteTarget.id))
+      setDeleteTarget(null)
+    } catch (error) {
+      setActionError(error.message)
+    } finally {
+      setDeleting(false)
+    }
   }
 
   return (
@@ -128,11 +145,11 @@ export default function CharactersPage() {
       ) : (
         <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {characters.map((character) => (
-            <li key={character.id}>
-              <Link
-                to={`/characters/${character.id}`}
-                className="block rounded-xl border border-zinc-200 bg-white p-4 shadow-sm hover:border-zinc-400"
-              >
+            <li
+              key={character.id}
+              className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm hover:border-zinc-400"
+            >
+              <Link to={`/characters/${character.id}`} className="block">
                 <div className="flex items-center justify-between">
                   <span className="font-semibold">{character.name}</span>
                   <span className="text-sm text-zinc-500">Level {character.level}</span>
@@ -140,9 +157,52 @@ export default function CharactersPage() {
                 <p className="mt-1 text-sm text-zinc-500">{character.raceIndex} {character.classIndex}{character.subclassIndex ? ` (${character.subclassIndex})` : ''} · {character.backgroundIndex}</p>
                 <p className="mt-2 text-sm text-zinc-600">HP {character.hitPoints} · AC {character.armorClass}</p>
               </Link>
+              <div className="mt-3 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setDeleteTarget(character)}
+                  className="rounded-md border border-red-200 px-3 py-1 text-sm text-red-700 hover:bg-red-50"
+                >
+                  Delete
+                </button>
+              </div>
             </li>
           ))}
         </ul>
+      )}
+
+      {deleteTarget && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-confirm-title"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-900/50 p-4"
+        >
+          <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-xl">
+            <h2 id="delete-confirm-title" className="font-semibold">Delete {deleteTarget.name}?</h2>
+            <p className="mt-2 text-sm text-zinc-500">
+              This removes the character (and its sheet) for good. This can't be undone.
+            </p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setDeleteTarget(null)}
+                disabled={deleting}
+                className="rounded-md border border-zinc-300 px-3 py-1 text-sm text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={deleting}
+                className="rounded-md bg-red-700 px-3 py-1 text-sm font-medium text-white hover:bg-red-600 disabled:opacity-50"
+              >
+                {deleting ? 'Deleting…' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

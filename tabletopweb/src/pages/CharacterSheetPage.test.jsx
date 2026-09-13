@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 import CharacterSheetPage from './CharacterSheetPage'
@@ -7,9 +7,10 @@ vi.mock('../lib/characters', () => ({
   ABILITIES: ['strength', 'dexterity', 'constitution', 'intelligence', 'wisdom', 'charisma'],
   abilityModifier: (score) => Math.floor((score - 10) / 2),
   getCharacter: vi.fn(),
+  deleteCharacter: vi.fn(),
 }))
 
-import { getCharacter } from '../lib/characters'
+import { deleteCharacter, getCharacter } from '../lib/characters'
 
 const SHEET = {
   id: 7,
@@ -44,6 +45,7 @@ function renderSheet() {
     <MemoryRouter initialEntries={['/characters/7']}>
       <Routes>
         <Route path="/characters/:id" element={<CharacterSheetPage />} />
+        <Route path="/characters" element={<div>characters list</div>} />
       </Routes>
     </MemoryRouter>,
   )
@@ -86,5 +88,19 @@ describe('CharacterSheetPage', () => {
     renderSheet()
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Could not load this character sheet')
+  })
+
+  it('deletes the character from the sheet after a confirm dialog', async () => {
+    getCharacter.mockResolvedValue(SHEET)
+    deleteCharacter.mockResolvedValue(undefined)
+    renderSheet()
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete character' }))
+    const confirm = await screen.findByRole('dialog')
+    expect(within(confirm).getByText(/Delete Tordek\?/)).toBeInTheDocument()
+
+    fireEvent.click(within(confirm).getByRole('button', { name: 'Delete' }))
+    await waitFor(() => expect(deleteCharacter).toHaveBeenCalledWith('7'))
+    expect(await screen.findByText('characters list')).toBeInTheDocument()
   })
 })

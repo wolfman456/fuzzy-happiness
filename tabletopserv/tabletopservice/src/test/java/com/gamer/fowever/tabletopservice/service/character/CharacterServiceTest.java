@@ -471,6 +471,26 @@ class CharacterServiceTest {
     }
 
     @Test
+    void deleteRemovesOwnedCharacter() {
+        Dnd5eCharacter entity = savedCharacter(7L, "Tordek");
+        when(characterRepository.findByIdAndOwnerId(7L, 5L)).thenReturn(Optional.of(entity));
+
+        service.delete(user(5L), 7L);
+
+        verify(characterRepository).delete(entity);
+    }
+
+    @Test
+    void deleteRejectsForeignCharacter() {
+        when(characterRepository.findByIdAndOwnerId(9L, 5L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.delete(user(5L), 9L))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("not found");
+        verify(characterRepository, never()).delete(any());
+    }
+
+    @Test
     void generateProducesLegalSheetWithSeededRandom() {
         when(srd.list("races", Map.of())).thenReturn(objectMapper.readTree(RACES));
         when(srd.list("classes", Map.of())).thenReturn(objectMapper.readTree(CLASSES));
