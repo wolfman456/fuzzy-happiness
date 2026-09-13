@@ -1,10 +1,11 @@
 const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8080'
 
 export class ApiError extends Error {
-  constructor(status, message) {
+  constructor(status, message, correlationId = null) {
     super(message)
     this.name = 'ApiError'
     this.status = status
+    this.correlationId = correlationId
   }
 }
 
@@ -45,7 +46,11 @@ export async function api(path, { method = 'GET', body } = {}) {
     } catch {
       // keep the fallback message
     }
-    throw new ApiError(response.status, message)
+    throw new ApiError(
+      response.status,
+      message,
+      response.headers?.get('x-correlation-id') ?? null,
+    )
   }
 
   if (!text) return null

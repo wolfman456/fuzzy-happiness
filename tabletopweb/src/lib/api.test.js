@@ -16,10 +16,13 @@ import {
 
 const BASE = 'http://localhost:8080'
 
-function mockFetch(status, body) {
+function mockFetch(status, body, { headers = {} } = {}) {
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
     status,
     ok: status >= 200 && status < 300,
+    headers: {
+      get: (name) => headers[name.toLowerCase()] ?? null,
+    },
     text: () => Promise.resolve(typeof body === 'string' ? body : JSON.stringify(body)),
   }))
 }
@@ -72,6 +75,22 @@ describe('api', () => {
     expect(err).toBeInstanceOf(ApiError)
     expect(err.status).toBe(409)
     expect(err.message).toBe('Username is already taken')
+  })
+
+  it('surfaces the server correlation id on ApiError', async () => {
+    mockFetch(502, { status: 502, message: 'rules data unavailable' }, {
+      headers: { 'x-correlation-id': 'corr-xyz-1' },
+    })
+    const err = await api('/api/srd/races').catch((e) => e)
+    expect(err).toBeInstanceOf(ApiError)
+    expect(err.status).toBe(502)
+    expect(err.correlationId).toBe('corr-xyz-1')
+  })
+
+  it('leaves correlation id null when the server omits it', async () => {
+    mockFetch(400, { status: 400, message: 'Malformed request' })
+    const err = await api('/api/srd/races').catch((e) => e)
+    expect(err.correlationId).toBeNull()
   })
 
   it('clears the token and fires the unauthorized handler on 401 when a token was present', async () => {
