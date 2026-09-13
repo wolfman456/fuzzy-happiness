@@ -20,7 +20,7 @@ Status key: ✅ landed · 🔨 in progress · ⏭ deferred (post-MVP)
 - As a DM I want all external data and generation calls (SRD lookups, monster generation, future integrations) to route through a single secure Express gateway so our backend only talks to vetted, allowlisted upstream services. (R10) ✅ landed
 - As a DM I want to create homebrew content (e.g. monsters) that my GM tooling can persist and reuse across sessions. (R11) ✅ landed (ships with R9)
 - As a Player I want an optional 3D view of the battle map with player avatars and monster minis so the table feels more immersive alongside the existing 2D grid. (R12) ⏭ deferred (post-MVP, design-v1 §17)
-- As a Player I want to create a D&D character through a guided wizard or a "surprise me" quick-build so I can bring a legal level 1–3 hero to my sessions. (R13) ✅ landed (design-v1 §8, PR #31)
+- As a Player I want to create a D&D character through a guided wizard or a "surprise me" quick-build so I can bring a legal hero to my sessions. (R13) ✅ landed (design-v1 §8, PR #31; starting levels now 1–20, design-v1-fixes #64/#71)
 - As a DM I want the platform to run on a production database behind CI so we can actually play with friends online. (R14) ✅ landed (design-v1 §11/§13 Stage 5; Railway infra as code — §19, PR #31)
 - As a Player I want a polished sign-in/sign-up page with a themed background so the entry screen feels part of the game. (R15) ✅ landed
 - As a Player I want to confirm my password twice on registration so typos don't lock me out. (R16) ✅ landed
@@ -38,7 +38,7 @@ Status key: ✅ landed · 🔨 in progress · ⏭ deferred (post-MVP)
 - As a Player I want to roll my ability scores one at a time (or all at once) with an animated per-ability dice roll in the wizard, and see the equipment shop price everything against live SRD costs — with the class kit trimming itself to my starting gold — so the totals match what compiling actually charges. (R28) ✅ landed (PR #39)
 - As a Player I want a themed backdrop across all screens of the app — not empty white pages — so the whole app feels part of the game rather than a form tool. (R29) ✅ landed (PR #43)
 - As a Player I want the app's navigation tucked into a slide-in sidebar that opens from a menu button in the top bar, so screens stay uncluttered and the top header stays slim. (R30) ✅ landed (PR #43)
-- As a Player I want each class in the character wizard to offer all of its Player's Handbook subclass options — not just the single SRD example archetype — so I can build the hero I planned. ✅ landed (curated PHB catalog, PR D)
+- As a Player I want each class in the character wizard to offer all of its official 2014 subclass options — not just the single SRD example archetype — so I can build the hero I planned. ✅ landed (curated catalog, PR D → expanded to PHB + XGtE + Tasha's + SCAG, PR #71)
 - As a Player I want the full standard Player's Handbook background list in the character wizard — not just Acolyte from the SRD — so I can pick the origin I planned. ✅ landed (curated PHB catalog, PR D)
 - As a Player I want my email address verified with a login link after registration once production email delivery is configured, so my account is tied to an address I actually control — until prod SMTP is set up accounts are auto-verified on registration so nobody is locked out. (R31) ✅ landed (verification disabled/auto-verify shipped, PR #53)
 
