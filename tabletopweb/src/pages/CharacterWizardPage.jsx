@@ -613,42 +613,60 @@ export default function CharacterWizardPage() {
     return true
   }
 
+  function goToStep(next) {
+    setHint('')
+    setError('')
+    setResult(null)
+    setCompiledDraft(null)
+    if (next <= step) { setStep(next); return }
+    if (canAdvance()) setStep(next)
+    else setHint('Complete this step before jumping ahead.')
+  }
+
   const otherSkills = catalog.skills.filter((skill) => !classSkills.includes(skill.index))
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-semibold">Character wizard</h1>
-
-      <ol className="flex flex-wrap items-center gap-1 text-xs">
-        {STEPS.map((label, index) => (
-          <li
-            key={label}
-            className={index === step ? 'font-semibold text-zinc-900' : 'text-zinc-400'}
-            aria-current={index === step ? 'step' : undefined}
-          >
-            {index > 0 && <span className="mx-1 text-zinc-300">›</span>}
-            {index === 7 && classDetail && !caster ? `${label} (skipped)` : label}
-          </li>
-        ))}
-      </ol>
-
-      {catalogError && (
-        <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
-          {catalogError}
-        </p>
-      )}
-      {hint && (
-        <p role="status" className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
-          {hint}
-        </p>
-      )}
-      {error && (
-        <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
-          {error}
-        </p>
-      )}
-
       <section className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <h1 className="text-xl font-semibold text-zinc-900">Character wizard</h1>
+
+        <ol className="mt-4 flex flex-wrap items-center gap-1 text-xs">
+          {STEPS.map((label, index) => (
+            <li key={label} className="flex items-center gap-0.5">
+              {index > 0 && <span className="text-zinc-300">›</span>}
+              <button
+                type="button"
+                onClick={() => goToStep(index)}
+                aria-current={index === step ? 'step' : undefined}
+                className={`rounded-md px-2 py-0.5 text-xs ${
+                  index === step
+                    ? 'bg-zinc-900 font-semibold text-white'
+                    : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
+                }`}
+              >
+                {index === 7 && classDetail && !caster ? `${label} (skipped)` : label}
+              </button>
+            </li>
+          ))}
+        </ol>
+
+        {catalogError && (
+          <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+            {catalogError}
+          </p>
+        )}
+        {hint && (
+          <p role="status" className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            {hint}
+          </p>
+        )}
+        {error && (
+          <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+            {error}
+          </p>
+        )}
+
+        <div className="mt-6">
         {step === 0 && (
           <div className="space-y-4">
             <label className="block">
@@ -868,38 +886,39 @@ export default function CharacterWizardPage() {
             saving={saving}
           />
         )}
-      </section>
+      </div>
 
-      <div className="flex items-center justify-between">
-        <button
-          type="button"
-          disabled={step === 0}
-          onClick={() => {
-            setStep((current) => current - 1)
-            setHint('')
-            setError('')
-          }}
-          className="rounded-md border border-zinc-300 px-4 py-2 text-sm text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
-        >
-          Back
-        </button>
-        {step < STEPS.length - 1 && (
+        <div className="mt-6 flex items-center justify-between">
           <button
             type="button"
-            disabled={!canAdvance() || busy}
+            disabled={step === 0}
             onClick={() => {
-              setStep((current) => current + 1)
+              setStep((current) => current - 1)
               setHint('')
               setError('')
-              setResult(null)
-              setCompiledDraft(null)
             }}
-            className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50"
+            className="rounded-md border border-zinc-300 px-4 py-2 text-sm text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
           >
-            Next
+            Back
           </button>
-        )}
-      </div>
+          {step < STEPS.length - 1 && (
+            <button
+              type="button"
+              disabled={!canAdvance() || busy}
+              onClick={() => {
+                setStep((current) => current + 1)
+                setHint('')
+                setError('')
+                setResult(null)
+                setCompiledDraft(null)
+              }}
+              className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50"
+            >
+              Next
+            </button>
+          )}
+        </div>
+      </section>
     </div>
   )
 }
