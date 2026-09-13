@@ -51,6 +51,13 @@ the chosen starting level was hard-blocked on the Subclass step.
 | #65 | Subclass step hard-blocks when subclasses unlock above the starting level (level 1–2 melee/martial) — nothing to choose yet | high | P2 | ✅ fixed | `fix/chargen-subclasses-level20` |
 | #66 | Curated subclasses cover PHB/SRD only (barbarian 2 of ~8 official) — expand to all official 2014 sources | medium | P3 | ✅ fixed | `fix/chargen-subclasses-level20` |
 
+## 2026-09-13 alpha pass (sheet + session readability)
+
+| # | Issue | Severity | Priority | Status | Resolution |
+|---|-------|----------|----------|--------|------------|
+| #69 | Character sheet page unreadable outside the white stat cells — title, headers and "None" sections float on the dragon backdrop | medium | P2 | ✅ fixed | `fix/ui-readability-round2` |
+| #70 | Session page header (session name, subtitle, Leave button) unreadable on the dark backdrop | low | P3 | ✅ fixed | `fix/ui-readability-round2` |
+
 ## 2026-09-13 alpha pass (session battle map + monster search)
 
 Alpha run on the session page's GM tools surfaced two gaps: the battle-map empty state sent
@@ -129,6 +136,10 @@ way to drop an existing SRD monster (e.g. a session-relevant goblin) onto the ma
   "none (unlocks at level N)"); compile still rejects a chosen subclass below its required level.
   Backend derivation (prof bonus, spell slots, features, HP) already scaled to 20 with the SRD
   level rows.
+- **2026-09-13 — sheet + session readability on the themed backdrop (#69/#70).** The character
+  sheet page and the live-session header each now render inside the same white card the wizard
+  uses, so the title/subtitle ink and the ghost-styled Leave button read on the light surface
+  instead of dissolving into the dragon backdrop. UI only — no behavior or API changes.
 - **2026-09-13 — session battle-map name + SRD monster search (#67/#68).** The battle-map empty
   state now carries an inline **Name** field and submits `createMap(id, { name })`, defaulting to
   "Battle map" when left blank (fixing the `400 name: must not be blank` on every valid setup).
