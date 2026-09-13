@@ -25,6 +25,7 @@ export default function SessionPage() {
   const [map, setMap] = useState(null)
   const [mapState, setMapState] = useState('loading')
   const [mapError, setMapError] = useState('')
+  const [mapName, setMapName] = useState('Battle map')
   const [fullRolls, setFullRolls] = useState({})
 
   useEffect(() => {
@@ -159,10 +160,11 @@ export default function SessionPage() {
     return result
   }
 
-  async function handleCreateMap() {
+  async function handleCreateMap(event) {
+    event.preventDefault()
     setMapError('')
     try {
-      const created = await createMap(id)
+      const created = await createMap(id, { name: mapName.trim() || 'Battle map' })
       setMap(created)
       setMapState('ready')
     } catch (error) {
@@ -193,26 +195,28 @@ export default function SessionPage() {
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-semibold">{session.name}</h1>
-          <p className="text-sm text-zinc-500">
-            {session.gameDisplayName} · {ROLE_LABEL[me?.role] ?? 'Player'} ·{' '}
-            {session.status}
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="rounded-md bg-zinc-900 px-3 py-1.5 font-mono text-sm tracking-widest text-white">
-            {inviteCode}
+      <header className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h1 className="text-xl font-semibold text-zinc-900">{session.name}</h1>
+            <p className="text-sm text-zinc-500">
+              {session.gameDisplayName} · {ROLE_LABEL[me?.role] ?? 'Player'} ·{' '}
+              {session.status}
+            </p>
           </div>
-          <button
-            type="button"
-            onClick={handleLeave}
-            disabled={leaving || isClosed}
-            className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
-          >
-            {leaving ? 'Leaving…' : 'Leave'}
-          </button>
+          <div className="flex items-center gap-3">
+            <div className="rounded-md bg-zinc-900 px-3 py-1.5 font-mono text-sm tracking-widest text-white">
+              {inviteCode}
+            </div>
+            <button
+              type="button"
+              onClick={handleLeave}
+              disabled={leaving || isClosed}
+              className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
+            >
+              {leaving ? 'Leaving…' : 'Leave'}
+            </button>
+          </div>
         </div>
       </header>
 
@@ -261,18 +265,32 @@ export default function SessionPage() {
           )}
           {mapState === 'none' &&
             (me?.role === 'GM' ? (
-              <div className="flex flex-wrap items-center justify-between gap-3">
+              <form
+                onSubmit={handleCreateMap}
+                className="flex flex-wrap items-center gap-3"
+              >
                 <p className="text-sm text-zinc-500">
                   No battle map yet for this session.
                 </p>
+                <label className="flex items-center gap-2 text-sm">
+                  <span className="font-medium text-zinc-700">Name</span>
+                  <input
+                    type="text"
+                    value={mapName}
+                    onChange={(event) => setMapName(event.target.value)}
+                    placeholder="Battle map"
+                    maxLength={60}
+                    className="w-48 rounded-md border border-zinc-300 px-3 py-2 text-sm"
+                    data-testid="battle-map-name"
+                  />
+                </label>
                 <button
-                  type="button"
-                  onClick={handleCreateMap}
+                  type="submit"
                   className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
                 >
                   Set up battle map
                 </button>
-              </div>
+              </form>
             ) : (
               <p className="text-sm text-zinc-500">
                 No battle map yet — ask your GM to set one up.

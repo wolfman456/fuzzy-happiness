@@ -417,7 +417,19 @@ describe('SessionPage', () => {
     fireEvent.click(setup)
 
     expect(await screen.findByRole('heading', { name: /Grumm’s map/ })).toBeInTheDocument()
-    expect(battleMapMock.createMap).toHaveBeenCalledWith('7')
+    expect(battleMapMock.createMap).toHaveBeenCalledWith('7', { name: 'Battle map' })
+  })
+
+  it('sends a custom name for the battle map', async () => {
+    api.mockResolvedValue(snapshot)
+    renderSession()
+
+    await screen.findByRole('button', { name: 'Set up battle map' })
+    fireEvent.change(screen.getByTestId('battle-map-name'), { target: { value: 'Grumm’s War Room' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Set up battle map' }))
+
+    await screen.findByRole('heading', { name: /Grumm’s map/ })
+    expect(battleMapMock.createMap).toHaveBeenCalledWith('7', { name: 'Grumm’s War Room' })
   })
 
   it('tells players to ask their GM when no map exists', async () => {
