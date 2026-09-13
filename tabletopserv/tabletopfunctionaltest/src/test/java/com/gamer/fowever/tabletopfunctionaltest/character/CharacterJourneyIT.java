@@ -30,7 +30,7 @@ class CharacterJourneyIT extends FunctionalTestBase {
                 Map.entry("subclassIndex", "life"),
                 Map.entry("backgroundIndex", "acolyte"),
                 Map.entry("skillPickIndexes", Set.of("medicine", "religion")),
-                Map.entry("spellIndexes", Set.of("sacred-flame", "cure-wounds")),
+                Map.entry("spellIndexes", Set.of("guidance", "sacred-flame", "cure-wounds")),
                 Map.entry("equipmentIndexes", Set.of("leather-armor", "shield")));
     }
 
@@ -55,7 +55,8 @@ class CharacterJourneyIT extends FunctionalTestBase {
         assertThat(sheet.get("savingThrows")).hasSize(2);
         assertThat(sheet.get("spellSlots").get("1").asInt()).isEqualTo(2);
         assertThat(sheet.get("spellSlots").get("0").asInt()).isEqualTo(3);
-        assertThat(sheet.get("featureIndexes")).isNotEmpty();
+        assertThat(sheet.get("featureIndexes")).extracting(JsonNode::asText)
+                .contains("spellcasting", "disciple-of-life", "darkvision");
         assertThat(sheet.get("startingGoldGp").asInt()).isEqualTo(125);
         assertThat(sheet.get("spentGoldGp").asInt()).isEqualTo(20);
         assertThat(sheet.get("sheetSnapshot").isNull()).isFalse();
@@ -82,6 +83,20 @@ class CharacterJourneyIT extends FunctionalTestBase {
         assertThat(body.get("valid").asBoolean()).isFalse();
         assertThat(body.get("sheet").isNull()).isTrue();
         assertThat(body.get("violations")).anyMatch(v -> v.asText().contains("scores"));
+    }
+
+    @Test
+    void compileRejectsCasterWhoSkippedTheirCantrips() throws Exception {
+        String jwt = registerVerifyLogin("char4c");
+
+        Map<String, Object> draft = new java.util.LinkedHashMap<>(legalDraft());
+        draft.put("spellIndexes", Set.of());
+
+        JsonNode body = Api.json(Api.post(baseUrl() + "/api/characters/compile", jwt, Api.body(draft)).body());
+
+        assertThat(body.get("valid").asBoolean()).isFalse();
+        assertThat(body.get("sheet").isNull()).isTrue();
+        assertThat(body.get("violations")).anyMatch(v -> v.asText().contains("cantrips"));
     }
 
     @Test

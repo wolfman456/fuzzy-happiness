@@ -309,6 +309,13 @@ export default function CharacterWizardPage() {
     return classLevels.find((row) => row.level === draft.startingLevel)?.spellcasting ?? null
   }, [classLevels, draft.startingLevel])
   const cantripsKnown = castingRow?.cantrips_known ?? 0
+  const availableCantrips = useMemo(() => {
+    return (classSpells?.results ?? []).filter((spell) => (spell.level ?? 0) === 0).length
+  }, [classSpells])
+  const cantripsRequired = Math.min(cantripsKnown, availableCantrips)
+  const cantripsSelected = (draft.spellIndexes ?? []).filter(
+    (pick) => (classSpells?.results ?? []).find((s) => s.index === pick)?.level === 0,
+  ).length
   const maxSlot = useMemo(() => {
     if (!castingRow) return 0
     let max = 0
@@ -601,6 +608,7 @@ export default function CharacterWizardPage() {
     if (step === 5 && !draft.backgroundIndex) return false
     if (raceError && step >= 2) return false
     if (step === 8 && (overBudget || unpricedSelected.length > 0 || pricing)) return false
+    if (step === 7 && caster && cantripsSelected < cantripsRequired) return false
     if (step === 7 && !caster) return true
     return true
   }
@@ -788,6 +796,12 @@ export default function CharacterWizardPage() {
             <p className="text-sm text-zinc-500">
               Cantrips known: {cantripsKnown} · spells up to level {maxSlot}.
             </p>
+            {cantripsSelected < cantripsRequired && (
+              <p role="alert" className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                Pick at least {cantripsRequired} cantrip{cantripsRequired === 1 ? '' : 's'} to continue (
+                {cantripsSelected}/{cantripsRequired} picked).
+              </p>
+            )}
             {spellGroups
               .filter((group) => group.level <= maxSlot)
               .map((group) => (
@@ -1205,6 +1219,12 @@ function ReviewStep({ draft, result, compiledDraft, classSkills, hasSubclasses, 
           value={backgroundPicks.length ? `${backgroundPicks.join(', ')} (${backgroundPicks.length}/2)` : 'none'}
         />
         <ReviewRow label="Spells" value={draft.spellIndexes.length ? draft.spellIndexes.length + ' selected' : 'none'} />
+        <ReviewRow
+          label="Features"
+          value={
+            result?.sheet?.featureIndexes?.length ? result.sheet.featureIndexes.join(', ') : 'after compiling'
+          }
+        />
         <ReviewRow label="Equipment" value={draft.equipmentIndexes.length ? draft.equipmentIndexes.join(', ') : 'none'} />
         <ReviewRow label="Starting gold" value={`${budget} gp`} />
         <ReviewRow label="Spent on gear" value={`${spentGold} gp`} />

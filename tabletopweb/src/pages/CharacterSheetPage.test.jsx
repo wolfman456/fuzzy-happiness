@@ -35,6 +35,7 @@ const SHEET = {
   backgroundSkills: [],
   skillPicks: ['medicine', 'religion'],
   spellIndexes: ['sacred-flame', 'bless'],
+  featureIndexes: ['spellcasting', 'disciple-of-life', 'darkvision'],
   equipmentIndexes: ['leather-armor', 'shield'],
 }
 
@@ -61,16 +62,23 @@ describe('CharacterSheetPage', () => {
     expect(screen.getByText('medicine')).toBeInTheDocument()
     expect(screen.getByText('religion')).toBeInTheDocument()
     expect(screen.getByText('sacred-flame')).toBeInTheDocument()
+    expect(screen.getByText('disciple-of-life')).toBeInTheDocument()
     expect(screen.getByText('leather-armor')).toBeInTheDocument()
     expect(screen.getByText('shield')).toBeInTheDocument()
   })
 
   it('renders empty-state lists for a bare sheet', async () => {
-    getCharacter.mockResolvedValue({ ...SHEET, skillPicks: [], spellIndexes: [], equipmentIndexes: [] })
+    getCharacter.mockResolvedValue({
+      ...SHEET,
+      skillPicks: [],
+      spellIndexes: [],
+      featureIndexes: [],
+      equipmentIndexes: [],
+    })
     renderSheet()
 
     expect(await screen.findByRole('heading', { name: 'Tordek' })).toBeInTheDocument()
-    expect(screen.getAllByText('None')).toHaveLength(3)
+    expect(screen.getAllByText('None')).toHaveLength(4)
   })
 
   it('shows an error when the character cannot be loaded', async () => {

@@ -5,5 +5,9 @@
   "speed": 25,
   "ability_bonuses": [
     { "ability_score": { "index": "con", "name": "CON" }, "bonus": 2 }
+  ],
+  "traits": [
+    { "index": "darkvision", "name": "Darkvision", "url": "/api/2014/traits/darkvision" },
+    { "index": "dwarven-resilience", "name": "Dwarven Resilience", "url": "/api/2014/traits/dwarven-resilience" }
   ]
 }

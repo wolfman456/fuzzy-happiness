@@ -27,7 +27,8 @@ public class SrdClient {
     private static final Set<String> ALLOWED_PARAMS = Set.of("level", "school", "name", "index");
 
     private static final Map<String, Set<String>> SUBRESOURCES = Map.of(
-            "classes", Set.of("spells", "levels"));
+            "classes", Set.of("spells", "levels"),
+            "subclasses", Set.of("levels"));
 
     private final GatewayClient gatewayClient;
     private final ObjectMapper objectMapper;

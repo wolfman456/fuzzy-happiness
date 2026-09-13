@@ -29,6 +29,7 @@ export const SRD_ALLOWED_PARAMS = ['level', 'school', 'name', 'index'];
  */
 export const SRD_SUBRESOURCES = {
   classes: ['spells', 'levels'],
+  subclasses: ['levels'],
 };
 
 export const SRD_TIMEOUT_MS = 8000;
