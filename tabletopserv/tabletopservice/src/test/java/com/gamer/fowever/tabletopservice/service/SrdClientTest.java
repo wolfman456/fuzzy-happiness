@@ -122,6 +122,18 @@ class SrdClientTest {
     }
 
     @Test
+    void subresourceForwardsAllowedSubclassLevels() {
+        SrdClient client = new SrdClient(gatewayClient, objectMapper);
+        when(gatewayClient.get("/api/srd/subclasses/life/levels", Map.of()))
+                .thenReturn("[{\"level\":1,\"features\":[{\"index\":\"disciple-of-life\"}]}]");
+
+        JsonNode result = client.subresource("subclasses", "life", "levels", Map.of());
+
+        assertThat(result.isArray()).isTrue();
+        verify(gatewayClient).get("/api/srd/subclasses/life/levels", Map.of());
+    }
+
+    @Test
     void subresourceRejectsUnknownSubresource() {
         SrdClient client = new SrdClient(gatewayClient, objectMapper);
 
@@ -130,6 +142,9 @@ class SrdClientTest {
                 .hasMessageContaining("unknown SRD subresource");
         assertThatThrownBy(() -> client.subresource("races", "dwarf", "spells", Map.of()))
                 .isInstanceOf(ApiException.class);
+        assertThatThrownBy(() -> client.subresource("subclasses", "life", "spells", Map.of()))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("unknown SRD subresource");
     }
 
     @Test

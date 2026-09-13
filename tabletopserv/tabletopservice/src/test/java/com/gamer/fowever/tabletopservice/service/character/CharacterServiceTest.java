@@ -51,7 +51,8 @@ class CharacterServiceTest {
     private static final String SKILLS = "{\"results\":[{\"index\":\"medicine\"},{\"index\":\"religion\"}]}";
     private static final String EQUIPMENT = "{\"results\":[{\"index\":\"leather-armor\"},{\"index\":\"shield\"},{\"index\":\"club\"}]}";
     private static final String DWARF = "{\"index\":\"dwarf\",\"name\":\"Dwarf\",\"speed\":25,"
-            + "\"ability_bonuses\":[{\"ability_score\":{\"index\":\"con\"},\"bonus\":2}]}";
+            + "\"ability_bonuses\":[{\"ability_score\":{\"index\":\"con\"},\"bonus\":2}],"
+            + "\"traits\":[{\"index\":\"darkvision\"},{\"index\":\"dwarven-resilience\"}]}";
     private static final String CLERIC = "{\"index\":\"cleric\",\"name\":\"Cleric\",\"hit_die\":8,"
             + "\"subclass_level\":1,\"spellcasting\":{},\"saving_throws\":[{\"index\":\"wis\"},{\"index\":\"cha\"}],"
             + "\"proficiency_choices\":[{\"choose\":2,\"from\":{\"options\":["
@@ -63,6 +64,8 @@ class CharacterServiceTest {
             + "\"spellcasting\":{\"cantrips_known\":3,\"spell_slots_level_1\":3}}]";
     private static final String CLERIC_SPELLS = "{\"count\":2,\"results\":["
             + "{\"index\":\"sacred-flame\",\"level\":0},{\"index\":\"cure-wounds\",\"level\":1}]}";
+    private static final String LIFE_LEVELS = "[{\"level\":1,\"prof_bonus\":2,"
+            + "\"features\":[{\"index\":\"disciple-of-life\"}]}]";
     private static final String LEATHER = "{\"index\":\"leather-armor\",\"equipment_category\":{\"index\":\"armor\"},"
             + "\"armor_class\":{\"base\":11,\"dex_bonus\":true},"
             + "\"cost\":{\"quantity\":10,\"unit\":\"gp\"}}";
@@ -119,12 +122,13 @@ class CharacterServiceTest {
         assertThat(sheet.skillPicks()).containsExactly("medicine", "religion");
         assertThat(sheet.spellIndexes()).containsExactly("cure-wounds", "sacred-flame");
         assertThat(sheet.spellSlots()).containsEntry(0, 3).containsEntry(1, 2);
-        assertThat(sheet.featureIndexes()).contains("spellcasting");
+        assertThat(sheet.featureIndexes()).contains("spellcasting", "disciple-of-life", "darkvision");
         assertThat(sheet.sheetSnapshot()).isNotNull();
         assertThat(sheet.startingGoldGp()).isEqualTo(125);
         assertThat(sheet.spentGoldGp()).isEqualTo(20);
 
         verify(srd).subresource("classes", "cleric", "levels", Map.of());
+        verify(srd).subresource("subclasses", "life", "levels", Map.of());
     }
 
     @Test
@@ -172,6 +176,30 @@ class CharacterServiceTest {
 
         assertThat(result.valid()).isFalse();
         assertThat(result.violations()).anyMatch(v -> v.contains("fireball"));
+    }
+
+    @Test
+    void compileRejectsCasterWithNoCantrips() {
+        stubCommonCatalog();
+        CharacterDraftDto draft = draftBuilder(legalDraft()).spellIndexes(Set.of()).build();
+
+        CompileResult result = service.compile(user(5L), draft);
+
+        assertThat(result.valid()).isFalse();
+        assertThat(result.sheet()).isNull();
+        assertThat(result.violations()).anyMatch(v -> v.contains("cantrips"));
+    }
+
+    @Test
+    void compileAcceptsCasterWithAllAvailableCantrips() {
+        stubCommonCatalog();
+        CharacterDraftDto draft = draftBuilder(legalDraft())
+                .spellIndexes(Set.of("cure-wounds", "sacred-flame")).build();
+
+        CompileResult result = service.compile(user(5L), draft);
+
+        assertThat(result.valid()).isTrue();
+        assertThat(result.sheet().spellIndexes()).containsExactly("cure-wounds", "sacred-flame");
     }
 
     @Test
@@ -523,6 +551,7 @@ class CharacterServiceTest {
                 "{\"index\":\"acolyte\",\"name\":\"Acolyte\"}"));
         when(srd.subresource("classes", "cleric", "levels", Map.of())).thenReturn(objectMapper.readTree(CLERIC_LEVELS));
         when(srd.subresource("classes", "cleric", "spells", Map.of())).thenReturn(objectMapper.readTree(CLERIC_SPELLS));
+        when(srd.subresource("subclasses", "life", "levels", Map.of())).thenReturn(objectMapper.readTree(LIFE_LEVELS));
         when(srd.detail("equipment", "leather-armor")).thenReturn(objectMapper.readTree(LEATHER));
         when(srd.detail("equipment", "shield")).thenReturn(objectMapper.readTree(SHIELD));
         when(srd.detail("equipment", "club")).thenReturn(objectMapper.readTree(CLUB));

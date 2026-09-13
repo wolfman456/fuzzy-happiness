@@ -82,9 +82,11 @@ const LEVELS = [
 ]
 
 const SPELLS = {
-  count: 2,
+  count: 4,
   results: [
     { index: 'sacred-flame', name: 'Sacred Flame', level: 0 },
+    { index: 'guidance', name: 'Guidance', level: 0 },
+    { index: 'spare-the-dying', name: 'Spare the Dying', level: 0 },
     { index: 'bless', name: 'Bless', level: 1 },
   ],
 }
@@ -154,6 +156,7 @@ const VALID_SHEET = {
   armorClass: 16,
   skillPicks: ['medicine', 'religion'],
   spellIndexes: ['sacred-flame'],
+  featureIndexes: ['spellcasting', 'disciple-of-life'],
   equipmentIndexes: ['leather-armor', 'shield'],
 }
 
@@ -179,7 +182,7 @@ function chooseStandardArray() {
   fireEvent.click(screen.getByRole('button', { name: 'Next' }))
 }
 
-async function walkToEquipment() {
+async function walkToSkillsStep() {
   fireEvent.change(screen.getByLabelText('Character name'), { target: { value: 'Tordek' } })
   chooseStandardArray()
 
@@ -203,7 +206,14 @@ async function walkToEquipment() {
   fireEvent.click(screen.getByRole('checkbox', { name: 'Religion' }))
   fireEvent.click(screen.getByRole('button', { name: 'Next' }))
 
+  await screen.findByRole('checkbox', { name: 'Sacred Flame' })
+}
+
+async function walkToEquipment() {
+  await walkToSkillsStep()
   fireEvent.click(await screen.findByRole('checkbox', { name: 'Sacred Flame' }))
+  fireEvent.click(await screen.findByRole('checkbox', { name: 'Guidance' }))
+  fireEvent.click(await screen.findByRole('checkbox', { name: 'Spare the Dying' }))
   fireEvent.click(screen.getByRole('button', { name: 'Next' }))
 
   await screen.findByRole('checkbox', { name: /Leather Armor/ })
@@ -462,12 +472,31 @@ describe('CharacterWizardPage', () => {
     await waitFor(() => expect(compileCharacter).toHaveBeenCalledWith(expect.objectContaining({ name: 'Tordek' })))
     expect(await screen.findByText('This sheet is legal.')).toBeInTheDocument()
     expect(screen.getByText(/HP 9 · AC 16/)).toBeInTheDocument()
+    expect(screen.getByText(/spellcasting, disciple-of-life/)).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Create character' }))
     await waitFor(() =>
       expect(createCharacter).toHaveBeenCalledWith(expect.objectContaining({ name: 'Tordek', classIndex: 'cleric' })),
     )
     expect(await screen.findByTestId('location')).toHaveTextContent('/characters/42')
+  })
+
+  it('blocks the spells step until the class cantrips are picked', async () => {
+    setupSrd()
+    renderWizard()
+
+    await walkToSkillsStep()
+
+    expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled()
+    expect(screen.getByRole('alert')).toHaveTextContent(/Pick at least 3 cantrips/)
+
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'Sacred Flame' }))
+    expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled()
+
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'Guidance' }))
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'Spare the Dying' }))
+    expect(screen.getByRole('button', { name: 'Next' })).toBeEnabled()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
   it('lists violations instead of a create button when the sheet is illegal', async () => {
