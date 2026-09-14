@@ -124,10 +124,19 @@ ownership and pre-combat placement gaps in the workflow.
 - **2026-09-13 — features on compiled sheets (#53, Bug B).** The sheet's `featureIndexes` now
   merges class level-up features, subclass features up to the starting level and the race's
   `traits` (previously only class features — and even those were never rendered). The gateway and
-  `SrdClient` allow the `subclasses → levels` subresource; `loadFacts` fetches it only for
-  SRD-listed subclasses (curated PHB-only archetypes contribute nothing). The sheet page gained a
+  `SrdClient` allow the `subclasses → levels` subresource. The sheet page gained a
   Features section and the wizard Review gained a Features row (population requires a compile, so
   the row reads "after compiling" until then).
+- **2026-09-14 — curated features for non-SRD subclasses (#85, Bug B residual).** The
+  2026-09-13 fix merged subclass features from `subclasses/{id}/levels`, but dnd5eapi only serves
+  that subresource for its 12 SRD archetypes — every other official 2014 subclass (the ~90 curated
+  options added by the scale-up) still compiled to a sheet with **no** subclass features on it.
+  `ChargenCatalog` now carries a curated `SUBCLASS_FEATURES` map (`SubclassFeatureRef = {level,
+  feature-index}`) for **all** curated subclasses, keyed by `class/subclass`; `CharacterService`
+  keeps the SRD feed authoritative when `subclassLevels` is present and otherwise merges the
+  curated features up to the starting level. The wizard/sheet render the resulting indexes, so a
+  Glamour bard or Light cleric finally shows `mantle-of-inspiration` / `warding-flare` on the
+  compiled sheet.
 - **2026-09-13 — chargen UI readability on the themed backdrop (#59–#62).** The wizard now renders
   heading, step flow, step content and Back/Next inside one white card, so the `h1` ("Character
   wizard", explicit `text-zinc-900`), the flow (`text-zinc-600` inactive / solid chip active) and

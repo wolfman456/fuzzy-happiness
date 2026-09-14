@@ -8,6 +8,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 
 class ChargenCatalogTest {
 
@@ -124,5 +125,44 @@ class ChargenCatalogTest {
         assertThat(catalog.backgrounds()).extracting(BackgroundRef::index).contains("noble");
         assertThat(catalog.backgrounds()).extracting(BackgroundRef::name)
                 .contains("Noble", "Folk Hero", "Guild Artisan");
+    }
+
+    @Test
+    void subclassFeaturesCoverCuratedArchetypes() {
+        assertThat(catalog.subclassFeatures("bard", "glamour")).extracting(ChargenCatalog.SubclassFeatureRef::feature)
+                .contains("mantle-of-inspiration", "enthralling-performance");
+        assertThat(catalog.subclassFeatures("druid", "moon")).extracting(ChargenCatalog.SubclassFeatureRef::feature)
+                .contains("combat-wild-shape", "thousand-forms");
+        assertThat(catalog.subclassFeatures("cleric", "twilight")).extracting(ChargenCatalog.SubclassFeatureRef::feature)
+                .contains("twilight-shroud");
+        assertThat(catalog.subclassFeatures("rogue", "soulknife")).extracting(ChargenCatalog.SubclassFeatureRef::feature)
+                .contains("psychic-blades");
+    }
+
+    @Test
+    void subclassFeatureLevelsFollowOfficialUnlocks() {
+        assertThat(catalog.subclassFeatures("bard", "glamour")).extracting(
+                        ChargenCatalog.SubclassFeatureRef::feature, ChargenCatalog.SubclassFeatureRef::level)
+                .contains(tuple("mantle-of-inspiration", 3), tuple("unbreakable-majesty", 14));
+        assertThat(catalog.subclassFeatures("cleric", "light")).extracting(
+                        ChargenCatalog.SubclassFeatureRef::level)
+                .contains(1, 2, 6, 8, 17);
+        assertThat(catalog.subclassFeatures("cleric", "not-a-subclass")).isEmpty();
+        assertThat(catalog.subclassFeatures("wizard", "glamour")).isEmpty();
+        assertThat(catalog.subclassFeatures("barbarian", "wild-magic")).isNotEmpty();
+        assertThat(catalog.subclassFeatures("sorcerer", "wild-magic")).isNotEmpty();
+    }
+
+    @Test
+    void subclassFeaturePairsAreUniqueWithinArchetype() {
+        assertThat(catalog.subclassFeatures("monk", "four-elements")).isNotEmpty();
+        Set<String> pairs = new HashSet<>();
+        for (SubclassRef ref : catalog.subclasses()) {
+            for (ChargenCatalog.SubclassFeatureRef feature : catalog.subclassFeatures(ref.classIndex(), ref.index())) {
+                pairs.add(ref.index() + "@" + feature.level() + "=" + feature.feature());
+            }
+        }
+        assertThat(pairs).hasSize((int) catalog.subclasses().stream()
+                .mapToLong(ref -> catalog.subclassFeatures(ref.classIndex(), ref.index()).size()).sum());
     }
 }

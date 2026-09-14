@@ -134,6 +134,9 @@ wait for slices if severity warrants.
    all** (`CharacterSheetPage` and `ReviewStep` have no Features section). **Severity P2.**
    Fix: allowlist `subclasses/levels` in the gateway (`tabletopgateway/src/routes.js:30-32`),
    merge subclass/race features at compile, render a Features section + Review row.
+   **Status: shipped 2026-09-13 (PR #58); residual for non-SRD subclasses fixed 2026-09-14
+   (curated `SUBCLASS_FEATURES` in `ChargenCatalog`, design-v1-fixes #85 — SRD feed stays
+   authoritative when present, curated map fills the ~90 official 2014 archetypes).**
 - Shared: changing class leaves stale `spellIndexes` (no wizard invalidation); the Spells step
   caps cantrips but not leveled spells; fixtures under-model class features (only
   `spellcasting`/`channel-divinity`).
