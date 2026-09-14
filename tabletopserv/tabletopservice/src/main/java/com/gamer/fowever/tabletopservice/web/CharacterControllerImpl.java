@@ -65,4 +65,10 @@ public class CharacterControllerImpl implements CharacterApi {
     public CharacterSheetDto get(Long id, Authentication authentication) {
         return characterService.get((User) authentication.getPrincipal(), id);
     }
+
+    @Override
+    public ResponseEntity<Void> delete(Long id, Authentication authentication) {
+        characterService.delete((User) authentication.getPrincipal(), id);
+        return ResponseEntity.noContent().build();
+    }
 }

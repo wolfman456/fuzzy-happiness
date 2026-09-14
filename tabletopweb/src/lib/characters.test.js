@@ -9,6 +9,7 @@ import {
   abilityModifier,
   compileCharacter,
   createCharacter,
+  deleteCharacter,
   equipmentCostGp,
   equipmentPriceGp,
   generateCharacter,
@@ -84,6 +85,11 @@ describe('character API helpers', () => {
   it('getCharacter fetches a single owned sheet', () => {
     getCharacter(7)
     expect(api).toHaveBeenCalledWith('/api/users/me/characters/7')
+  })
+
+  it('deleteCharacter DELETEs a single owned character', () => {
+    deleteCharacter(7)
+    expect(api).toHaveBeenCalledWith('/api/users/me/characters/7', { method: 'DELETE' })
   })
 })
 

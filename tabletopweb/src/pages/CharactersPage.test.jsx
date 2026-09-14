@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import CharactersPage from './CharactersPage'
@@ -7,10 +7,11 @@ vi.mock('../lib/characters', () => ({
   listMyCharacters: vi.fn(),
   generateCharacter: vi.fn(),
   createCharacter: vi.fn(),
+  deleteCharacter: vi.fn(),
   sheetToDraft: vi.fn(),
 }))
 
-import { createCharacter, generateCharacter, listMyCharacters, sheetToDraft } from '../lib/characters'
+import { createCharacter, deleteCharacter, generateCharacter, listMyCharacters, sheetToDraft } from '../lib/characters'
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -105,5 +106,35 @@ describe('CharactersPage', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/unknown race: orc/)
     expect(screen.queryByText(/Quick build/)).not.toBeInTheDocument()
+  })
+
+  it('deletes a character after a confirm dialog', async () => {
+    listMyCharacters.mockResolvedValue([
+      { id: 7, name: 'Tordek', level: 2, raceIndex: 'dwarf', classIndex: 'cleric', subclassIndex: 'life', backgroundIndex: 'acolyte', hitPoints: 14, armorClass: 16 },
+    ])
+    deleteCharacter.mockResolvedValue(undefined)
+    renderPage()
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete' }))
+    const confirm = await screen.findByRole('dialog')
+    expect(within(confirm).getByText(/Delete Tordek\?/)).toBeInTheDocument()
+
+    fireEvent.click(within(confirm).getByRole('button', { name: 'Delete' }))
+    await waitFor(() => expect(deleteCharacter).toHaveBeenCalledWith(7))
+    await waitFor(() => expect(screen.queryByText('Tordek')).not.toBeInTheDocument())
+  })
+
+  it('cancels the delete dialog without deleting', async () => {
+    listMyCharacters.mockResolvedValue([
+      { id: 7, name: 'Tordek', level: 2, raceIndex: 'dwarf', classIndex: 'cleric', subclassIndex: 'life', backgroundIndex: 'acolyte', hitPoints: 14, armorClass: 16 },
+    ])
+    renderPage()
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete' }))
+    const confirm = await screen.findByRole('dialog')
+    fireEvent.click(within(confirm).getByRole('button', { name: 'Cancel' }))
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(deleteCharacter).not.toHaveBeenCalled()
   })
 })
