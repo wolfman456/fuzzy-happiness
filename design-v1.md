@@ -608,7 +608,13 @@ own linked token, spectators read-only; every mutation persists a `SessionEvent`
 `TABLE` type carrying the full `BattleMapDto` and broadcasts it on `/topic/sessions/{id}`
 (clients replace map state from the payload; TABLE rows are filtered out of the chat feed);
 REST surface `GET|POST /api/sessions/{id}/map`, `POST|PATCH|DELETE …/map/tokens[/{tokenId}]`,
-`POST …/map/tokens/{tokenId}/move`, `POST …/map/turn`; implemented in `feature/battle-map`.
+`POST …/map/tokens/{tokenId}/move`, `POST …/map/tokens/{tokenId}/place`, `POST …/map/turn`;
+implemented in `feature/battle-map`. **Setup-phase placement (implemented):** while the map is
+in setup (`initiativeIndex == -1`) a selected token places freely on any open square via
+`POST …/map/tokens/{tokenId}/place` (shares `MoveTokenRequest`) — no `movedFeet` spent, movement
+budget/initiative untouched; players may only place their own linked token, the GM any token;
+once combat starts (`initiativeIndex != -1`) placement is rejected `400` and only budget
+movement is allowed.
 
 **Dice & initiative (implemented):** dice are **server-authoritative** (secure `SecureRandom`
 RNG) over `POST /api/sessions/{id}/roll` with grammar `(\d+)?d(\d{1,3})([+-]\d{1,3})?` — up to

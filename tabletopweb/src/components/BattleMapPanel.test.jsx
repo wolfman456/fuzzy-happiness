@@ -6,6 +6,7 @@ const battleMapMock = vi.hoisted(() => ({
   addToken: vi.fn(),
   moveToken: vi.fn(),
   nextInitiative: vi.fn(),
+  placeToken: vi.fn(),
   removeInitiativeEntry: vi.fn(),
   removeToken: vi.fn(),
   rerollInitiative: vi.fn(),
@@ -57,6 +58,7 @@ function renderPanel(props = {}) {
 beforeEach(() => {
   vi.clearAllMocks()
   battleMapMock.moveToken.mockResolvedValue(makeMap())
+  battleMapMock.placeToken.mockResolvedValue(makeMap())
   battleMapMock.turnCommand.mockResolvedValue(makeMap())
   battleMapMock.addToken.mockResolvedValue(makeMap())
   battleMapMock.updateToken.mockResolvedValue(makeMap())
@@ -84,15 +86,16 @@ describe('BattleMapPanel', () => {
     expect(screen.getByText('Turn: Aria Sol')).toBeInTheDocument()
   })
 
-  it('lets a player move their own token within the budget', async () => {
+  it('lets a player move their own token within the budget during combat', async () => {
     const nextMap = makeMap({
+      initiativeIndex: 0,
       tokens: [
         { id: 11, name: 'Aria Sol', category: 'PLAYER', color: '#3b82f6', speedFeet: 30, posX: 2, posY: 1, movedFeet: 10, linkedParticipantId: null, linkedUserId: 1 },
         ...makeMap().tokens.slice(1),
       ],
     })
     battleMapMock.moveToken.mockResolvedValue(nextMap)
-    const { onMapChange } = renderPanel({ isGm: false })
+    const { onMapChange } = renderPanel({ isGm: false, map: makeMap({ initiativeIndex: 0 }) })
 
     fireEvent.click(screen.getByRole('button', { name: /Token Aria Sol/ }))
     const destination = screen.getByRole('button', { name: 'Move to square 2, 1' })
@@ -189,12 +192,52 @@ describe('BattleMapPanel', () => {
 
   it('surfaces server movement errors', async () => {
     battleMapMock.moveToken.mockRejectedValue(new Error('Movement of 40 ft exceeds the 0 ft remaining this turn'))
-    renderPanel({ isGm: false })
+    renderPanel({ isGm: false, map: makeMap({ initiativeIndex: 0 }) })
 
     fireEvent.click(screen.getByRole('button', { name: /Token Aria Sol/ }))
     fireEvent.click(screen.getByRole('button', { name: 'Move to square 2, 1' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('exceeds the 0 ft remaining')
+  })
+
+  it('lets a player place their own token freely during setup', async () => {
+    const nextMap = makeMap({
+      tokens: [
+        { id: 11, name: 'Aria Sol', category: 'PLAYER', color: '#3b82f6', speedFeet: 30, posX: 3, posY: 4, movedFeet: 0, linkedParticipantId: null, linkedUserId: 1 },
+        ...makeMap().tokens.slice(1),
+      ],
+    })
+    battleMapMock.placeToken.mockResolvedValue(nextMap)
+    const { onMapChange } = renderPanel({ isGm: false })
+
+    fireEvent.click(screen.getByRole('button', { name: /Token Aria Sol/ }))
+    const destination = screen.getByRole('button', { name: 'Place to square 3, 4' })
+    expect(destination).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Move to square/ })).not.toBeInTheDocument()
+
+    fireEvent.click(destination)
+    await waitFor(() => expect(battleMapMock.placeToken).toHaveBeenCalledWith('7', 11, { x: 3, y: 4 }))
+    expect(onMapChange).toHaveBeenCalledWith(nextMap)
+  })
+
+  it('lets the GM place any token during setup', () => {
+    renderPanel({ isGm: true })
+
+    fireEvent.click(screen.getByRole('button', { name: /Token Goblin/ }))
+    expect(screen.getByRole('button', { name: 'Place to square 1, 2' })).toBeInTheDocument()
+  })
+
+  it('does not offer placement for tokens the player does not own', () => {
+    renderPanel({ isGm: false })
+    fireEvent.click(screen.getByRole('button', { name: /Token Goblin/ }))
+    expect(screen.queryByRole('button', { name: /Place to square/ })).not.toBeInTheDocument()
+    expect(battleMapMock.placeToken).not.toHaveBeenCalled()
+  })
+
+  it('shows the setup placement hint while combat has not started', () => {
+    renderPanel({ isGm: false })
+    fireEvent.click(screen.getByRole('button', { name: /Token Aria Sol/ }))
+    expect(screen.getByTestId('placement-hint')).toHaveTextContent('is in setup')
   })
 
   it('disables interactions for closed sessions', () => {

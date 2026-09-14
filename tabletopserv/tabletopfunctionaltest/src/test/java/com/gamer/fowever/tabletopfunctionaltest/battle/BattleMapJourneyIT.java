@@ -5,6 +5,7 @@ import com.gamer.fowever.tabletopfunctionaltest.support.Api;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.JsonNode;
 
+import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -146,6 +147,47 @@ class BattleMapJourneyIT extends FunctionalTestBase {
 
         Api.requireStatus(Api.post(baseUrl() + "/api/sessions/" + session.id() + "/map/initiative/next",
                 playerJwt, null), 403, "player initiative next");
+    }
+
+    @Test
+    void setupPhaseLetsPlayersPlaceTheirOwnTokensUntilCombatStarts() throws Exception {
+        String gmJwt = registerVerifyLogin("b3gm");
+        String playerJwt = registerVerifyLogin("b3pip");
+        SessionHandle session = createSession(gmJwt, "Open Field");
+        joinSession(playerJwt, session.inviteCode());
+
+        Api.requireStatus(Api.post(baseUrl() + "/api/sessions/" + session.id() + "/map", gmJwt,
+                Api.body(Map.of("name", "Open Field"))), 201, "create map");
+
+        long gmTokenId = tokenIdByName(session.id(), gmJwt, "b3gm");
+        long playerTokenId = tokenIdByName(session.id(), gmJwt, "b3pip");
+
+        JsonNode gmPlace = Api.json(Api.post(baseUrl() + "/api/sessions/" + session.id()
+                + "/map/tokens/" + gmTokenId + "/place", gmJwt, Api.body(Map.of("x", 20, "y", 15))).body());
+        assertThat(gmPlace.at("/tokens/0/posX").asInt()).isEqualTo(20);
+        assertThat(gmPlace.at("/tokens/0/posY").asInt()).isEqualTo(15);
+        assertThat(gmPlace.at("/tokens/0/movedFeet").asInt()).isZero();
+
+        JsonNode playerPlace = Api.json(Api.post(baseUrl() + "/api/sessions/" + session.id()
+                + "/map/tokens/" + playerTokenId + "/place", playerJwt, Api.body(Map.of("x", 3, "y", 16))).body());
+        assertThat(playerPlace.at("/tokens/1/posX").asInt()).isEqualTo(3);
+        assertThat(playerPlace.at("/tokens/1/movedFeet").asInt()).isZero();
+
+        Api.Response playerPlacesGmToken = Api.post(baseUrl() + "/api/sessions/" + session.id()
+                + "/map/tokens/" + gmTokenId + "/place", playerJwt, Api.body(Map.of("x", 1, "y", 1)));
+        assertThat(playerPlacesGmToken.status()).isEqualTo(403);
+
+        Api.requireStatus(Api.post(baseUrl() + "/api/sessions/" + session.id() + "/map/initiative", gmJwt,
+                Api.body(Map.of("entries", List.of(
+                        Map.of("tokenId", gmTokenId, "score", 15),
+                        Map.of("tokenId", playerTokenId, "score", 10))))), 200, "set initiative");
+        Api.requireStatus(Api.post(baseUrl() + "/api/sessions/" + session.id() + "/map/initiative/next",
+                gmJwt, null), 200, "start combat");
+
+        Api.Response placedInCombat = Api.post(baseUrl() + "/api/sessions/" + session.id()
+                + "/map/tokens/" + playerTokenId + "/place", playerJwt, Api.body(Map.of("x", 10, "y", 10)));
+        assertThat(placedInCombat.status()).isEqualTo(400);
+        assertThat(Api.json(placedInCombat.body()).at("/message").asText()).contains("use move instead");
     }
 
     private JsonNode get(long sessionId, String jwt) {
