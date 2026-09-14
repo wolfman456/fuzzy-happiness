@@ -8,9 +8,10 @@ number everywhere.
 - **`develop`** carries the **next** release as `X.Y.Z-SNAPSHOT`.
 - **`master`** carries the **live** release as `X.Y.Z`, and each release is git-tagged `vX.Y.Z`.
 - **Bump policy:** breaking change → major (`X`), new feature → minor (`Y`), bug fix → patch (`Z`).
-- Version files must stay in lockstep: `tabletopserv/pom.xml` (parent, inherited by the three
-  modules), `tabletopweb/package.json` + lockfile, `tabletopgateway/package.json` + lockfile,
-  repo-root `package.json`.
+- Version files must stay in lockstep: `tabletopserv/pom.xml` (parent aggregator) **and the three
+  module poms** (`tabletopapi`, `tabletopservice`, `tabletopfunctionaltest`, each of which pins the
+  parent `<version>`), `tabletopweb/package.json` + lockfile, `tabletopgateway/package.json` +
+  lockfile, repo-root `package.json`.
 
 ## Cutting a release
 
@@ -29,4 +30,6 @@ number everywhere.
 - **v1.1.0 — 2026-09-13.** Round-2 alpha fixes: chargen scale-up to 1–20 + all official 2014
   subclasses, sheet/session readability, session battle-map name form + SRD monster search,
   and unified repo versioning.
-- **v1.2.0 — (next release).** Current `develop` (`1.2.0-SNAPSHOT`).
+- **v1.2.0 — 2026-09-13.** Round-3 alpha fixes: one-shot full reroll + class-skill cap on
+  chargen, delete-your-own-character end to end, and setup-phase token placement on the battle
+  map (free placement until combat starts).

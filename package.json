@@ -1,6 +1,6 @@
 {
   "name": "fuzzy-happiness",
-  "version": "1.2.0-SNAPSHOT",
+  "version": "1.2.0",
   "private": true,
   "description": "Root package.json exists ONLY for Railway Infrastructure-as-Code (.railway/railway.ts) — no app code or scripts live here.",
   "devDependencies": {
