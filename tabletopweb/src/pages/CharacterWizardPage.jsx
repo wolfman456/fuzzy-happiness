@@ -60,6 +60,8 @@ const ROLLED_SOURCES = new Set(['FOUR_D6_DROP_LOWEST', 'HOUSE_RULE_D20'])
 const ROLL_VISUAL_MS = 2000
 const ROLL_TICK_MS = 80
 const ASSIGNED_SCORE_VALUES = [8, 9, 10, 11, 12, 13, 14, 15]
+const MAX_FULL_REROLLS = 2
+const MAX_PER_ABILITY_ROLLS = 2
 
 function scoreRangeFor(scoreSource) {
   if (scoreSource === 'HOUSE_RULE_D20') return [1, 30]
@@ -119,6 +121,7 @@ export default function CharacterWizardPage() {
   const location = useLocation()
   const [step, setStep] = useState(0)
   const [rerollsUsed, setRerollsUsed] = useState(0)
+  const [perAbilityRolls, setPerAbilityRolls] = useState({})
   const [draft, setDraft] = useState(initialDraft)
   const [catalog, setCatalog] = useState({
     races: [],
@@ -482,7 +485,7 @@ export default function CharacterWizardPage() {
   async function handleRollAll() {
     if (rollingAbility !== null) return
     const isReroll = ROLLED_SOURCES.has(draft.scoreSource) && isCompleteBase(baseScores)
-    if (isReroll && rerollsUsed >= 1) return
+    if (isReroll && rerollsUsed >= MAX_FULL_REROLLS) return
     setRollingAbility('ALL')
     setError('')
     try {
@@ -498,6 +501,7 @@ export default function CharacterWizardPage() {
         charisma: rolled.charisma,
       })
       if (isReroll) setRerollsUsed((count) => count + 1)
+      setPerAbilityRolls({})
     } catch (rollError) {
       setError(rollError.message)
     } finally {
@@ -507,6 +511,7 @@ export default function CharacterWizardPage() {
   }
 
   async function handleRollOne(ability) {
+    if ((perAbilityRolls[ability] ?? 0) >= MAX_PER_ABILITY_ROLLS) return
     setRollingAbility(ability)
     setError('')
     try {
@@ -514,6 +519,7 @@ export default function CharacterWizardPage() {
       const animation = animateRoll([ability])
       const [rolled] = await Promise.all([rollPromise, animation])
       commitScores({ ...(baseScores ?? {}), [ability]: rolled[ability] })
+      setPerAbilityRolls((counts) => ({ ...counts, [ability]: (counts[ability] ?? 0) + 1 }))
     } catch (rollError) {
       setError(rollError.message)
     } finally {
@@ -735,6 +741,7 @@ export default function CharacterWizardPage() {
             onSetScore={commitScores}
             onStandardArray={pickStandardArray}
             rerollsUsed={rerollsUsed}
+            perAbilityRolls={perAbilityRolls}
           />
         )}
 
@@ -954,6 +961,7 @@ function ScoreStep({
   onSetScore,
   onStandardArray,
   rerollsUsed,
+  perAbilityRolls,
 }) {
   const { scoreSource } = draft
   const rolled = ROLLED_SOURCES.has(scoreSource)
@@ -966,7 +974,9 @@ function ScoreStep({
     : null
   const legal = validateBaseScores(scoreSource, baseScores ?? {})
   const busyRolling = rollingAbility !== null
-  const rerollExhausted = rerollsUsed >= 1
+  const rerollExhausted = rerollsUsed >= MAX_FULL_REROLLS
+  const rerollsLeft = MAX_FULL_REROLLS - rerollsUsed
+  const abilityRollsUsed = (ability) => perAbilityRolls[ability] ?? 0
 
   const shownValue = (ability) => {
     if (rollPreview[ability] != null) return String(rollPreview[ability])
@@ -1001,13 +1011,13 @@ function ScoreStep({
             aria-label="Roll all ability scores"
             className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50"
           >
-            {rollingAbility === 'ALL' ? 'Rolling…' : rolledDone ? (rerollExhausted ? 'Reroll used' : 'Roll all again') : 'Roll all'}
+            {rollingAbility === 'ALL' ? 'Rolling…' : rolledDone ? (rerollExhausted ? 'Rerolls used' : 'Roll all again') : 'Roll all'}
           </button>
           {rolledDone && (
             <span className="text-sm text-zinc-500">
               {rerollExhausted
-                ? 'One reroll used — the full set is locked in. Per-ability rolls still work.'
-                : 'Locked in — you may reroll the whole set once. The race bonus is applied on the Race step.'}
+                ? `${MAX_FULL_REROLLS} rerolls used — the full set is locked in. Per-ability rolls still work (${MAX_PER_ABILITY_ROLLS} each).`
+                : `Locked in — you may reroll the whole set ${rerollsLeft} more time${rerollsLeft === 1 ? '' : 's'}. Per-ability rolls cap at ${MAX_PER_ABILITY_ROLLS} each. The race bonus is applied on the Race step.`}
             </span>
           )}
         </div>
@@ -1069,11 +1079,14 @@ function ScoreStep({
                 type="button"
                 aria-label={`Roll ${ABILITY_LABELS[ability]}`}
                 onClick={() => onRollOne(ability)}
-                disabled={busyRolling}
+                disabled={busyRolling || abilityRollsUsed(ability) >= MAX_PER_ABILITY_ROLLS}
                 className="rounded-md border border-zinc-300 px-2 py-1 text-lg leading-none hover:bg-zinc-50 disabled:opacity-40"
               >
                 🎲
               </button>
+            )}
+            {rolled && abilityRollsUsed(ability) >= MAX_PER_ABILITY_ROLLS && (
+              <p className="text-xs text-zinc-400">Used {abilityRollsUsed(ability)}/{MAX_PER_ABILITY_ROLLS} rolls</p>
             )}
           </div>
         ))}
