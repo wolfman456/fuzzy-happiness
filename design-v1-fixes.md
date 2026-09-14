@@ -82,6 +82,19 @@ ownership and pre-combat placement gaps in the workflow.
 | #78 | No way to delete a character — the owned character stays in the library forever | medium | P3 | ✅ fixed | `feat/delete-character` |
 | #79 | No setup-phase placement: before combat starts there is no way to re-position a token on the battle map except budget-constrained movement | medium | P3 | ✅ fixed | `fix/session-token-placement` |
 
+## 2026-09-14 alpha pass (post-v1.2.0 release)
+
+Alpha run after the v1.2.0 cut, against the live feature set. Verified Bug A/#52 is fully fixed
+in code; the residual Bug B (#85) and the reroll cap (#87) shipped 2026-09-14. Three new reports
+filed, plus an investigation-only "not a bug".
+
+| # | Issue | Severity | Priority | Status | Resolution |
+|---|-------|----------|----------|--------|------------|
+| #85 | Compiled sheet shows **no subclass features for curated-only archetypes**: `collectedFeatures` only merges SRD-listed subclass levels (`CharacterService.java:258-260`); curated subclasses (College of Glamour, most Tasha's/XGtE options) contribute nothing, and `feature_choices` are unmodeled (design-draft-v2 §7) | medium | P2 | ✅ fixed | `feature/curated-subclass-features` (curated `SUBCLASS_FEATURES` fallback; `feature_choices` still unmodeled) |
+| #87 | Ability-score step: rerolls should be capped at **2 max** — both the full "Roll all again" budget (currently 1) and each per-ability re-roll (currently uncapped) (design-v1 §8) | medium | P3 | ✅ fixed | `feature/reroll-2-max` |
+| #86 | GM battle map: no way to **black out impassable squares** (walls/mountains) — tokens can be placed/moved anywhere in bounds (design-draft-v2 §6) | medium | P3 | ⏭ deferred | planned vs Slice-0 Flyway; filed feature issue |
+| #88 | Bard **College of Dance** missing from the subclass catalog — it is a 2024 PHB subclass; the catalog is pinned to 2014 rules | — | — | ✅ not-a-bug | recorded; needs 2024 ruleset (future) |
+
 ## Changelog
 
 - **2026-09-12 — verification disabled until prod SMTP is configured (#45).** `AuthService.register`

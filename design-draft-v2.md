@@ -23,6 +23,11 @@ Move the app from "a legal-sheet + map session tool" to a **presentable, gameabl
 3. **A site that looks and feels finished.** Consistent theme, clearer navigation, and a
    character wizard that labels and explains each choice instead of relying on terse one-liners.
 
+**Beyond v2 slices (alpha-pass ideas recorded 2026-09-14, deferred):**
+- **R38 VOIP integration** (in-session voice), **R39 sound effects**, **R40 music** — added as
+  deferred Wants items; no slice scheduled. Future research: VOIP options (SFU vs mesh
+  WebRTC, libs, cost) when a slice starts.
+
 ## 2. Decisions locked in (2026-09-13 planning)
 
 - **Schema:** enable **Flyway + migrations** on prod now (design-v1 §13 Stage 5 pulled forward).
@@ -34,6 +39,19 @@ Move the app from "a legal-sheet + map session tool" to a **presentable, gameabl
   (re-opens deferred **R12**, design-v1 §17 blueprint — R3F + drei, WebGL2, OrbitControls,
   server-authoritative state).
 - **Sequencing:** Slice 1 (labeling/UX) → Slice 2 (sex + 3D avatar) → Slice 3 (map builder).
+- **Slice 3 movement (decided 2026-09-14):** a **mix of blocking and decorative** objects. Fully
+  blocking (walls/rock faces/mounts) are hard legal gates — server rejects moves/pathing into
+  them; partial (rivers, rubble by depth/speed) read as decorative/impeding — the GM picks per
+  object. Applies to blackout squares too (impassable = hard block, path-blocking BFS).
+- **Slice 3 editor surface (decided 2026-09-14):** a **dedicated full-screen map-editor route**,
+  not edit-in-panel. Maps save to an **open community map library**; private maps are a later
+  iteration.
+- **Chargen bugs (decided 2026-09-14):** Bug A and the **residual Bug B** were filed as **v2.0
+  hot-fixes before any slice** (Bug A shipped in v1.1 as #58 and is verified fixed; Bug B's
+  curated-only subclass gap shipped 2026-09-14 as #90/#85 — the remaining unreleased piece is
+  `feature_choices`).
+- **Player 3D tokens scope (decided 2026-09-14):** **all tokens, incl. monster minis**, get
+  meshes in v2, viewed third-person (design-v1 §17).
 
 ## 3. Slice 0 — Foundation: Flyway + migrations
 
@@ -111,8 +129,16 @@ The **major v2 focus** ("map creation"). A GM builds the encounter space, not ju
     reachable-move overlay.
   - **Map editor mode** (GM): palette sidebar, tile paint / erase / eyedropper, object
     place / move / resize / rotate. Play view unchanged.
-- **Behavior default:** tiles are visual; `blocksMovement` objects are excluded by server
-  move-validation + frontend `reachableSquares` (confirm — see §8 open items).
+- **Behavior default (decided 2026-09-14):** tiles are visual; `blocksMovement` objects are
+  hard legal gates excluded by server move-validation **and** path-blocking frontend
+  `reachableSquares` (BFS); decorative/impeding objects (rivers, rubble) shoot-over but slow
+  crossing — GM marks each object's mode (see §2).
+- **Impassable-square blackout (from alpha-pass, 2026-09-14):** a GM can mark individual
+  squares black before/at setup — an MVP slice of Slice 3. Rides the same Slice-0 tables
+  (`battle_map_squares` with an `impassable` flag, or `battle_map_tiles` carrying the marker);
+  server rejects `addToken`/`placeToken`/`moveToken` into them; `reachableSquares` becomes
+  path-aware (BFS) so walls block pathing, matching the decided §2 semantics. Filed as a
+  feature issue; shipped after Flyway lands.
 - **Persistence** through Slice 0 tables.
 
 ## 7. Chargen bugs surfaced during v2 planning
@@ -120,23 +146,18 @@ The **major v2 focus** ("map creation"). A GM builds the encounter space, not ju
 Found by the v2 planning deep-dive (bug-report agent, 2026-09-13). Track as fixes; do **not**
 wait for slices if severity warrants.
 
-- **Bug A — caster can skip Spells to Review with zero spells.** `canAdvance()`
-  (`CharacterWizardPage.jsx:595-606`) imposes nothing on a caster on the Spells step, and
-  `CharacterService.validateSpells` (`CharacterService.java:320-363`) early-returns on an empty
-  pick set. Result: a cleric/wizard with 0 spells compiles "legal" and saves with an empty spell
-  list but full slots. **Severity P2** (rules-illegal sheets certified by the server).
-   Fix: frontend gate (caster must pick ≥ `cantripsKnown` …) + authoritative backend violation
-   instead of the early return. Add `CharacterServiceTest`,
-   `CharacterJourneyIT`, and wizard tests.
-- **Bug B — class/subclass/race features missing.** Compile derives `featureIndexes` only from
-   class level rows (`featuresUpTo`, `CharacterService.java:700-710`); subclass features,
-   `feature_choices`, and race traits never reach the payload, and **no UI renders features at
-   all** (`CharacterSheetPage` and `ReviewStep` have no Features section). **Severity P2.**
-   Fix: allowlist `subclasses/levels` in the gateway (`tabletopgateway/src/routes.js:30-32`),
-   merge subclass/race features at compile, render a Features section + Review row.
-   **Status: shipped 2026-09-13 (PR #58); residual for non-SRD subclasses fixed 2026-09-14
-   (curated `SUBCLASS_FEATURES` in `ChargenCatalog`, design-v1-fixes #85 — SRD feed stays
-   authoritative when present, curated map fills the ~90 official 2014 archetypes).**
+- **Bug A — caster can skip Spells to Review with zero spells.** ✅ **Fixed in v1.1 (#58).**
+   Verified 2026-09-14: no early return in `validateSpells`; backend emits the cantrip violation;
+   wizard Next is gated (`canAdvance` step 7); covered by `CharacterJourneyIT` + wizard tests.
+- **Bug B — class/subclass/race features missing.** ✅ **Fix shipped in v1.1 (#58)** — subclass +
+   race features merge at compile and the sheet + Review render them — **and the residual for
+   curated-only subclasses shipped 2026-09-14 (#90, design-v1-fixes #85)**: `collectedFeatures`
+   keeps SRD `subclassLevels` authoritative where present and otherwise falls back to the curated
+   `SUBCLASS_FEATURES` map in `ChargenCatalog` (all ~90 official 2014 archetypes, keyed by
+   `class/subclass`). Still unmodeled: `feature_choices`.
+- Shared: changing class leaves stale `spellIndexes` (no wizard invalidation); the Spells step
+  caps cantrips but not leveled spells; fixtures under-model class features (only
+  `spellcasting`/`channel-divinity`).
 - Shared: changing class leaves stale `spellIndexes` (no wizard invalidation); the Spells step
   caps cantrips but not leveled spells; fixtures under-model class features (only
   `spellcasting`/`channel-divinity`).
@@ -152,14 +173,7 @@ wait for slices if severity warrants.
 
 ## 9. Open decisions for maintainer
 
-1. **Slice 3 movement:** are `blocksMovement` objects legal gates (block pathing/moves) or
-   decorative in v2?
-2. **Slice 3 editor surface:** edit mode inside the session's battle-map panel vs. a dedicated
-   full-screen map-editor route.
-3. **Bug A + Bug B priority:** file them as v2.0 hot-fixes before slices, or fold into the map
-   slice queue?
-4. **Player 3D tokens scope:** first-party avatars only, or all tokens (incl. monster minis)
-   get meshes in v2 (design-v1 §17 lists monster meshes too)?
+All four resolved 2026-09-14 — see §2 "Decisions locked in".
 
 ---
 
