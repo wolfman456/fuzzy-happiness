@@ -224,6 +224,10 @@ export function getCharacter(id) {
   return api(`/api/users/me/characters/${id}`)
 }
 
+export function deleteCharacter(id) {
+  return api(`/api/users/me/characters/${id}`, { method: 'DELETE' })
+}
+
 /** Rebuilds a create/compile draft from a compiled sheet (quick-build → save/revise). */
 export function sheetToDraft(sheet) {
   return {

@@ -159,3 +159,8 @@ way to drop an existing SRD monster (e.g. a session-relevant goblin) onto the ma
   combined `classCap + 2` cap, so a cleric could take 4 class skills; class-list picks are now
   split-capped at `classCap` in both the wizard and the server-side compile validation, so client
   and server agree.
+- **2026-09-13 — delete a character (#78).** Deleting a character was missing end to end. There is
+  now a `DELETE /api/users/me/characters/{id}` → 204 contract (`CharacterService.delete` reuses
+  `findByIdAndOwnerId`, so a foreign owner gets 404; `repository.delete` drops the JPA-owned
+  collection tables and the sheet snapshot), plus a per-row Delete button on the Characters list
+  and one on the sheet page — both behind a confirm dialog.

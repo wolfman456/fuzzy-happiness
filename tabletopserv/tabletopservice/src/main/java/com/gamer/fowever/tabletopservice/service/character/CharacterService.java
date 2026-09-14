@@ -229,6 +229,13 @@ public class CharacterService {
         return withId(entity.getId(), fromJson(entity.getSheetSnapshot()));
     }
 
+    @Transactional
+    public void delete(User actor, Long id) {
+        Character found = characterRepository.findByIdAndOwnerId(id, actor.getId())
+                .orElseThrow(() -> ApiException.notFound("character not found"));
+        characterRepository.delete(found);
+    }
+
     private SrdFacts loadFacts(CharacterDraftDto draft, List<String> violations) {
         Set<String> races = indexSet(srd.list("races", Map.of()));
         Set<String> classes = indexSet(srd.list("classes", Map.of()));
