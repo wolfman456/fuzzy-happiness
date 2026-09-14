@@ -42,6 +42,19 @@ Status key: ✅ landed · 🔨 in progress · ⏭ deferred (post-MVP)
 - As a Player I want the full standard Player's Handbook background list in the character wizard — not just Acolyte from the SRD — so I can pick the origin I planned. ✅ landed (curated PHB catalog, PR D)
 - As a Player I want my email address verified with a login link after registration once production email delivery is configured, so my account is tied to an address I actually control — until prod SMTP is set up accounts are auto-verified on registration so nobody is locked out. (R31) ✅ landed (verification disabled/auto-verify shipped, PR #53)
 
+## V2 (post-MVP, deferred)
+
+Requests filed for the next horizon. Out of scope for the MVP (its definition and deferred
+out-of-MVP scope live below) and tracked on the board as ⏭ deferred; design-v1's phased
+roadmap and §14 decisions will pick each up when a V2 slice is scheduled.
+
+- As a Player I want to move my avatar across the battle map and through terrain up to the enemy lines on my turn, so positioning reflects the actual room and obstacles rather than an open grid. (R32) ⏭ deferred
+- As a DM I want to create terrain (walls, rubble, cover, traps) and dungeons on the battle map, so the battlefield looks and plays like the adventure I dreamed up. (R33) ⏭ deferred
+- As a DM I want to save, load and share my terrains and dungeons with other DMs, so a good map survives the session and can be reused or collaborated on. (R34) ⏭ deferred
+- As a DM I want to pre-populate a dungeon and have luck/timer random events fire inside it, so a session keeps its drama even when the party scatters. (R35) ⏭ deferred
+- As a DM I want a library of pre-created towns, maps and dungeon terrains to start from, so I can run a session without building every room from scratch. (R36) ⏭ deferred
+- As a Player I want to import an existing character from a PDF, so the hero I already printed in another tool can move into the app instead of being rebuilt. (R37) ⏭ deferred
+
 ## MVP definition (agreed 2026-09-08)
 
 A playable D&D 5e table in one app: accounts → sessions/chat → dice/initiative/battle map →
