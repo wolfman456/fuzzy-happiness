@@ -54,6 +54,9 @@ roadmap and §14 decisions will pick each up when a V2 slice is scheduled.
 - As a DM I want to pre-populate a dungeon and have luck/timer random events fire inside it, so a session keeps its drama even when the party scatters. (R35) ⏭ deferred
 - As a DM I want a library of pre-created towns, maps and dungeon terrains to start from, so I can run a session without building every room from scratch. (R36) ⏭ deferred
 - As a Player I want to import an existing character from a PDF, so the hero I already printed in another tool can move into the app instead of being rebuilt. (R37) ⏭ deferred
+- As a DM I want to talk with my table inside the app during a session, so I don't need a second voice tool. (R38 VOIP) ⏭ deferred
+- As a Player I want sound effects (dice, hits, crits, turn events), so the table feels alive. (R39) ⏭ deferred
+- As a DM I want ambient/session music I can control, so the mood matches the scene. (R40) ⏭ deferred
 
 ## MVP definition (agreed 2026-09-08)
 

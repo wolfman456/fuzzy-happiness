@@ -135,7 +135,7 @@ class CharacterServiceTest {
     void compileDerivesLevel20Sheet() {
         stubCommonCatalog();
         when(srd.subresource("classes", "cleric", "levels", Map.of()))
-                .thenReturn(objectMapper.readTree(clericLevelsUpTo20()));
+                .thenReturn(objectMapper.readTree(clericLevelsUpTo(20)));
         CharacterDraftDto draft = draftBuilder(legalDraft()).startingLevel(20).build();
 
         CompileResult result = service.compile(user(5L), draft);
@@ -339,6 +339,49 @@ class CharacterServiceTest {
 
         assertThat(result.valid()).isTrue();
         assertThat(result.sheet().subclassIndex()).isEqualTo("light");
+    }
+
+    @Test
+    void compileMergesCuratedSubclassFeaturesWhenSrdHasNone() {
+        stubCommonCatalog();
+        CharacterDraftDto draft = draftBuilder(legalDraft()).subclassIndex("light").build();
+
+        CompileResult result = service.compile(user(5L), draft);
+
+        assertThat(result.valid()).isTrue();
+        assertThat(result.sheet().featureIndexes())
+                .contains("bonus-cantrip", "warding-flare")
+                .doesNotContain("radiance-of-the-dawn", "corona-of-light");
+        verify(srd, never()).subresource("subclasses", "light", "levels", Map.of());
+    }
+
+    @Test
+    void compileGatesCuratedSubclassFeaturesByStartingLevel() {
+        stubCommonCatalog();
+        when(srd.subresource("classes", "cleric", "levels", Map.of()))
+                .thenReturn(objectMapper.readTree(clericLevelsUpTo(6)));
+        CharacterDraftDto draft = draftBuilder(legalDraft())
+                .subclassIndex("light").startingLevel(6).build();
+
+        CompileResult result = service.compile(user(5L), draft);
+
+        assertThat(result.valid()).isTrue();
+        assertThat(result.sheet().featureIndexes())
+                .contains("radiance-of-the-dawn", "improved-flare")
+                .doesNotContain("corona-of-light");
+    }
+
+    @Test
+    void compileKeepsSrdSubclassFeaturesAuthoritative() {
+        stubCommonCatalog();
+        CharacterDraftDto draft = legalDraft();
+
+        CompileResult result = service.compile(user(5L), draft);
+
+        assertThat(result.valid()).isTrue();
+        assertThat(result.sheet().featureIndexes())
+                .contains("disciple-of-life")
+                .doesNotContain("preserve-life");
     }
 
     @Test
@@ -586,9 +629,9 @@ class CharacterServiceTest {
         assertThat(result.sheet().subclassIndex()).isIn(new ChargenCatalog().subclassesFor("cleric"));
     }
 
-    private String clericLevelsUpTo20() {
+    private String clericLevelsUpTo(int topLevel) {
         StringBuilder json = new StringBuilder("[");
-        for (int level = 1; level <= 20; level++) {
+        for (int level = 1; level <= topLevel; level++) {
             if (level > 1) {
                 json.append(',');
             }
@@ -602,6 +645,9 @@ class CharacterServiceTest {
                         .append("\"spell_slots_level_2\":3,\"spell_slots_level_3\":3,\"spell_slots_level_4\":3,")
                         .append("\"spell_slots_level_5\":3,\"spell_slots_level_6\":2,\"spell_slots_level_7\":2,")
                         .append("\"spell_slots_level_8\":1,\"spell_slots_level_9\":1}");
+            } else if (level == topLevel) {
+                json.append(",\"spellcasting\":{\"cantrips_known\":5,\"spell_slots_level_1\":4,")
+                        .append("\"spell_slots_level_2\":3,\"spell_slots_level_3\":3,\"spell_slots_level_4\":1}");
             }
             json.append('}');
         }

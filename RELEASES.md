@@ -33,3 +33,4 @@ number everywhere.
 - **v1.2.0 — 2026-09-13.** Round-3 alpha fixes: one-shot full reroll + class-skill cap on
   chargen, delete-your-own-character end to end, and setup-phase token placement on the battle
   map (free placement until combat starts).
+- **v1.3.0 — (next release).** Current `develop` (`1.3.0-SNAPSHOT`).

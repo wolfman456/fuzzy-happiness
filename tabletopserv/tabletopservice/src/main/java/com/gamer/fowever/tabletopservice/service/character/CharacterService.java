@@ -65,7 +65,7 @@ public class CharacterService {
     private record SrdFacts(Set<String> races, Set<String> classes, Set<String> backgrounds,
                             Set<String> skills, Set<String> equipment,
                             JsonNode race, JsonNode classRecord, JsonNode classLevels, JsonNode classSpells,
-                            JsonNode subclassLevels, List<EquipmentFact> equipmentFacts) {
+                            JsonNode subclassLevels, String subclassIndex, List<EquipmentFact> equipmentFacts) {
     }
 
     private record EquipmentFact(String index, boolean armor, boolean shield, int baseAc, boolean dexBonus,
@@ -253,8 +253,8 @@ public class CharacterService {
                 ? srd.subresource("classes", draft.classIndex(), "levels", Map.of()) : null;
         JsonNode classSpells = isCaster(classRecord)
                 ? srd.subresource("classes", draft.classIndex(), "spells", Map.of()) : null;
-        // Subclass features only merge from SRD-listed subclasses; curated PHB-only
-        // archetypes (e.g. a domain absent from the SRD feed) simply contribute nothing.
+        // SRD-listed subclasses merge their level-up features from the feed;
+        // curated classes' subclasses fall back to the catalog (Bug B, design-v1-fixes #85).
         String subclass = draft.subclassIndex();
         JsonNode subclassLevels = classRecord != null && isPresent(indexSetOf(classRecord, "subclasses"), subclass)
                 ? srd.subresource("subclasses", subclass, "levels", Map.of()) : null;
@@ -266,7 +266,7 @@ public class CharacterService {
             }
         }
         return new SrdFacts(races, classes, backgrounds, skills, equipment,
-                race, classRecord, classLevels, classSpells, subclassLevels, equipmentFacts);
+                race, classRecord, classLevels, classSpells, subclassLevels, subclass, equipmentFacts);
     }
 
     private void validate(CharacterDraftDto draft, SrdFacts facts, List<String> violations) {
@@ -721,15 +721,34 @@ public class CharacterService {
 
     /**
      * Merged alphabetical feature index list for a compiled sheet: class level-up
-     * features, subclass features up to the starting level (SRD-listed subclasses
-     * only) and the race's traits.
+     * features, subclass features up to the starting level and the race's traits.
+     * Subclass features come from the SRD feed when the archetype is SRD-listed,
+     * falling back to the curated catalog for PHB/XGtE/Tasha's archetypes the feed
+     * does not expose (residual Bug B, design-v1-fixes #85).
      */
     private List<String> collectedFeatures(SrdFacts facts, int level) {
         Set<String> features = new TreeSet<>();
         attachClassFeatures(features, facts.classLevels(), level);
-        attachClassFeatures(features, facts.subclassLevels(), level);
+        if (hasLevels(facts.subclassLevels())) {
+            attachClassFeatures(features, facts.subclassLevels(), level);
+        } else {
+            String classIndex = facts.classRecord() != null ? facts.classRecord().path("index").asText("") : "";
+            attachCuratedSubclassFeatures(features, classIndex, facts.subclassIndex(), level);
+        }
         attachRaceTraits(features, facts.race());
         return new ArrayList<>(features);
+    }
+
+    private void attachCuratedSubclassFeatures(Set<String> into, String classIndex, String subclassIndex, int level) {
+        for (ChargenCatalog.SubclassFeatureRef ref : catalog.subclassFeatures(classIndex, subclassIndex)) {
+            if (ref.level() <= level) {
+                into.add(ref.feature());
+            }
+        }
+    }
+
+    private boolean hasLevels(JsonNode subclassLevels) {
+        return subclassLevels != null && subclassLevels.isArray() && subclassLevels.size() > 0;
     }
 
     private void attachClassFeatures(Set<String> into, JsonNode classLevels, int level) {

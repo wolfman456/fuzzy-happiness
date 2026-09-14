@@ -329,7 +329,7 @@ describe('CharacterWizardPage', () => {
     vi.useRealTimers()
   })
 
-  it('allows exactly one full ability-score reroll, then disables the button', async () => {
+  it('allows up to two full ability-score rerolls, then disables the button', async () => {
     setupSrd()
     rollScores.mockResolvedValue({ scoreSource: 'FOUR_D6_DROP_LOWEST', strength: 16, dexterity: 11, constitution: 9, intelligence: 14, wisdom: 12, charisma: 7 })
     renderWizard()
@@ -346,21 +346,68 @@ describe('CharacterWizardPage', () => {
     })
     expect(rollAll()).toHaveTextContent('Roll all again')
     expect(rollAll()).toBeEnabled()
+    expect(screen.getByText(/reroll the whole set 2 more times/)).toBeInTheDocument()
 
     fireEvent.click(rollAll())
     await act(async () => {
       await vi.advanceTimersByTimeAsync(2000)
     })
-    expect(rollAll()).toHaveTextContent('Reroll used')
+    expect(rollAll()).toHaveTextContent('Roll all again')
+    expect(rollAll()).toBeEnabled()
+    expect(screen.getByText(/reroll the whole set 1 more time/)).toBeInTheDocument()
+
+    fireEvent.click(rollAll())
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2000)
+    })
+    expect(rollAll()).toHaveTextContent('Rerolls used')
     expect(rollAll()).toBeDisabled()
-    expect(screen.getByText(/One reroll used/)).toBeInTheDocument()
+    expect(screen.getByText(/2 rerolls used/)).toBeInTheDocument()
 
     fireEvent.click(rollAll())
     await act(async () => {
       await vi.advanceTimersByTimeAsync(2000)
     })
-    expect(rollAll()).toHaveTextContent('Reroll used')
+    expect(rollAll()).toHaveTextContent('Rerolls used')
     expect(screen.getByLabelText('Roll Strength')).toBeEnabled()
+    vi.useRealTimers()
+  })
+
+  it('caps each per-ability reroll at two rolls, then disables that ability', async () => {
+    setupSrd()
+    rollScores.mockResolvedValue({ scoreSource: 'FOUR_D6_DROP_LOWEST', strength: 16, dexterity: 11, constitution: 9, intelligence: 14, wisdom: 12, charisma: 7 })
+    renderWizard()
+
+    fireEvent.change(screen.getByLabelText('Character name'), { target: { value: 'Tordek' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+
+    vi.useFakeTimers()
+    fireEvent.click(screen.getByRole('button', { name: 'Roll all ability scores' }))
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2000)
+    })
+
+    const rollStrength = () => screen.getByLabelText('Roll Strength')
+
+    fireEvent.click(rollStrength())
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2000)
+    })
+    expect(rollStrength()).toBeEnabled()
+
+    fireEvent.click(rollStrength())
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2000)
+    })
+    expect(rollStrength()).toBeDisabled()
+    expect(screen.getByText('Used 2/2 rolls')).toBeInTheDocument()
+    expect(screen.getByLabelText('Roll Dexterity')).toBeEnabled()
+
+    fireEvent.click(rollStrength())
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2000)
+    })
+    expect(rollStrength()).toBeDisabled()
     vi.useRealTimers()
   })
 
