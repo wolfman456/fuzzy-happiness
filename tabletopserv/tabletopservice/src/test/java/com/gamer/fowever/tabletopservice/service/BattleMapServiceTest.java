@@ -589,6 +589,88 @@ class BattleMapServiceTest {
     }
 
     @Test
+    void placeTokenSetsPositionWithoutSpendingMovement() {
+        User gm = user(1L, "aria");
+        GameSession session = session(gm);
+        coreStubs(gm, session);
+        withGm(gm, session);
+        storedMap(session);
+        storedToken("Aria", TokenCategory.PLAYER, "#ef4444", 30, 1, 1, 2L, 1L);
+
+        BattleMapDto dto = service.placeToken(gm, SESSION_ID, 1L, new MoveTokenRequest(5, 4));
+
+        MapTokenDto token = dto.tokens().getFirst();
+        assertThat(token.posX()).isEqualTo(5);
+        assertThat(token.posY()).isEqualTo(4);
+        assertThat(token.movedFeet()).isZero();
+    }
+
+    @Test
+    void placeTokenAllowsPlayerToPlaceTheirOwnToken() {
+        User gm = user(1L, "aria");
+        User player = user(2L, "ivo");
+        GameSession session = session(gm);
+        coreStubs(gm, session);
+        withGm(gm, session);
+        withPlayer(player, session);
+        when(userRepository.findById(2L)).thenReturn(Optional.of(player));
+        storedMap(session);
+        storedToken("Ivo", TokenCategory.PLAYER, "#ef4444", 30, 1, 1, 2L, 2L);
+
+        BattleMapDto dto = service.placeToken(player, SESSION_ID, 1L, new MoveTokenRequest(3, 3));
+
+        assertThat(dto.tokens().getFirst().posX()).isEqualTo(3);
+    }
+
+    @Test
+    void placeTokenRejectsPlayerPlacingAnotherUsersToken() {
+        User gm = user(1L, "aria");
+        User player = user(2L, "ivo");
+        GameSession session = session(gm);
+        coreStubs(gm, session);
+        withGm(gm, session);
+        withPlayer(player, session);
+        when(userRepository.findById(2L)).thenReturn(Optional.of(player));
+        storedMap(session);
+        storedToken("Other", TokenCategory.PLAYER, "#ef4444", 30, 1, 1, 3L, 3L);
+
+        assertThatThrownBy(() -> service.placeToken(player, SESSION_ID, 1L, new MoveTokenRequest(2, 1)))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("only place your own token");
+        verify(eventRepository, never()).save(any());
+    }
+
+    @Test
+    void placeTokenRejectsPlacingOnceCombatHasStarted() {
+        User gm = user(1L, "aria");
+        GameSession session = session(gm);
+        coreStubs(gm, session);
+        withGm(gm, session);
+        storedMap(session);
+        savedMap.setInitiativeIndex(0);
+        storedToken("Aria", TokenCategory.PLAYER, "#ef4444", 30, 1, 1, 2L, 1L);
+
+        assertThatThrownBy(() -> service.placeToken(gm, SESSION_ID, 1L, new MoveTokenRequest(5, 4)))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("use move instead");
+        verify(eventRepository, never()).save(any());
+    }
+
+    @Test
+    void placeTokenRejectsOutOfBounds() {
+        User gm = user(1L, "aria");
+        GameSession session = session(gm);
+        coreStubs(gm, session);
+        withGm(gm, session);
+        storedMap(session);
+        storedToken("Aria", TokenCategory.PLAYER, "#ef4444", 30, 1, 1, 2L, 1L);
+
+        assertThatThrownBy(() -> service.placeToken(gm, SESSION_ID, 1L, new MoveTokenRequest(24, 0)))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("outside the map");
+    }
+
+    @Test
     void moveTokenToSameSquareDoesNotPersistEvent() {
         User gm = user(1L, "aria");
         GameSession session = session(gm);

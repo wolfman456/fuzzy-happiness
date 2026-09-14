@@ -55,6 +55,7 @@ public class BattleMapService {
     private static final int INITIATIVE_DIE_SIDES = 20;
     private static final int MIN_INITIATIVE_SCORE = 1;
     private static final int MAX_INITIATIVE_SCORE = 999;
+    private static final int INITIATIVE_NOT_STARTED = -1;
     private static final SecureRandom RANDOM = new SecureRandom();
     private static final String TOPIC = "/topic/sessions/%d";
     private static final List<String> COLORS = List.of(
@@ -274,6 +275,31 @@ public class BattleMapService {
         token.setPosX(request.x());
         token.setPosY(request.y());
         token.setMovedFeet(token.getMovedFeet() + requiredFeet);
+        tokenRepository.save(token);
+        return broadcastAndPersist(map);
+    }
+
+    @Transactional
+    public BattleMapDto placeToken(User actor, Long sessionId, Long tokenId, MoveTokenRequest request) {
+        GameSession session = managedSession(sessionId);
+        User managedActor = managedUser(actor);
+        requireMember(session, managedActor);
+        BattleMap map = managedMap(sessionId);
+        MapToken token = managedToken(tokenId, map.getId());
+        requireInBounds(map, request.x(), request.y());
+
+        if (map.getInitiativeIndex() != INITIATIVE_NOT_STARTED) {
+            throw ApiException.badRequest("The map is in combat — use move instead");
+        }
+        if (!isGm(session, managedActor) && !isOwner(token, managedActor)) {
+            throw ApiException.forbidden("You can only place your own token");
+        }
+        if (request.x() == token.getPosX() && request.y() == token.getPosY()) {
+            return toDto(map);
+        }
+
+        token.setPosX(request.x());
+        token.setPosY(request.y());
         tokenRepository.save(token);
         return broadcastAndPersist(map);
     }

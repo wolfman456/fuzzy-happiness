@@ -70,6 +70,18 @@ way to drop an existing SRD monster (e.g. a session-relevant goblin) onto the ma
 | #67 | Battle-map setup: every submit sent an empty `name` → backend rejected with `400 name: must not be blank` (design-v1 §11) | high | P2 | ✅ fixed | `fix/session-battlemap-monster` |
 | #68 | Monster generator has no search — can't add an existing SRD monster to the map by name, only roll random statblocks | medium | P3 | ✅ fixed | `fix/session-battlemap-monster` |
 
+## 2026-09-13 alpha pass (chargen workflow + inventory)
+
+Alpha run on the full chargen journey and the player inventory surfaced repeated-draw, skill-cap,
+ownership and pre-combat placement gaps in the workflow.
+
+| # | Issue | Severity | Priority | Status | Resolution |
+|---|-------|----------|----------|--------|------------|
+| #76 | Ability-score step lets you "Roll all again" forever — a full reroll should be a one-time choice per wizard character | medium | P3 | ✅ fixed | `fix/chargen-reroll-skills` |
+| #77 | Skills step lets a class pick more than its class-list cap (classCap + background picks combined) — should hard-cap class-list picks | medium | P3 | ✅ fixed | `fix/chargen-reroll-skills` |
+| #78 | No way to delete a character — the owned character stays in the library forever | medium | P3 | ✅ fixed | `feat/delete-character` |
+| #79 | No setup-phase placement: before combat starts there is no way to re-position a token on the battle map except budget-constrained movement | medium | P3 | ✅ fixed | `fix/session-token-placement` |
+
 ## Changelog
 
 - **2026-09-12 — verification disabled until prod SMTP is configured (#45).** `AuthService.register`
@@ -164,3 +176,11 @@ way to drop an existing SRD monster (e.g. a session-relevant goblin) onto the ma
   `findByIdAndOwnerId`, so a foreign owner gets 404; `repository.delete` drops the JPA-owned
   collection tables and the sheet snapshot), plus a per-row Delete button on the Characters list
   and one on the sheet page — both behind a confirm dialog.
+- **2026-09-13 — setup-phase token placement on the battle map (#79).** While the map is in setup
+  (`initiativeIndex == -1`, i.e. before the first turn is advanced), a selected token shows a free
+  amber **place** overlay across every open square and repositions without consuming `movedFeet`
+  or touching initiative. Players can only place their own tokens; the GM can place any. Once
+  combat starts (`initiativeIndex != -1`) placement is rejected with a `400` and the budget-based
+  move overlay returns. Backend: `POST /api/sessions/{sessionId}/map/tokens/{tokenId}/place`
+  (shares `MoveTokenRequest`); frontend: `placeToken()` + the setup banner; enforcement in
+  `BattleMapService.placeToken`.
