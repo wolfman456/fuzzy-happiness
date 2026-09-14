@@ -9,6 +9,7 @@ import {
 import {
   addToken,
   moveToken,
+  placeToken,
   removeToken,
   turnCommand,
   updateMap,
@@ -47,12 +48,32 @@ export default function BattleMapPanel({ sessionId, map, user, isGm, disabled, o
   const mayMove = (token) =>
     !disabled && (isGm || token.linkedUserId === user?.id)
 
+  const setupPhase = map.initiativeIndex === -1
+
   const reachable = useMemo(() => {
+    if (setupPhase) return []
     if (!selectedToken) return []
     if (disabled) return []
     if (!isGm && selectedToken.linkedUserId !== user?.id) return []
     return reachableSquares(selectedToken, map)
-  }, [selectedToken, map, disabled, isGm, user?.id])
+  }, [selectedToken, map, disabled, isGm, user?.id, setupPhase])
+
+  const placeable = useMemo(() => {
+    if (!setupPhase || !selectedToken || disabled) return []
+    if (!isGm && selectedToken.linkedUserId !== user?.id) return []
+    const occupied = new Set(
+      map.tokens
+        .filter((token) => token.id !== selectedToken.id)
+        .map((token) => `${token.posX},${token.posY}`),
+    )
+    const squares = []
+    for (let x = 0; x < map.width; x += 1) {
+      for (let y = 0; y < map.height; y += 1) {
+        if (!occupied.has(`${x},${y}`)) squares.push({ x, y })
+      }
+    }
+    return squares
+  }, [setupPhase, selectedToken, map, disabled, isGm, user?.id])
 
   const gridWidth = map.width * SQUARE_PX
   const gridHeight = map.height * SQUARE_PX
@@ -90,6 +111,21 @@ export default function BattleMapPanel({ sessionId, map, user, isGm, disabled, o
     setError('')
     try {
       const next = await moveToken(sessionId, selectedToken.id, { x, y })
+      onMapChange(next)
+      setSelectedId(null)
+    } catch (callError) {
+      setError(callError.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function handlePlace(x, y) {
+    if (!selectedToken || busy) return
+    setBusy(true)
+    setError('')
+    try {
+      const next = await placeToken(sessionId, selectedToken.id, { x, y })
       onMapChange(next)
       setSelectedId(null)
     } catch (callError) {
@@ -335,10 +371,10 @@ export default function BattleMapPanel({ sessionId, map, user, isGm, disabled, o
       )}
 
       {selectedToken && mayMove(selectedToken) && (
-        <p className="mt-3 text-sm text-zinc-500">
-          {selectedToken.name} has{' '}
-          {squaresFor(remainingFeet(selectedToken), map.squareFeet)} square
-          left this turn. Click a highlighted square to move.
+        <p className="mt-3 text-sm text-zinc-500" data-testid="placement-hint">
+          {setupPhase
+            ? `${selectedToken.name} is in setup — click any open square to place it. Placement closes once initiative starts.`
+            : `${selectedToken.name} has ${squaresFor(remainingFeet(selectedToken), map.squareFeet)} square left this turn. Click a highlighted square to move.`}
         </p>
       )}
 
@@ -397,6 +433,25 @@ export default function BattleMapPanel({ sessionId, map, user, isGm, disabled, o
               }}
               className="absolute rounded border border-emerald-500 bg-emerald-300/40 hover:bg-emerald-400/60"
               aria-label={`Move to square ${x}, ${y}`}
+            />
+          ))}
+          {placeable.map(({ x, y }) => (
+            <button
+              type="button"
+              key={`${x}-${y}`}
+              data-testid={`placeable-${x}-${y}`}
+              onClick={(event) => {
+                event.stopPropagation()
+                handlePlace(x, y)
+              }}
+              style={{
+                left: `${x * SQUARE_PX}px`,
+                top: `${y * SQUARE_PX}px`,
+                width: `${SQUARE_PX}px`,
+                height: `${SQUARE_PX}px`,
+              }}
+              className="absolute rounded border border-amber-500 bg-amber-300/40 hover:bg-amber-400/60"
+              aria-label={`Place to square ${x}, ${y}`}
             />
           ))}
           {map.tokens.map((token) => (

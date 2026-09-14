@@ -36,6 +36,13 @@ export function moveToken(sessionId, tokenId, body) {
   })
 }
 
+export function placeToken(sessionId, tokenId, body) {
+  return api(`/api/sessions/${sessionId}/map/tokens/${tokenId}/place`, {
+    method: 'POST',
+    body,
+  })
+}
+
 export function turnCommand(sessionId, body) {
   return api(`/api/sessions/${sessionId}/map/turn`, { method: 'POST', body })
 }

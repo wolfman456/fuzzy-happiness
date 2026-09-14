@@ -57,6 +57,12 @@ public interface BattleMapApi {
                            @Valid @RequestBody MoveTokenRequest request,
                            Authentication authentication);
 
+    @PostMapping("/tokens/{tokenId}/place")
+    BattleMapDto placeToken(@PathVariable Long sessionId,
+                            @PathVariable Long tokenId,
+                            @Valid @RequestBody MoveTokenRequest request,
+                            Authentication authentication);
+
     @PostMapping("/turn")
     BattleMapDto turn(@PathVariable Long sessionId,
                       @Valid @RequestBody TurnCommandRequest request,

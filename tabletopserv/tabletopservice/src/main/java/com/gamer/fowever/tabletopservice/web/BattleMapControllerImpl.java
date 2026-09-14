@@ -86,6 +86,14 @@ public class BattleMapControllerImpl implements BattleMapApi {
         return battleMapService.moveToken(currentUser(authentication), sessionId, tokenId, request);
     }
 
+    @PostMapping("/tokens/{tokenId}/place")
+    public BattleMapDto placeToken(@PathVariable Long sessionId,
+                                   @PathVariable Long tokenId,
+                                   @Valid @RequestBody MoveTokenRequest request,
+                                   Authentication authentication) {
+        return battleMapService.placeToken(currentUser(authentication), sessionId, tokenId, request);
+    }
+
     @PostMapping("/turn")
     public BattleMapDto turn(@PathVariable Long sessionId,
                              @Valid @RequestBody TurnCommandRequest request,
