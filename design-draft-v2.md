@@ -158,9 +158,6 @@ wait for slices if severity warrants.
 - Shared: changing class leaves stale `spellIndexes` (no wizard invalidation); the Spells step
   caps cantrips but not leveled spells; fixtures under-model class features (only
   `spellcasting`/`channel-divinity`).
-- Shared: changing class leaves stale `spellIndexes` (no wizard invalidation); the Spells step
-  caps cantrips but not leveled spells; fixtures under-model class features (only
-  `spellcasting`/`channel-divinity`).
 
 ## 8. Guardrails (carried from v1)
 
