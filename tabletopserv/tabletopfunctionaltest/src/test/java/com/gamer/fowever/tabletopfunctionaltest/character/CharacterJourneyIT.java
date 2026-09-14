@@ -63,6 +63,23 @@ class CharacterJourneyIT extends FunctionalTestBase {
     }
 
     @Test
+    void compileMergesCuratedNonSrdSubclassFeatures() throws Exception {
+        String jwt = registerVerifyLogin("char2l");
+
+        Map<String, Object> draft = new java.util.LinkedHashMap<>(legalDraft());
+        draft.put("subclassIndex", "light");
+
+        JsonNode body = Api.json(Api.post(baseUrl() + "/api/characters/compile", jwt, Api.body(draft)).body());
+        assertThat(body.get("valid").asBoolean()).isTrue();
+        assertThat(body.get("sheet").get("subclassIndex").asText()).isEqualTo("light");
+        assertThat(body.get("sheet").get("featureIndexes")).extracting(JsonNode::asText)
+                .contains("bonus-cantrip", "warding-flare",
+                        "spellcasting", "darkvision");
+        assertThat(body.get("sheet").get("featureIndexes")).extracting(JsonNode::asText)
+                .doesNotContain("radiance-of-the-dawn", "corona-of-light");
+    }
+
+    @Test
     void compileReportsViolationsForIllegalScores() throws Exception {
         String jwt = registerVerifyLogin("char2");
 
