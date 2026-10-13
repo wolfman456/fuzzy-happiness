@@ -209,6 +209,10 @@ wait for slices if severity warrants.
   commit or push (never a unit-only green run); use the H2 escape hatch
   (`./mvnw verify -Dtabletopserv.functional.db-url=jdbc:h2:mem:ft`) when Docker is unavailable,
   then let CI validate the Postgres-only suites.
+- **Frontend (Vite app) — same rule, Playwright:** `tabletopweb/` mirrors the backend guardrails,
+  with the functional/E2E layer in **Playwright** (unit stays Vitest): **≥ 90% unit / ≥ 80%
+  functional** coverage targets, and the **Playwright suite must pass before every commit/push**
+  touching the web app. Playwright is not yet wired up — the target going forward.
 - No secrets, no direct outbound calls; model/tile assets are static files under
   `tabletopweb/public/` (curated + licensed), never server-fetched.
 - Each slice: Wants.md entry → board item → `feature/v2-*` branch → PR → maintainer merge →
