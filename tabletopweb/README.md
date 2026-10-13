@@ -2,7 +2,7 @@
 
 Frontend for fuzzy-happiness — React 19 + Vite 8, plain JSX (no TypeScript). Tailwind CSS v4
 (via the `@tailwindcss/vite` plugin), react-router for routing, oxlint for linting, Vitest for
-tests. Requires Node ≥ 24.
+unit tests and Playwright for functional/E2E. Requires Node ≥ 24.
 
 ## Commands
 
@@ -11,8 +11,20 @@ npm install              # install dependencies
 npm run dev              # Vite dev server (http://localhost:5173)
 npm run build            # production build
 npm run lint             # oxlint
-npm run test             # Vitest (no watch; use npm run test:watch for watch mode)
+npm run test             # Vitest unit tests (no watch; use npm run test:watch for watch mode)
+npm run test:e2e         # Playwright functional/E2E (starts the Vite dev server)
+npm run test:e2e:ui      # Playwright in UI mode
 ```
+
+## Testing
+
+- **Unit (Vitest + jsdom)** — specs live next to the code under `src/**` (`*.test.js[x]`).
+- **Functional/E2E (Playwright)** — specs live in `e2e/` and drive a real Chromium against the
+  Vite dev server; the Spring backend is stubbed per-spec with `page.route` (see
+  `e2e/support/api.js`), so no backend or database is needed. First run:
+  `npx playwright install chromium` (CI uses `--with-deps`). Vitest excludes `e2e/**` and
+  Playwright is confined to it, so the two runners never collect each other's specs. Coverage
+  policy: **≥ 90% unit / ≥ 80% functional** (see the root `AGENTS.md`).
 
 ## App map
 
@@ -43,6 +55,8 @@ npm run test             # Vitest (no watch; use npm run test:watch for watch mo
   `VerifyPage`, `Dashboard`, `LobbyPage`, `SessionPage`, `SettingsPage` (change your username).
 - `src/App.jsx` — routes: `/login`, `/register`, `/verify`, `/` (protected), plus
   `/sessions` (lobby), `/sessions/:id` (live session) and `/settings` (account).
+- `playwright.config.js` + `e2e/` — Playwright functional/E2E config and specs
+  (`e2e/support/api.js` holds the backend-stub helpers).
 
 The frontend calls the backend cross-origin (no Vite `/api` proxy). The backend allows the
 dev origin (`http://localhost:5173`) via `tabletopserv.cors.allowed-origins`.
