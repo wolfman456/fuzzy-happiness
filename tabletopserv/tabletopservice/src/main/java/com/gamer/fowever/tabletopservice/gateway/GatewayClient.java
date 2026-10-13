@@ -1,16 +1,21 @@
 package com.gamer.fowever.tabletopservice.gateway;
 
 import com.gamer.fowever.tabletopservice.support.CorrelationIdFilter;
+import io.netty.channel.ChannelOption;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatusCode;
+import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientRequestException;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
+import reactor.netty.http.client.HttpClient;
 
+import java.time.Duration;
 import java.util.Map;
 import java.util.UUID;
 
@@ -20,16 +25,29 @@ public class GatewayClient {
     private static final Logger log = LoggerFactory.getLogger(GatewayClient.class);
 
     private static final int MAX_IN_MEMORY_BYTES = 2 * 1024 * 1024;
+    static final int DEFAULT_CONNECT_TIMEOUT_MILLIS = 2_000;
+    static final int DEFAULT_RESPONSE_TIMEOUT_MILLIS = 10_000;
 
     private final WebClient webClient;
 
+    @Autowired
     public GatewayClient(@Value("${tabletopserv.gateway.url}") String baseUrl,
-                         @Value("${tabletopserv.gateway.token}") String token) {
+                         @Value("${tabletopserv.gateway.token}") String token,
+                         @Value("${tabletopserv.gateway.connect-timeout-millis:2000}") int connectTimeoutMillis,
+                         @Value("${tabletopserv.gateway.response-timeout-millis:10000}") int responseTimeoutMillis) {
+        HttpClient httpClient = HttpClient.create()
+                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, Math.max(1, connectTimeoutMillis))
+                .responseTimeout(Duration.ofMillis(Math.max(1, responseTimeoutMillis)));
         this.webClient = WebClient.builder()
                 .baseUrl(baseUrl)
+                .clientConnector(new ReactorClientHttpConnector(httpClient))
                 .defaultHeader("X-Gateway-Token", token)
                 .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(MAX_IN_MEMORY_BYTES))
                 .build();
+    }
+
+    public GatewayClient(String baseUrl, String token) {
+        this(baseUrl, token, DEFAULT_CONNECT_TIMEOUT_MILLIS, DEFAULT_RESPONSE_TIMEOUT_MILLIS);
     }
 
     public String get(String path, Map<String, String> params) {

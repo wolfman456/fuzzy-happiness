@@ -132,4 +132,31 @@ class GatewayClientTest {
 
         assertThat(body).contains("\"corr\":\"corr-mdc-1\"");
     }
+
+    @Test
+    void slowUpstreamTimesOutAndMapsTo502() throws IOException {
+        server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/api/srd/races", exchange -> {
+            try {
+                Thread.sleep(1500);
+                byte[] body = "{}".getBytes(StandardCharsets.UTF_8);
+                exchange.sendResponseHeaders(200, body.length);
+                try (OutputStream os = exchange.getResponseBody()) {
+                    os.write(body);
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            } catch (IOException ignored) {
+                // client already timed out and closed the connection
+            }
+        });
+        server.start();
+
+        GatewayClient client = new GatewayClient(
+                "http://127.0.0.1:" + server.getAddress().getPort(), "test-token", 1000, 250);
+
+        assertThatThrownBy(() -> client.get("/api/srd/races", Map.of()))
+                .isInstanceOf(GatewayClientException.class)
+                .satisfies(ex -> assertThat(((GatewayClientException) ex).getStatus()).isEqualTo(502));
+    }
 }
