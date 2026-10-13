@@ -6,8 +6,9 @@ name: Node.js CI
 on:
   push:
     branches: [ "develop" ]
+  # No branch filter: run on every PR (including stacked PRs whose base is a
+  # feature branch) so the frontend is always built, linted and tested.
   pull_request:
-    branches: [ "develop" ]
 
 defaults:
   run:
