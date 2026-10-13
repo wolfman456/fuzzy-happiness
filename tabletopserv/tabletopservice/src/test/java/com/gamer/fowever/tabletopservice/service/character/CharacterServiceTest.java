@@ -22,6 +22,9 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.SimpleTransactionStatus;
+import org.springframework.transaction.support.TransactionTemplate;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.node.ObjectNode;
 import tools.jackson.databind.json.JsonMapper;
@@ -88,6 +91,8 @@ class CharacterServiceTest {
     private SrdClient srd;
     @Mock
     private CharacterRepository characterRepository;
+    @Mock
+    private PlatformTransactionManager transactionManager;
 
     private final JsonMapper objectMapper = JsonMapper.builder().build();
 
@@ -95,7 +100,9 @@ class CharacterServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new CharacterService(srd, new ChargenCatalog(), characterRepository, objectMapper);
+        when(transactionManager.getTransaction(any())).thenReturn(new SimpleTransactionStatus());
+        service = new CharacterService(srd, new ChargenCatalog(), characterRepository, objectMapper,
+                new TransactionTemplate(transactionManager));
     }
 
     @Test

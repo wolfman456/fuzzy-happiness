@@ -19,6 +19,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
@@ -53,13 +54,15 @@ public class CharacterService {
     private final ChargenCatalog catalog;
     private final CharacterRepository characterRepository;
     private final ObjectMapper objectMapper;
+    private final TransactionTemplate transactionTemplate;
 
     public CharacterService(SrdClient srd, ChargenCatalog catalog, CharacterRepository characterRepository,
-                            ObjectMapper objectMapper) {
+                            ObjectMapper objectMapper, TransactionTemplate transactionTemplate) {
         this.srd = srd;
         this.catalog = catalog;
         this.characterRepository = characterRepository;
         this.objectMapper = objectMapper;
+        this.transactionTemplate = transactionTemplate;
     }
 
     private record SrdFacts(Set<String> races, Set<String> classes, Set<String> backgrounds,
@@ -175,15 +178,23 @@ public class CharacterService {
         return new ChargenCatalogDto(backgrounds, subclasses);
     }
 
-    @Transactional
     public CharacterSheetDto create(User actor, CharacterDraftDto draft) {
         long start = System.nanoTime();
         log.debug("create start user={} name={}", actor.getId(), draft.name());
+        // compile() is a series of blocking upstream SRD calls; resolve every fact and
+        // derive the sheet *before* opening a transaction so a slow feed never pins a
+        // pooled JDBC connection (design-v1-fixes #49).
         CompileResult result = compile(actor, draft);
         if (!result.valid()) {
             throw ApiException.badRequest("character is not legal: " + String.join("; ", result.violations()));
         }
         CharacterSheetDto sheet = result.sheet();
+        Long id = transactionTemplate.execute(status -> persist(actor, sheet));
+        log.debug("create done user={} id={} tookMs={}", actor.getId(), id, elapsedMs(start));
+        return withId(id, sheet);
+    }
+
+    private Long persist(User actor, CharacterSheetDto sheet) {
         Dnd5eCharacter entity = new Dnd5eCharacter();
         entity.setOwner(actor);
         entity.setName(sheet.name());
@@ -209,9 +220,7 @@ public class CharacterService {
         entity.setSpeedFeet(sheet.speedFeet());
         entity.setProficiencyBonus(sheet.proficiencyBonus());
         entity.setSheetSnapshot(toJson(sheet));
-        Dnd5eCharacter saved = (Dnd5eCharacter) characterRepository.saveAndFlush(entity);
-        log.debug("create done user={} id={} tookMs={}", actor.getId(), saved.getId(), elapsedMs(start));
-        return withId(saved.getId(), sheet);
+        return ((Dnd5eCharacter) characterRepository.saveAndFlush(entity)).getId();
     }
 
     @Transactional(readOnly = true)

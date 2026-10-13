@@ -832,7 +832,11 @@ Express egress gateway ──►  internet upstreams
   `http://localhost:3001`; token `tabletopserv.gateway.token`, env `GATEWAY_TOKEN`, sent as
   `X-Gateway-Token`; + `X-Correlation-Id`) is the only outbound WebClient. `SrdClient` builds
   curated `/api/srd/…` calls on it and maps failures to the usual `{status,message}` shapes.
-  No other raw WebClient goes to the internet (AGENTS.md rule).
+  No other raw WebClient goes to the internet (AGENTS.md rule). The client enforces a
+  **connect timeout** (default 2 s) and a **response timeout** (default 10 s) —
+  `tabletopserv.gateway.connect-timeout-millis` / `.response-timeout-millis`, env
+  `GATEWAY_CONNECT_TIMEOUT_MS` / `GATEWAY_RESPONSE_TIMEOUT_MS` — so a hung gateway/upstream
+  fails fast as `502 gateway unreachable` instead of blocking a request thread (design-v1-fixes #49).
 - **Package:** Express 5 + a native `fetch`-based forwarder (no `http-proxy-middleware`) —
   full response buffering is needed for the TTL-cached stale fallback, the response-size cap
   and the single retry. Tests: Vitest + supertest. SRD route mounted at **`/api/srd`**.
