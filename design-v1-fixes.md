@@ -18,7 +18,7 @@ outranks an informational one).
 | #45 | New accounts couldn't log in: `SMTP_*` unset in prod → no verification email was ever deliverable (design-v1 §19). Registration is now auto-verified; the login verified-gate is removed; verification stays dormant until mail is configured | high | P1 | ✅ fixed | `fix/disable-email-verification` (PR B) |
 | #46 | Age-gate mismatch: frontend used a ms-years approximation (`13×365.25`) while the backend uses `Period.between` — a user exactly 13 by calendar could be rejected client-side | medium | P2 | ✅ fixed | calendar-year gate (PR E) |
 | #48 | Chargen subclass list only offers the single SRD example archetype per class (design-v1 §8) | high | P2 | ✅ fixed | curated catalog (PR D) |
-| #49 | Intermittent chargen "compile/save" failure on first attempt (serial blocking SRD calls, no timeouts, compile inside `@Transactional`, Hikari pool 5) — zero observability | high | P2 | 🔧 fixing (PR C) | logging-only observability (PR C) |
+| #49 | Intermittent chargen "compile/save" failure on first attempt (serial blocking SRD calls, no timeouts, compile inside `@Transactional`, Hikari pool 5) — zero observability | high | P2 | ✅ fixed | PR C observability, then root-cause fix: gateway connect/response timeouts + compile moved outside the write transaction + configurable pool |
 | #50 | Background list only offers Acolyte (SRD) instead of the PHB backgrounds (design-v1 §8) | medium | P3 | ✅ fixed | curated catalog (PR D) |
 | #51 | Class list beyond the SRD core (e.g. Artificer) — design-v1 defers this as R24 | low | P4 | ⏭ deferred | needs non-SRD data source |
 | #52 | Chargen caster could skip the Spells step and still compile a "legal" sheet with **zero** spells (design-v1 §8) | high | P2 | ✅ fixed | `fix/chargen-bugs` (Bug A) |
@@ -206,3 +206,17 @@ filed, plus an investigation-only "not a bug".
   move overlay returns. Backend: `POST /api/sessions/{sessionId}/map/tokens/{tokenId}/place`
   (shares `MoveTokenRequest`); frontend: `placeToken()` + the setup banner; enforcement in
   `BattleMapService.placeToken`.
+- **2026-10-13 — chargen compile/save flake root-caused (#49).** The PR C observability pass only
+  made the failure traceable; the underlying hazard was unbounded blocking on the outbound SRD
+  path. `GatewayClient`'s `WebClient` had **no timeouts**, so a slow/hung gateway (or its upstream)
+  pinned the calling request thread indefinitely; and `CharacterService.create` performed its whole
+  serial SRD load **inside** the `@Transactional` write. Two fixes: (1) `GatewayClient` now builds a
+  Reactor Netty `HttpClient` with a **connect timeout** and a **response timeout** (defaults 2 s / 10 s;
+  `tabletopserv.gateway.connect-timeout-millis` / `.response-timeout-millis`, env
+  `GATEWAY_CONNECT_TIMEOUT_MS` / `GATEWAY_RESPONSE_TIMEOUT_MS`), so a stuck upstream fails fast and
+  is mapped to the existing `502 gateway unreachable` `GatewayClientException`; (2) `create` now runs
+  `compile` (all network I/O) **before** opening a transaction and wraps only the `saveAndFlush` in a
+  `TransactionTemplate`, so a slow rules feed can never hold a pooled JDBC connection. The prod Hikari
+  pool is now `DB_MAX_POOL_SIZE` (default 10, previously hard-coded 5). Covered by
+  `GatewayClientTest.slowUpstreamTimesOutAndMapsTo502` plus the full `CharacterJourneyIT` suite
+  (295 unit tests, 35 functional ITs green; jacoco gate met).
