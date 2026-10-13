@@ -225,9 +225,10 @@ backend tests, jacoco gate met. Frontend: `src/lib/monsters.js` (CR/role/edition
   V1) and Hibernate only **validates**; `V1__baseline.sql` is the frozen v1 schema captured
   verbatim from Hibernate 7.4.5.Final's PostgreSQL DDL. Dev/H2 and the functional ITs keep the
   Hibernate-managed schema. New `FlywayMigrationIT` boots the packaged service on an empty
-  Testcontainers Postgres with `ddl-auto=validate`, proving the baseline matches the entities
-  (a mismatch fails the boot). No Java config classes added, so the jacoco ≥90% gate is
-  untouched; forward schema changes ship as new `V{n}__*.sql` migrations.
+  Postgres with `ddl-auto=validate`, proving the baseline matches the entities (a mismatch fails
+  the boot) — Testcontainers in CI, or a rootless embedded Postgres binary when Docker is
+  unavailable. No Java config classes added, so the jacoco ≥90% gate is untouched; forward
+  schema changes ship as new `V{n}__*.sql` migrations.
 
 Next: production deploys (R14 — Railway auto-deploy from GitHub, rootDirectory per service), the
 optional 3D viewport (§17), and the rest of the game table (multi-map, fog of war, turn timers,

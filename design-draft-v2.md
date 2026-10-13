@@ -94,9 +94,13 @@ Groundwork every other slice leans on.
   verbatim from the Hibernate 7.4.5.Final PostgreSQL DDL and `baseline-on-migrate` so the live
   Railway Postgres adopts Flyway at V1 without re-running the baseline. Dev/H2 keeps the
   Hibernate-managed schema (the baseline is PostgreSQL-specific). Validated by
-  `FlywayMigrationIT`, which boots the packaged service against an empty Testcontainers Postgres
-  with `ddl-auto=validate` — a baseline/entity mismatch fails the boot, so CI proves it on every
-  run. No Java config classes were added (properties only), so the jacoco gate is untouched.
+  `FlywayMigrationIT`, which boots the packaged service against an empty Postgres with
+  `ddl-auto=validate` — a baseline/entity mismatch fails the boot, so CI proves it on every run.
+  CI uses a Testcontainers Postgres; without Docker the IT falls back to a rootless embedded
+  Postgres binary (`io.zonky.test:embedded-postgres`), so the baseline is validated locally too.
+  Wiring uses `spring-boot-starter-flyway` (Boot 4's modular Flyway auto-configuration — the raw
+  `flyway-core` dependency alone does not activate it). No Java config classes were added
+  (properties only), so the jacoco gate is untouched.
 - ⏳ **Still to come** — v2 schema changes ship as forward migrations (never edits to V1), e.g.
   `V2__v2_appearance_maps.sql`:
   - `character` / `dnd5e_characters`: `sex` (`varchar(10)`, `MALE|FEMALE`) and `appearance`

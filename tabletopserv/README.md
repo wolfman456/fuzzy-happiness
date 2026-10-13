@@ -134,7 +134,8 @@ line per request (see `tabletopgateway`).
   (`spring.flyway.enabled=false`) — the baseline is PostgreSQL-specific. Ship forward changes
   as new `V{n}__*.sql` files under `src/main/resources/db/migration`; never edit an applied
   migration. `FlywayMigrationIT` boots the service on an empty Postgres with `ddl-auto=validate`
-  to prove the baseline matches the entities.
+  to prove the baseline matches the entities (Testcontainers in CI; a rootless embedded Postgres
+  binary when Docker is unavailable, so it never skips).
 - Settings overridable via env: see `tabletopserv.*` keys in `application.properties`
   (JWT secret + expiry, verification TTL + cooldown, bootstrap admin defaults, PII secret,
   frontend URL, CORS origins, gateway URL/token) and the `*_*` env placeholders in
