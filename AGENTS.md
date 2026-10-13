@@ -77,8 +77,8 @@ npm run lint                # oxlint
 ## CI
 
 - `.github/workflows/node.js.yml` — builds/tests the frontend on push to `develop` and on **every** `pull_request` (no base-branch filter, so stacked PRs are covered too) — two jobs: `build` (lint + prod build + Vitest) and `e2e` (installs Chromium `--with-deps`, runs Playwright, uploads the report). Node 24, `setup-node` caches via `cache-dependency-path: tabletopweb/package-lock.json`, runs in `tabletopweb/`. The frontend pins Node 24 (`tabletopweb/.nvmrc`, `engines >= 24`).
-- `.github/workflows/gateway.yml` — builds/tests the gateway on push/PR to `develop` (Node 24, runs in `tabletopgateway/`).
-- `.github/workflows/maven.yml` — builds/tests the backend reactor with `./mvnw test` on push/PR to `develop` (JDK 21, runs in `tabletopserv/`).
+- `.github/workflows/gateway.yml` — builds/tests the gateway on push to `develop` and on **every** `pull_request` (no base-branch filter, so stacked PRs are covered) (Node 24, runs in `tabletopgateway/`).
+- `.github/workflows/maven.yml` — builds/tests the backend reactor with `./mvnw test` on push to `develop` and on **every** `pull_request` (no base-branch filter, so stacked PRs are covered) (JDK 21, runs in `tabletopserv/`).
 - `.github/workflows/maven-publish.yml` — builds and deploys the runnable backend to GitHub Packages on releases (JDK 21, `./mvnw -pl tabletopservice -am deploy`); needs a valid GH token and relies on the `distributionManagement` block in the pom.
 
 ## Contribution workflow (per Wants.md)

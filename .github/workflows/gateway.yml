@@ -6,8 +6,9 @@ name: Gateway CI
 on:
   push:
     branches: [ "develop" ]
+  # No branch filter: run on every PR, including stacked PRs whose base is a
+  # feature branch.
   pull_request:
-    branches: [ "develop" ]
 
 defaults:
   run:
