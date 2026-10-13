@@ -27,7 +27,8 @@ Three independent apps at the repo root inside their own directories. There is *
 npm run dev                 # Vite dev server
 npm run build               # production build
 npm run lint                # oxlint (NOT eslint)
-npm run test                # Vitest (no watch; use `npm run test:watch` for watch mode)
+npm run test                # Vitest unit tests (no watch; use `npm run test:watch` for watch mode)
+npm run test:e2e            # Playwright functional/E2E (starts the Vite dev server)
 
 # Gateway (runs from tabletopgateway/)
 npm run dev                 # nodemon/node --watch dev server on GATEWAY_PORT (default 3001)
@@ -50,7 +51,7 @@ npm run lint                # oxlint
 
 ## Frontend gotchas
 
-- Tests run under Vitest + jsdom with `globals: true` (required for `@testing-library/react` auto-cleanup) and `setupFiles: ./src/setupTests.js` (jest-dom). Tests only work on Node ≥ 24: `source ~/.nvm/nvm.sh && nvm use 24`.
+- Unit tests run under Vitest + jsdom with `globals: true` (required for `@testing-library/react` auto-cleanup) and `setupFiles: ./src/setupTests.js` (jest-dom); Vitest excludes `e2e/**`. Functional/E2E lives in Playwright under `tabletopweb/e2e/` (`npm run test:e2e`, Chromium installed with `npx playwright install chromium`; CI installs it with `--with-deps`). Tests only work on Node ≥ 24: `source ~/.nvm/nvm.sh && nvm use 24`.
 
 ## Gateway gotchas
 
@@ -95,7 +96,7 @@ npm run lint                # oxlint
 - **Coverage targets (policy, going forward):** all code is covered by **≥ 80% functional tests** *and* **≥ 90% unit tests**. The 90% unit target is the enforced `tabletopservice` jacoco gate; the 80% functional target is a **PR/review guardrail** over the `*IT` journey suites (the packaged-JAR functional run), i.e. a change that adds behaviour must add functional coverage for it until/unless the functional run grows its own enforced gate.
 - **Functional/E2E** (`tabletopfunctionaltest/`, §18): `*IT` journey suites run via failsafe at **`./mvnw verify`** only; `./mvnw test` stays unit-only. `verify` needs Docker for the Testcontainers Postgres; use `-Dtabletopserv.functional.db-url=jdbc:h2:mem:...` when Docker is unavailable. CI runs `./mvnw -B verify` on every push/PR to `develop`.
 - **Run the functional suite before every commit/push:** `./mvnw verify` must pass **before** committing or pushing any change (never commit/push on a unit-only green run). When Docker is unavailable, use the H2 escape hatch (`./mvnw verify -Dtabletopserv.functional.db-url=jdbc:h2:mem:ft`); Postgres-only suites do **not** skip — `FlywayMigrationIT` falls back to a rootless embedded Postgres binary (`io.zonky.test:embedded-postgres`, no Docker/sudo), so the baseline is still validated locally. CI remains the backstop, but the local run is required first.
-- **Frontend (Vite app) functional/E2E — same rule, Playwright:** the `tabletopweb/` app follows the same guardrails as the backend, with the functional/E2E layer in **Playwright** (the unit layer stays Vitest): **≥ 90% unit / ≥ 80% functional** coverage targets, and the **Playwright suite must pass before every commit/push** that touches the web app (mirroring `./mvnw verify`). Playwright is **not yet wired up** in the repo — this is the target going forward; any change that adds web behaviour should add Playwright coverage for it once it lands.
+- **Frontend (Vite app) functional/E2E — same rule, Playwright:** the `tabletopweb/` app follows the same guardrails as the backend, with the functional/E2E layer in **Playwright** (the unit layer stays Vitest): **≥ 90% unit / ≥ 80% functional** coverage targets, and the **Playwright suite must pass before every commit/push** that touches the web app (mirroring `./mvnw verify`). Playwright is wired up: specs live in `tabletopweb/e2e/` (`*.spec.js`, run with `npm run test:e2e`; the Vite dev server is started automatically) and each spec stubs the backend with `page.route` (no Spring/Postgres needed). Unit specs stay under `src/**` — Vitest excludes `e2e/**` and Playwright is confined to `e2e/`. Any change that adds web behaviour must add Playwright coverage for it.
 
 ## Documentation
 

@@ -216,7 +216,9 @@ wait for slices if severity warrants.
 - **Frontend (Vite app) — same rule, Playwright:** `tabletopweb/` mirrors the backend guardrails,
   with the functional/E2E layer in **Playwright** (unit stays Vitest): **≥ 90% unit / ≥ 80%
   functional** coverage targets, and the **Playwright suite must pass before every commit/push**
-  touching the web app. Playwright is not yet wired up — the target going forward.
+  touching the web app. Playwright is wired up: specs live in `tabletopweb/e2e/` (`npm run
+  test:e2e` starts the Vite dev server and stubs the backend with `page.route`); Vitest excludes
+  `e2e/**`. Any web behaviour change adds E2E coverage.
 - No secrets, no direct outbound calls; model/tile assets are static files under
   `tabletopweb/public/` (curated + licensed), never server-fetched.
 - Each slice: Wants.md entry → board item → `feature/v2-*` branch → PR → maintainer merge →

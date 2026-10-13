@@ -35,7 +35,7 @@ if nothing else.
 
 ## Tech stack
 
-- Frontend: `tabletopweb/` — React 19, Vite 8, plain JSX (oxlint, Vitest), Tailwind CSS v4, react-router, Node 24
+- Frontend: `tabletopweb/` — React 19, Vite 8, plain JSX (oxlint, Vitest unit + Playwright E2E), Tailwind CSS v4, react-router, Node 24
 - Backend: `tabletopserv/` — Spring Boot 4.1.1, Java 21, **multi-module Maven reactor**
   - `tabletopapi` — inbound REST contract only (interfaces + DTOs, `com.gamer.fowever.tabletopapi`)
   - `tabletopservice` — implementations, domain, repos, security, STOMP glue, runnable JAR (`com.gamer.fowever.tabletopservice`)
@@ -229,6 +229,14 @@ backend tests, jacoco gate met. Frontend: `src/lib/monsters.js` (CR/role/edition
   the boot) — Testcontainers in CI, or a rootless embedded Postgres binary when Docker is
   unavailable. No Java config classes added, so the jacoco ≥90% gate is untouched; forward
   schema changes ship as new `V{n}__*.sql` migrations.
+- **Frontend E2E scaffold (Playwright)** — `feature/playwright-e2e-scaffold` (design-draft-v2
+  §8). Wires the Vite app's functional/E2E layer alongside its Vitest unit layer:
+  `@playwright/test` + `playwright.config.js` (drives the Vite dev server, Chromium, HTML report
+  + trace-on-first-retry) and `e2e/` specs — auth (redirect-to-login, valid login + session
+  persistence, invalid-credential error, logout) and register (confirmation screen, client-side
+  password policy blocks the request) — each stubbing the backend with `page.route` (no
+  Spring/Postgres needed). Vitest excludes `e2e/**`. New `e2e` CI job installs Chromium
+  (`--with-deps`) and runs `npm run test:e2e`, uploading the report. 6 E2E + 221 unit green.
 
 Next: production deploys (R14 — Railway auto-deploy from GitHub, rootDirectory per service), the
 optional 3D viewport (§17), and the rest of the game table (multi-map, fog of war, turn timers,
