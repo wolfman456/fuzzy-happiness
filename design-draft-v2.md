@@ -205,6 +205,10 @@ wait for slices if severity warrants.
 - **Coverage targets (policy, going forward):** **≥ 90% unit** (the enforced `tabletopservice`
   jacoco gate) **and ≥ 80% functional** (a PR/review guardrail over the packaged-JAR `*IT`
   suites) — any change adding behaviour adds functional coverage for it.
+- **Run the functional suite before every commit/push:** `./mvnw verify` must pass before any
+  commit or push (never a unit-only green run); use the H2 escape hatch
+  (`./mvnw verify -Dtabletopserv.functional.db-url=jdbc:h2:mem:ft`) when Docker is unavailable,
+  then let CI validate the Postgres-only suites.
 - No secrets, no direct outbound calls; model/tile assets are static files under
   `tabletopweb/public/` (curated + licensed), never server-fetched.
 - Each slice: Wants.md entry → board item → `feature/v2-*` branch → PR → maintainer merge →
