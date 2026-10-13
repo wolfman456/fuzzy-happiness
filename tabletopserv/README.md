@@ -127,6 +127,15 @@ line per request (see `tabletopgateway`).
 - Profiles: `dev` (default — H2, console email, bootstrap admin) and `prod`
   (`application-prod.properties` — PostgreSQL, required secrets). Email verification is
   disabled by default; SMTP config (below) is only needed to re-enable it (§19).
+- **Schema migrations (Flyway):** the **prod** profile runs Flyway
+  (`spring.flyway.enabled=true`, `baseline-on-migrate=true` at V1) and Hibernate only
+  `validate`s the result; `V1__baseline.sql` is the frozen v1 schema (design-draft-v2 §3).
+  `dev`/H2 and the functional ITs keep the Hibernate-managed schema
+  (`spring.flyway.enabled=false`) — the baseline is PostgreSQL-specific. Ship forward changes
+  as new `V{n}__*.sql` files under `src/main/resources/db/migration`; never edit an applied
+  migration. `FlywayMigrationIT` boots the service on an empty Postgres with `ddl-auto=validate`
+  to prove the baseline matches the entities (Testcontainers in CI; a rootless embedded Postgres
+  binary when Docker is unavailable, so it never skips).
 - Settings overridable via env: see `tabletopserv.*` keys in `application.properties`
   (JWT secret + expiry, verification TTL + cooldown, bootstrap admin defaults, PII secret,
   frontend URL, CORS origins, gateway URL/token) and the `*_*` env placeholders in
