@@ -5,7 +5,8 @@ Draft spec for the second major release of the tabletop platform. Companion to t
 maintainer approves the slices; the living bug ledger stays in
 [`design-v1-fixes.md`](design-v1-fixes.md).
 
-**Status:** 🏗 in planning — v2 vision + slice plan agreed (2026-09-13).
+**Status:** 🏗 in planning — v2 vision + slice plan agreed (2026-09-13); Slice 0 Flyway baseline
+landed (2026-10-13).
 
 ---
 
@@ -88,17 +89,28 @@ Slice 0 (Flyway) wherever schema is touched:
 
 Groundwork every other slice leans on.
 
-- Add Flyway to `tabletopserv`/`tabletopservice` (prod profile). Baseline the current schema
-  (`baselineOnMigrate` or a hand-authored `V1__baseline.sql` from the entities), then
+- ✅ **Flyway baseline landed** (`feature/v2-flyway`, PR B1, 2026-10-13): Flyway 12 on the
+  **prod profile only** (`application-prod.properties`), with `V1__baseline.sql` captured
+  verbatim from the Hibernate 7.4.5.Final PostgreSQL DDL and `baseline-on-migrate` so the live
+  Railway Postgres adopts Flyway at V1 without re-running the baseline. Dev/H2 keeps the
+  Hibernate-managed schema (the baseline is PostgreSQL-specific). Validated by
+  `FlywayMigrationIT`, which boots the packaged service against an empty Postgres with
+  `ddl-auto=validate` — a baseline/entity mismatch fails the boot, so CI proves it on every run.
+  CI uses a Testcontainers Postgres; without Docker the IT falls back to a rootless embedded
+  Postgres binary (`io.zonky.test:embedded-postgres`), so the baseline is validated locally too.
+  Wiring uses `spring-boot-starter-flyway` (Boot 4's modular Flyway auto-configuration — the raw
+  `flyway-core` dependency alone does not activate it). No Java config classes were added
+  (properties only), so the jacoco gate is untouched.
+- ⏳ **Still to come** — v2 schema changes ship as forward migrations (never edits to V1), e.g.
   `V2__v2_appearance_maps.sql`:
   - `character` / `dnd5e_characters`: `sex` (`varchar(10)`, `MALE|FEMALE`) and `appearance`
     (`jsonb`: avatar GLB ref + skin/hair tints).
   - New tables `battle_map_tiles` (`map_id`, `x`, `y`, `tile_index`, PK `(map_id,x,y)`) and
     `battle_map_objects` (`map_id`, `id`, `object_index`, `x`, `y`, `w`, `h`, `rotation`,
     `blocks_movement`).
-- **Risk (deliberate):** prod DB is live. The baseline must be validated against a copy of prod
-  Postgres before the real deploy. Dev (H2) and functional-IT paths keep Hibernate-managed
-  schema unless Flyway proves safe on both; the decision lands here once tested.
+- **Risk (deliberate):** prod DB is live. The baseline is proven safe against a fresh Postgres
+  in CI; the first `railway` deploy that enables Flyway will create only the `flyway_schema_history`
+  table and record the baseline (no app-table DDL), so a drifted prod schema cannot be clobbered.
 - Deliverables: `design-draft-v2.md` (this file, once approved), Wants.md v2 entries, board
   items.
 
@@ -194,6 +206,19 @@ wait for slices if severity warrants.
 
 - Backend jacoco ≥90% line gate; frontend Vitest + oxlint + prod build on every PR;
   functional `*IT` journeys extended per slice.
+- **Coverage targets (policy, going forward):** **≥ 90% unit** (the enforced `tabletopservice`
+  jacoco gate) **and ≥ 80% functional** (a PR/review guardrail over the packaged-JAR `*IT`
+  suites) — any change adding behaviour adds functional coverage for it.
+- **Run the functional suite before every commit/push:** `./mvnw verify` must pass before any
+  commit or push (never a unit-only green run); use the H2 escape hatch
+  (`./mvnw verify -Dtabletopserv.functional.db-url=jdbc:h2:mem:ft`) when Docker is unavailable,
+  then let CI validate the Postgres-only suites.
+- **Frontend (Vite app) — same rule, Playwright:** `tabletopweb/` mirrors the backend guardrails,
+  with the functional/E2E layer in **Playwright** (unit stays Vitest): **≥ 90% unit / ≥ 80%
+  functional** coverage targets, and the **Playwright suite must pass before every commit/push**
+  touching the web app. Playwright is wired up: specs live in `tabletopweb/e2e/` (`npm run
+  test:e2e` starts the Vite dev server and stubs the backend with `page.route`); Vitest excludes
+  `e2e/**`. Any web behaviour change adds E2E coverage.
 - No secrets, no direct outbound calls; model/tile assets are static files under
   `tabletopweb/public/` (curated + licensed), never server-fetched.
 - Each slice: Wants.md entry → board item → `feature/v2-*` branch → PR → maintainer merge →

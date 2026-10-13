@@ -1,11 +1,11 @@
-# Build and test the backend on every push/PR to develop
+# Build and test the backend on every push to develop and every pull request
+# (no base-branch filter, so stacked PRs whose base is a feature branch are covered)
 name: Java CI
 
 on:
   push:
     branches: [ "develop" ]
   pull_request:
-    branches: [ "develop" ]
 
 defaults:
   run:

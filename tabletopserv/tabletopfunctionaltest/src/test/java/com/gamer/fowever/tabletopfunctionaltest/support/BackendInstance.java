@@ -45,6 +45,7 @@ public final class BackendInstance implements AutoCloseable {
     private final String externalDbUrl;
     private final String externalDbUser;
     private final String externalDbPassword;
+    private final boolean migrateSchema;
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(3))
             .build();
@@ -56,29 +57,53 @@ public final class BackendInstance implements AutoCloseable {
     private final Map<String, String> verificationUrls = new ConcurrentHashMap<>();
     private final List<String> logTail = new CopyOnWriteArrayList<>();
 
-    private BackendInstance(Path jar, String externalDbUrl, String externalDbUser, String externalDbPassword) {
+    private BackendInstance(Path jar, String externalDbUrl, String externalDbUser,
+                            String externalDbPassword, boolean migrateSchema) {
         appPort = findFreePort();
         this.jar = jar;
         this.externalDbUrl = externalDbUrl;
         this.externalDbUser = externalDbUser;
         this.externalDbPassword = externalDbPassword;
+        this.migrateSchema = migrateSchema;
         baseUrl = "http://127.0.0.1:" + appPort;
     }
 
     /**
+     * Boots with the Hibernate-managed schema (<code>ddl-auto=create-drop</code>) — the
+     * normal functional-journey path, works on both the Testcontainers Postgres and the
+     * Docker-less H2 escape hatch.
+     *
      * @param externalDbUrl optional JDBC URL overriding the Testcontainers Postgres
      *                      (used when Docker is unavailable, e.g. constrained local
      *                      dev); CI always runs the Testcontainers path.
      */
     public static BackendInstance start(String jarPath, String externalDbUrl,
                                         String externalDbUser, String externalDbPassword) throws Exception {
+        return boot(jarPath, externalDbUrl, externalDbUser, externalDbPassword, false);
+    }
+
+    /**
+     * Boots with the prod-shaped schema path: <b>Flyway runs the migrations</b> against a
+     * fresh database and Hibernate only <code>validate</code>s the result. Used to prove
+     * the baseline (<code>V1__baseline.sql</code>) matches the entity model on PostgreSQL.
+     * Requires the PostgreSQL path — the baseline script is PostgreSQL-specific.
+     */
+    public static BackendInstance startMigrating(String jarPath, String externalDbUrl,
+                                                 String externalDbUser, String externalDbPassword) throws Exception {
+        return boot(jarPath, externalDbUrl, externalDbUser, externalDbPassword, true);
+    }
+
+    private static BackendInstance boot(String jarPath, String externalDbUrl,
+                                        String externalDbUser, String externalDbPassword,
+                                        boolean migrateSchema) throws Exception {
         Path jar = Path.of(jarPath);
         if (!Files.isRegularFile(jar) || !Files.isReadable(jar)) {
             throw new IllegalStateException(
                     "Runnable service JAR not found at " + jarPath + ".\n"
                             + "Build it first (from tabletopserv/) with: ./mvnw -pl tabletopservice -am package");
         }
-        BackendInstance instance = new BackendInstance(jar, externalDbUrl, externalDbUser, externalDbPassword);
+        BackendInstance instance = new BackendInstance(jar, externalDbUrl, externalDbUser,
+                externalDbPassword, migrateSchema);
         instance.boot();
         return instance;
     }
@@ -132,7 +157,13 @@ public final class BackendInstance implements AutoCloseable {
             env.put("SPRING_DATASOURCE_USERNAME", externalDbUser == null ? "sa" : externalDbUser);
             env.put("SPRING_DATASOURCE_PASSWORD", externalDbPassword == null ? "" : externalDbPassword);
         }
-        env.put("SPRING_JPA_HIBERNATE_DDL_AUTO", "create-drop");
+        if (migrateSchema) {
+            env.put("SPRING_FLYWAY_ENABLED", "true");
+            env.put("SPRING_JPA_HIBERNATE_DDL_AUTO", "validate");
+        } else {
+            env.put("SPRING_FLYWAY_ENABLED", "false");
+            env.put("SPRING_JPA_HIBERNATE_DDL_AUTO", "create-drop");
+        }
         env.put("SPRING_SQL_INIT_MODE", "never");
         env.put("TABLETOPSERV_GATEWAY_URL", gateway.baseUrl());
         env.put("TABLETOPSERV_GATEWAY_TOKEN", FixtureGateway.TOKEN);
@@ -185,7 +216,7 @@ public final class BackendInstance implements AutoCloseable {
                         + "--- child log (tail) ---\n" + tailLog(200));
     }
 
-    private boolean isHealthy() {
+    public boolean isHealthy() {
         try {
             HttpRequest request = HttpRequest.newBuilder(URI.create(baseUrl + "/actuator/health"))
                     .timeout(Duration.ofSeconds(3))

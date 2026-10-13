@@ -27,7 +27,8 @@ Three independent apps at the repo root inside their own directories. There is *
 npm run dev                 # Vite dev server
 npm run build               # production build
 npm run lint                # oxlint (NOT eslint)
-npm run test                # Vitest (no watch; use `npm run test:watch` for watch mode)
+npm run test                # Vitest unit tests (no watch; use `npm run test:watch` for watch mode)
+npm run test:e2e            # Playwright functional/E2E (starts the Vite dev server)
 
 # Gateway (runs from tabletopgateway/)
 npm run dev                 # nodemon/node --watch dev server on GATEWAY_PORT (default 3001)
@@ -50,7 +51,7 @@ npm run lint                # oxlint
 
 ## Frontend gotchas
 
-- Tests run under Vitest + jsdom with `globals: true` (required for `@testing-library/react` auto-cleanup) and `setupFiles: ./src/setupTests.js` (jest-dom). Tests only work on Node ≥ 24: `source ~/.nvm/nvm.sh && nvm use 24`.
+- Unit tests run under Vitest + jsdom with `globals: true` (required for `@testing-library/react` auto-cleanup) and `setupFiles: ./src/setupTests.js` (jest-dom); Vitest excludes `e2e/**`. Functional/E2E lives in Playwright under `tabletopweb/e2e/` (`npm run test:e2e`, Chromium installed with `npx playwright install chromium`; CI installs it with `--with-deps`). Tests only work on Node ≥ 24: `source ~/.nvm/nvm.sh && nvm use 24`.
 
 ## Gateway gotchas
 
@@ -64,7 +65,7 @@ npm run lint                # oxlint
 - **Ports/binds:** the backend prod profile reads `server.port=${PORT:8080}` and a Postgres JDBC URL built from `PGHOST`/`PGPORT`/`PGDATABASE`/`PGUSER`/`PGPASSWORD` (`application-prod.properties`). The gateway's `resolveListenConfig()` binds `PORT` → `GATEWAY_PORT` → 3001 and uses `0.0.0.0` when a container `PORT` is present (loopback stays the dev default). The web nginx image renders `listen ${PORT}` via the official envsubst entrypoint.
 - **Priv network:** services reference each other as `<service>.railway.internal`; the gateway gets **no public domain**. Backend needs `GATEWAY_URL=http://gateway.railway.internal` and `GATEWAY_TOKEN` echoed in the gateway's own env. CORS: set `CORS_ALLOWED_ORIGINS` on the backend to the web service's public URL (currently `https://gamenight.bond,https://www.gamenight.bond,https://web-production-74bb0.up.railway.app`).
 - **Build-time var:** web `VITE_API_URL` is baked at build — change the dashboard var and **redeploy** the web service. Recent deploys: with `railway up` the local working tree builds; the dashboard var must be set before the build.
-- **Secrets:** per-service dashboard vars; `.railway/railway.ts` marks them `preserve()` so `railway config apply` never overwrites. `ddl-auto` is `validate` in prod — schema migrations (Flyway) are a planned Stage 5 step; until then, no DDL changes may run against a Railway Postgres that has drifted.
+- **Secrets:** per-service dashboard vars; `.railway/railway.ts` marks them `preserve()` so `railway config apply` never overwrites. `ddl-auto` is `validate` in prod; **Flyway owns the prod schema** (Slice 0 landed: `V1__baseline.sql`, `baseline-on-migrate=true` at V1). Add forward changes as new `V<n>__*.sql` under `tabletopservice/src/main/resources/db/migration` — never edit an applied migration. Dev/H2 and the functional ITs stay Hibernate-managed (`spring.flyway.enabled=false`, set in `application.properties`).
 - Run the IaC SDK commands from the repo root with Node 24: `npx railway@latest login/link/config plan/config apply` (the root `package.json` pins the `railway` devDependency). `railway config plan` is safe; `config apply` creates the scaffolded resources and needs explicit user go-ahead.
 
 ## Versioning & releases
@@ -75,9 +76,9 @@ npm run lint                # oxlint
 
 ## CI
 
-- `.github/workflows/node.js.yml` — builds/tests the frontend on push/PR to `develop` (Node 24, `setup-node` caches via `cache-dependency-path: tabletopweb/package-lock.json`, runs in `tabletopweb/`). The frontend pins Node 24 (`tabletopweb/.nvmrc`, `engines >= 24`).
-- `.github/workflows/gateway.yml` — builds/tests the gateway on push/PR to `develop` (Node 24, runs in `tabletopgateway/`).
-- `.github/workflows/maven.yml` — builds/tests the backend reactor with `./mvnw test` on push/PR to `develop` (JDK 21, runs in `tabletopserv/`).
+- `.github/workflows/node.js.yml` — builds/tests the frontend on push to `develop` and on **every** `pull_request` (no base-branch filter, so stacked PRs are covered too) — two jobs: `build` (lint + prod build + Vitest) and `e2e` (installs Chromium `--with-deps`, runs Playwright, uploads the report). Node 24, `setup-node` caches via `cache-dependency-path: tabletopweb/package-lock.json`, runs in `tabletopweb/`. The frontend pins Node 24 (`tabletopweb/.nvmrc`, `engines >= 24`).
+- `.github/workflows/gateway.yml` — builds/tests the gateway on push to `develop` and on **every** `pull_request` (no base-branch filter, so stacked PRs are covered) (Node 24, runs in `tabletopgateway/`).
+- `.github/workflows/maven.yml` — builds/tests the backend reactor with `./mvnw test` on push to `develop` and on **every** `pull_request` (no base-branch filter, so stacked PRs are covered) (JDK 21, runs in `tabletopserv/`).
 - `.github/workflows/maven-publish.yml` — builds and deploys the runnable backend to GitHub Packages on releases (JDK 21, `./mvnw -pl tabletopservice -am deploy`); needs a valid GH token and relies on the `distributionManagement` block in the pom.
 
 ## Contribution workflow (per Wants.md)
@@ -92,7 +93,10 @@ npm run lint                # oxlint
 ## Testing policy
 
 - Every plan and every code change ships with unit tests and keeps **line coverage ≥ 90%** on the `tabletopservice` module (jacoco `check` gate bound to the `test` phase in `tabletopserv/tabletopservice/pom.xml` fails the build below that threshold). Backend tests run with `./mvnw test` from `tabletopserv/`.
+- **Coverage targets (policy, going forward):** all code is covered by **≥ 80% functional tests** *and* **≥ 90% unit tests**. The 90% unit target is the enforced `tabletopservice` jacoco gate; the 80% functional target is a **PR/review guardrail** over the `*IT` journey suites (the packaged-JAR functional run), i.e. a change that adds behaviour must add functional coverage for it until/unless the functional run grows its own enforced gate.
 - **Functional/E2E** (`tabletopfunctionaltest/`, §18): `*IT` journey suites run via failsafe at **`./mvnw verify`** only; `./mvnw test` stays unit-only. `verify` needs Docker for the Testcontainers Postgres; use `-Dtabletopserv.functional.db-url=jdbc:h2:mem:...` when Docker is unavailable. CI runs `./mvnw -B verify` on every push/PR to `develop`.
+- **Run the functional suite before every commit/push:** `./mvnw verify` must pass **before** committing or pushing any change (never commit/push on a unit-only green run). When Docker is unavailable, use the H2 escape hatch (`./mvnw verify -Dtabletopserv.functional.db-url=jdbc:h2:mem:ft`); Postgres-only suites do **not** skip — `FlywayMigrationIT` falls back to a rootless embedded Postgres binary (`io.zonky.test:embedded-postgres`, no Docker/sudo), so the baseline is still validated locally. CI remains the backstop, but the local run is required first.
+- **Frontend (Vite app) functional/E2E — same rule, Playwright:** the `tabletopweb/` app follows the same guardrails as the backend, with the functional/E2E layer in **Playwright** (the unit layer stays Vitest): **≥ 90% unit / ≥ 80% functional** coverage targets, and the **Playwright suite must pass before every commit/push** that touches the web app (mirroring `./mvnw verify`). Playwright is wired up: specs live in `tabletopweb/e2e/` (`*.spec.js`, run with `npm run test:e2e`; the Vite dev server is started automatically) and each spec stubs the backend with `page.route` (no Spring/Postgres needed). Unit specs stay under `src/**` — Vitest excludes `e2e/**` and Playwright is confined to `e2e/`. Any change that adds web behaviour must add Playwright coverage for it.
 
 ## Documentation
 

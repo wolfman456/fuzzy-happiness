@@ -35,7 +35,7 @@ if nothing else.
 
 ## Tech stack
 
-- Frontend: `tabletopweb/` — React 19, Vite 8, plain JSX (oxlint, Vitest), Tailwind CSS v4, react-router, Node 24
+- Frontend: `tabletopweb/` — React 19, Vite 8, plain JSX (oxlint, Vitest unit + Playwright E2E), Tailwind CSS v4, react-router, Node 24
 - Backend: `tabletopserv/` — Spring Boot 4.1.1, Java 21, **multi-module Maven reactor**
   - `tabletopapi` — inbound REST contract only (interfaces + DTOs, `com.gamer.fowever.tabletopapi`)
   - `tabletopservice` — implementations, domain, repos, security, STOMP glue, runnable JAR (`com.gamer.fowever.tabletopservice`)
@@ -220,6 +220,23 @@ backend tests, jacoco gate met. Frontend: `src/lib/monsters.js` (CR/role/edition
   created", the login 403 hint and the dashboard verified/unverified badge are removed.
   Backend tests reworked (auto-verify asserted, login-without-verify covered, token-list
   helpers dropped from the web/IT suites) — `./mvnw test` green, jacoco ≥90%.
+- **Flyway baseline (v2 Slice 0)** — `feature/v2-flyway` (design-draft-v2 §3). The **prod**
+  profile now runs **Flyway 12** (`spring.flyway.enabled=true`, `baseline-on-migrate=true` at
+  V1) and Hibernate only **validates**; `V1__baseline.sql` is the frozen v1 schema captured
+  verbatim from Hibernate 7.4.5.Final's PostgreSQL DDL. Dev/H2 and the functional ITs keep the
+  Hibernate-managed schema. New `FlywayMigrationIT` boots the packaged service on an empty
+  Postgres with `ddl-auto=validate`, proving the baseline matches the entities (a mismatch fails
+  the boot) — Testcontainers in CI, or a rootless embedded Postgres binary when Docker is
+  unavailable. No Java config classes added, so the jacoco ≥90% gate is untouched; forward
+  schema changes ship as new `V{n}__*.sql` migrations.
+- **Frontend E2E scaffold (Playwright)** — `feature/playwright-e2e-scaffold` (design-draft-v2
+  §8). Wires the Vite app's functional/E2E layer alongside its Vitest unit layer:
+  `@playwright/test` + `playwright.config.js` (drives the Vite dev server, Chromium, HTML report
+  + trace-on-first-retry) and `e2e/` specs — auth (redirect-to-login, valid login + session
+  persistence, invalid-credential error, logout) and register (confirmation screen, client-side
+  password policy blocks the request) — each stubbing the backend with `page.route` (no
+  Spring/Postgres needed). Vitest excludes `e2e/**`. New `e2e` CI job installs Chromium
+  (`--with-deps`) and runs `npm run test:e2e`, uploading the report. 6 E2E + 221 unit green.
 
 Next: production deploys (R14 — Railway auto-deploy from GitHub, rootDirectory per service), the
 optional 3D viewport (§17), and the rest of the game table (multi-map, fog of war, turn timers,
