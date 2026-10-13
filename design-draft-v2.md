@@ -53,6 +53,37 @@ Move the app from "a legal-sheet + map session tool" to a **presentable, gameabl
 - **Player 3D tokens scope (decided 2026-09-14):** **all tokens, incl. monster minis**, get
   meshes in v2, viewed third-person (design-v1 §17).
 
+### design-v1 §14 open questions — resolved 2026-10-13
+
+The 11 open questions carried in the **locked** [`design-v1.md`](design-v1.md) §14 were triaged
+with the maintainer. All are now decided; each decision that needs code becomes its own
+`feature/v2-*` slice (see the backlog note below).
+
+| `design-v1.md` §14 question | Decision |
+|---|---|
+| Friends list / permanent groups vs invite codes | **Both** — permanent friends/groups **and** per-session invite codes |
+| Exact D&D 5e sheet fields for v1 | **Use the most current D&D sheet — the 2024 ruleset/sheet** (migration options in [`research/2024-rules-options.md`](research/2024-rules-options.md)) |
+| Room persistence (archived vs ephemeral) | **Creator decides per room** — persistent/archived vs ephemeral |
+| SRD: live proxy vs mirror into our DB | **Mirror** the SRD into our own database (both rulesets if dual-run) |
+| SRD version pinning / when to adopt 2024 | **Undecided → options to be presented**; target 2024 (see the options doc) |
+| SRD multilingual (`?lang=`) | **English only for now** |
+| Expanded classes (R24) data source | **User-facing homebrew class editor** — a friendly form producing the same JSON, with server-side validation before persistence |
+| House-rule d20 (always-on vs per-room) | **Per-room on/off toggle, set by the room creator** |
+| Leveling existing characters | **Yes** — milestone **or** XP, chosen by the room creator |
+| Monster-generation LLM provider | **No LLM** — monsters come from a **random table or the GM's discretion**, *supplementing* (not replacing) the deterministic CR engine |
+| 3D glTF asset source/style | **Deferred to v2** (matches existing R12 deferral) |
+
+**Backlog slices spawned by these decisions** — each its own `feature/v2-*` PR, gated on
+Slice 0 (Flyway) wherever schema is touched:
+
+- 2024 ruleset + sheet migration (see options doc for the recommended shape).
+- Friends list / permanent groups (on top of the existing invite-code sessions).
+- SRD mirror into our own database.
+- Homebrew class editor (JSON form + server-side validation) — satisfies R24.
+- Room toggles: house-rule d20, leveling mode, persistence — all set by the creator.
+- Milestone/XP leveling for existing characters.
+- Monster random-table + GM-discretion entry (supplementing the CR engine).
+
 ## 3. Slice 0 — Foundation: Flyway + migrations
 
 Groundwork every other slice leans on.

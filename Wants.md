@@ -31,7 +31,7 @@ Status key: ✅ landed · 🔨 in progress · ⏭ deferred (post-MVP)
 - As a Player I want to change my username after registering so I can pick a handle that grows with my campaign. (R21) ✅ landed (PR #35)
 - As a Player I want a dragon-themed background on the sign-in/sign-up screens so the entry screen fits the game's fantasy feel. (R22) ✅ landed (PR #35)
 - As a Player I want the character wizard to generate my ability scores using the dice-roll method I chose (server-side rolls for rolled methods) instead of letting me assign any numbers, so my hero is legal. (R23) ✅ landed
-- As a Player I want the class list to include expanded classes beyond the free SRD core (e.g. Artificer) so I can play the class I want. (R24) ⏭ deferred (needs a non-SRD data source / homebrew expansion, design-v1 research)
+- As a Player I want the class list to include expanded classes beyond the free SRD core (e.g. Artificer) so I can play the class I want. (R24) ⏭ deferred → planned **homebrew class editor** (JSON form + server-side validation; design-draft-v2 §2b)
 - As a Player I want my starting equipment to be purchased from my class/background starting gold rather than granted for free, so my kit matches my wealth. (R25) ✅ landed
 - As a Player I want registration not to hard-fail when the verification email can't be sent, so I'm still signed up and can verify through a resent link once the mail server is reachable. (R26) ✅ landed
 - As a Player I want to change my password and edit my profile details (display name, real name) after signing in, so I can keep my account secure and my name accurate. (R27) ✅ landed
@@ -57,6 +57,19 @@ roadmap and §14 decisions will pick each up when a V2 slice is scheduled.
 - As a DM I want to talk with my table inside the app during a session, so I don't need a second voice tool. (R38 VOIP) ⏭ deferred
 - As a Player I want sound effects (dice, hits, crits, turn events), so the table feels alive. (R39) ⏭ deferred
 - As a DM I want ambient/session music I can control, so the mood matches the scene. (R40) ⏭ deferred
+
+### Filed from the design-v1 §14 triage (2026-10-13)
+
+The 11 open questions in the locked `design-v1.md` §14 were resolved with the maintainer; see
+[`design-draft-v2.md`](design-draft-v2.md) §2b and [`research/2024-rules-options.md`](research/2024-rules-options.md).
+
+- As a Player I want a permanent friends list and reusable groups in addition to per-session invite codes, so I can bring the same people together without re-sharing a code every time. (R41) ⏭ deferred
+- As a DM I want to choose whether a room is ephemeral or persistent/archived, so a one-shot cleans up but a campaign survives. (R42) ⏭ deferred
+- As a Player I want the app to serve rules data from its own mirrored database rather than a live third-party lookup, so lookups are fast and don't depend on an upstream during play. (R43) ⏭ deferred
+- As a Player I want to build and play with the most current 2024 rules and character sheet, so my hero matches the latest edition. (R44) ⏭ deferred (options: `research/2024-rules-options.md`)
+- As a DM I want a per-room toggle for house-rule d20 behavior, so my table plays the way we agreed. (R45) ⏭ deferred
+- As a DM I want to pick milestone or XP leveling for my room, so characters advance the way my campaign tracks progress. (R46) ⏭ deferred
+- As a DM I want to generate monsters from a random table or enter them at my discretion, so I'm not limited to the CR calculator. (R47) ⏭ deferred
 
 ## MVP definition (agreed 2026-09-08)
 
