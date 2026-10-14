@@ -169,7 +169,7 @@ blocked on the 3D-asset research and the in-session viewport:
 
 > **Status:** ✅ **2a landed** (`feature/v2-slice-2a-sex-appearance`, R49, PR #104, 2026-10-13);
 > ✅ **2b landed** (`feature/v2-slice-2b-3d-avatar-preview`, R50, PR #105, 2026-10-13);
-> **2c** ⏳ planned (R51).
+> **2c** 🔨 in progress (R51) — data chain + base assets/compositor landed 2026-10-14.
 > 2a ships the full data chain (`Sex` enum, `CharacterAppearance` record, both DTOs, both
 > entities, `V2__character_appearance.sql`), a required-sex **Appearance** wizard step with 2D
 > tint swatches, and sex/tint display on `CharacterSheetPage`. 2b adds the code-split R3F stack +
@@ -210,13 +210,17 @@ blocked on the 3D-asset research and the in-session viewport:
 - **Slice 2c — Modular avatar + portrait/token (revised 2026-10-14, R51).** Re-opens deferred
   R12 (design-v1 §17) **and** the earlier static-GLB build decision. Delivered in shippable PRs
   on `feature/v2-modular-avatar`:
-  1. **Data chain** — extend `CharacterAppearance` with an optional `hairStyle` slug (validated
-     server-side). It rides the existing free-form `appearance` JSON column, so **no Flyway
-     migration** is needed.
-  2. **Assets + compositor** — one rigged **CC0 base per sex** with named sockets
-     (`socket_ears|horns|tusks|tail|hair`) plus race-feature and hair **part** GLBs;
-     `resolveAvatar()` + socket attachment in `AvatarCanvas`. The 2D swatch stays the fallback
-     until assets land.
+  1. **Data chain** — ✅ **landed** (`feature/v2-modular-avatar`, PR #112, 2026-10-14): optional
+     `hairStyle` slug on `CharacterAppearance` (validated server-side). It rides the existing
+     free-form `appearance` JSON column, so **no Flyway migration** is needed.
+  2. **Assets + compositor** — ✅ **landed** (`feature/v2-avatar-assets`, 2026-10-14): one shared,
+     **scripted** CC0 **base body per sex** (`public/models/avatars/base-{M,F}.glb`) with named
+     sockets (`socket_ears|horns|tusks|tail|hair`); `resolveAvatar()` (base + per-race `scale` +
+     socket-placed parts) and socket attachment in `AvatarCanvas`. The bases are generated
+     reproducibly by **`tools/avatar-gen/`** (Blender + the MPFB2 extension over MakeHuman's CC0
+     base mesh — see that directory's README). Race-feature/hair **parts** are authored next;
+     `RACE_PRESETS.parts` stays empty until they exist so a missing asset can never trip the
+     fallback. The 2D swatch stays the fallback (no WebGL / jsdom).
   3. **Wizard creator** — the Appearance step gains a hair-style picker; race features
      auto-apply from the chosen race; skin/hair tints stay.
   4. **Portrait** — a client-side, config-keyed **cached PNG snapshot** of the same scene renders
@@ -224,7 +228,8 @@ blocked on the 3D-asset research and the in-session viewport:
   5. **Map token** — the 2D map token renders that cached thumbnail instead of the color disc
      (`MapTokenDto` carries `{raceIndex, sex, appearance}`).
   6. **(later) Morphs** — `bodyType`/`buildScale`/`faceShape` morph-target sliders.
-  - Assets remain a manual CC0 curation step (`research/avatar resources.md`).
+   - Assets are **generated in-repo** (`tools/avatar-gen/`, scripted) with the CC0 sourcing notes
+     in `research/avatar resources.md`.
 
 ## 6. Slice 3 — Map builder: tiles + environment items
 

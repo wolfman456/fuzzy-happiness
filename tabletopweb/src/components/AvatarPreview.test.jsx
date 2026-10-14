@@ -1,27 +1,29 @@
 import { render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import AvatarPreview, { AvatarErrorBoundary, AvatarSwatch } from './AvatarPreview'
-import { AVATAR_MODELS } from '../lib/avatars'
+import { supportsWebGL } from '../lib/avatars'
 
 vi.mock('./AvatarCanvas', () => ({
   default: () => <div data-testid="avatar-canvas" />,
 }))
 
-describe('AvatarPreview', () => {
-  afterEach(() => {
-    delete AVATAR_MODELS['dwarf-M']
-  })
+vi.mock('../lib/avatars', async (importOriginal) => {
+  const actual = await importOriginal()
+  return { ...actual, supportsWebGL: vi.fn(() => true) }
+})
 
-  it('falls back to the 2D swatch when no model is registered', () => {
-    render(
-      <AvatarPreview raceIndex="dwarf" sex="MALE" appearance={{ skinTone: 10, hairTone: 20 }} />,
-    )
+afterEach(() => {
+  supportsWebGL.mockReturnValue(true)
+})
+
+describe('AvatarPreview', () => {
+  it('falls back to the 2D swatch when sex is unset', () => {
+    render(<AvatarPreview raceIndex="dwarf" sex="" appearance={{ skinTone: 10, hairTone: 20 }} />)
     expect(screen.getByTestId('appearance-swatch')).toBeInTheDocument()
     expect(screen.queryByTestId('avatar-canvas')).not.toBeInTheDocument()
   })
 
-  it('renders the code-split canvas once a model is registered', async () => {
-    AVATAR_MODELS['dwarf-M'] = '/models/avatars/dwarf-M.glb'
+  it('renders the code-split canvas for a valid sex', async () => {
     render(
       <AvatarPreview
         raceIndex="dwarf"
@@ -33,9 +35,11 @@ describe('AvatarPreview', () => {
     expect(await screen.findByTestId('avatar-canvas')).toBeInTheDocument()
   })
 
-  it('falls back when race or sex is unset', () => {
-    render(<AvatarPreview raceIndex="" sex="" appearance={null} />)
+  it('falls back to the swatch when WebGL is unavailable', () => {
+    supportsWebGL.mockReturnValue(false)
+    render(<AvatarPreview raceIndex="dwarf" sex="MALE" appearance={null} />)
     expect(screen.getByTestId('appearance-swatch')).toBeInTheDocument()
+    expect(screen.queryByTestId('avatar-canvas')).not.toBeInTheDocument()
   })
 })
 

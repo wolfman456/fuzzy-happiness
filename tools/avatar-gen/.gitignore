@@ -1,0 +1,5 @@
+# Downloaded toolchain + build scratch space. Never committed.
+.cache/
+*.zip
+*.tar.xz
+out/

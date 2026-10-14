@@ -257,6 +257,17 @@ backend tests, jacoco gate met. Frontend: `src/lib/monsters.js` (CR/role/edition
   **Appearance** step and the `CharacterSheetPage` portrait. No binaries ship — the CC0 models are
   a manual curation step (`research/avatar resources.md`, mirroring maps). 260 frontend unit + 9
   Playwright green, oxlint + build clean.
+- **Slice 2c (part) — modular avatar base assets + compositor** — `feature/v2-avatar-assets`
+  (design-draft-v2 §5). Supersedes the per-race×sex GLB plan with **one shared CC0 base body per
+  sex** (`public/models/avatars/base-{M,F}.glb`), generated **headlessly and reproducibly** by
+  `tools/avatar-gen/` (Blender + the MPFB2 extension over MakeHuman's CC0 base mesh: game-engine
+  skeleton, a single tintable `Skin` material, and named attachment sockets
+  `socket_ears|horns|tusks|tail|hair`). `lib/avatars.js` exposes `resolveAvatar()` (base + per-race
+  `scale` + socket-placed parts) and `attachToSocket()`; `AvatarCanvas` composes the base with any
+  registered parts and keeps the `Skin`/`Hair` tinting. A `supportsWebGL()` capability gate keeps
+  the 2D swatch as the fallback (jsdom tests, WebGL-off browsers). Race-feature/hair **parts** are
+  authored in the next increment — `RACE_PRESETS.parts` stays empty until they exist so a missing
+  asset can never trip the fallback. 295 frontend unit + 15 Playwright green, oxlint + build clean.
 - **In-app release notes page (R52)** — `feature/release-notes-page` (design-draft-v2 §10). A
   signed-in `/releases` page (nav drawer + route) lists every update, newest first, and links to
   the project's GitHub issue tracker. The data is **bundled from `RELEASES.md`**:
@@ -279,9 +290,9 @@ backend tests, jacoco gate met. Frontend: `src/lib/monsters.js` (CR/role/edition
   `/login?oauthError=…`. Covered by unit, integrated (dummy Google registration), functional,
   Vitest and Playwright tests; real provider logins aren't exercised in CI (no creds).
 
-Next: avatar consumption (Slice 2c: in-session 3D token, §17) and the rest of the game table
-(multi-map, fog of war, turn timers, conditions). The out-of-MVP list lives in
-[Wants.md](Wants.md).
+Next: the avatar creator's hair-style picker + race-feature parts, then the portrait snapshot and
+the map token (Slice 2c), and the rest of the game table (multi-map, fog of war, turn timers,
+conditions). The out-of-MVP list lives in [Wants.md](Wants.md).
 
 ## Deployment (Railway)
 

@@ -62,9 +62,8 @@ test.describe('character wizard labeling & race facts', () => {
 
     const swatch = page.getByTestId('appearance-swatch')
     await expect(swatch).toBeVisible()
-    await expect(swatch).toHaveCSS('background-color', 'rgb(199, 168, 107)')
     await expect(page.getByTestId('appearance-hair-swatch')).toBeVisible()
-    // No curated GLB is registered yet, so no WebGL canvas is mounted.
-    await expect(page.locator('canvas')).toHaveCount(0)
+    // A shared CC0 base body exists, so the preview mounts a WebGL canvas.
+    await expect(swatch.locator('canvas')).toHaveCount(1)
   })
 })
