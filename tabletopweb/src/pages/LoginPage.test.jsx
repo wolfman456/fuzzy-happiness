@@ -1,14 +1,14 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError } from '../lib/api'
 import { AuthContext } from '../auth/authContext'
 import LoginPage from './LoginPage'
 
-function renderLogin(value) {
+function renderLogin(value, initialEntry = '/login') {
   return render(
     <AuthContext.Provider value={value}>
-      <MemoryRouter initialEntries={['/login']}>
+      <MemoryRouter initialEntries={[initialEntry]}>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/" element={<div>home</div>} />
@@ -23,10 +23,23 @@ const baseValue = {
   loading: false,
   isAuthenticated: false,
   login: vi.fn(),
+  loginWithToken: vi.fn(),
   register: vi.fn(),
   logout: vi.fn(),
   refreshMe: vi.fn(),
 }
+
+beforeEach(() => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+    status: 200,
+    ok: true,
+    text: () => Promise.resolve('[]'),
+  }))
+})
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
 
 describe('LoginPage', () => {
   it('logs in with identifier and password then navigates home', async () => {
@@ -56,5 +69,10 @@ describe('LoginPage', () => {
   it('redirects to home when already authenticated', () => {
     renderLogin({ ...baseValue, isAuthenticated: true, user: { username: 'aria' } })
     expect(screen.getByText('home')).toBeInTheDocument()
+  })
+
+  it('surfaces a social-login failure from the query string', () => {
+    renderLogin(baseValue, '/login?oauthError=social_login_failed&oauthMessage=Email%20already%20linked')
+    expect(screen.getByRole('alert')).toHaveTextContent('Email already linked')
   })
 })

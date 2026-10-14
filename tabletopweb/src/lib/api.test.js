@@ -4,6 +4,7 @@ import {
   ApiError,
   changePassword,
   createSession,
+  fetchProviders,
   getSession,
   joinSession,
   leaveSession,
@@ -116,6 +117,13 @@ describe('api', () => {
     mockFetch(200, [{ slug: 'dnd-5e', displayName: 'D&D 5e' }])
     await expect(listGames()).resolves.toEqual([{ slug: 'dnd-5e', displayName: 'D&D 5e' }])
     expect(fetch.mock.calls[0][0]).toBe(`${BASE}/api/games`)
+  })
+
+  it('fetchProviders GETs /api/auth/providers', async () => {
+    mockFetch(200, [{ id: 'google', label: 'Google', authorizationPath: '/oauth2/authorization/google' }])
+    const providers = await fetchProviders()
+    expect(providers).toHaveLength(1)
+    expect(fetch.mock.calls[0][0]).toBe(`${BASE}/api/auth/providers`)
   })
 
   it('createSession POSTs a name and game slug', async () => {

@@ -47,6 +47,13 @@ export function mockMe(page, user = E2E_USER) {
   return page.route('**/api/users/me', (route) => route.fulfill(jsonResponse(200, user)))
 }
 
+export function mockProviders(page, providers = [
+  { id: 'google', label: 'Google', authorizationPath: '/oauth2/authorization/google' },
+  { id: 'github', label: 'GitHub', authorizationPath: '/oauth2/authorization/github' },
+]) {
+  return page.route('**/api/auth/providers', (route) => route.fulfill(jsonResponse(200, providers)))
+}
+
 const SRD_LISTS = {
   races: [{ index: 'dwarf', name: 'Dwarf' }],
   classes: [{ index: 'cleric', name: 'Cleric' }],

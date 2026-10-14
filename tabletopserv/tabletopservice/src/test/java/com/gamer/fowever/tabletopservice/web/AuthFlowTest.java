@@ -159,6 +159,14 @@ class AuthFlowTest {
     }
 
     @Test
+    void providersEndpointIsPublicAndEmptyWithoutConfiguration() throws Exception {
+        mvc.perform(get("/api/auth/providers"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$").isEmpty());
+    }
+
+    @Test
     void userCanChangeOwnUsername() throws Exception {
         mvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON).content(REGISTER_BODY))

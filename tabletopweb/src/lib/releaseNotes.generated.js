@@ -5,7 +5,7 @@ export const RELEASE_NOTES = [
   {
     "version": "1.3.0",
     "date": null,
-    "notes": "Current `develop` (`1.3.0-SNAPSHOT`)."
+    "notes": "Current `develop` (`1.3.0-SNAPSHOT`): the in-app release notes page (R52, design-draft-v2 §10) and social OAuth login (R19, design-draft-v2 §11)."
   },
   {
     "version": "1.2.0",

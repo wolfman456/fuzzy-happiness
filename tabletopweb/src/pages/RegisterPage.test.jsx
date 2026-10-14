@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError } from '../lib/api'
 import { AuthContext } from '../auth/authContext'
 import RegisterPage from './RegisterPage'
@@ -37,6 +37,18 @@ function fillValidForm() {
   fireEvent.change(screen.getByLabelText(/^Password/i), { target: { value: 'Password1!' } })
   fireEvent.change(screen.getByLabelText(/confirm password/i), { target: { value: 'Password1!' } })
 }
+
+beforeEach(() => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+    status: 200,
+    ok: true,
+    text: () => Promise.resolve('[]'),
+  }))
+})
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
 
 describe('RegisterPage', () => {
   it('registers a valid profile and shows the welcome prompt', async () => {

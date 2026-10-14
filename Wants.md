@@ -26,7 +26,7 @@ Status key: ✅ landed · 🔨 in progress · ⏳ planned (scheduled v2 slice, n
 - As a Player I want to confirm my password twice on registration so typos don't lock me out. (R16) ✅ landed
 - As a Player I want to supply my real name separately from my username and display name so I can be addressed properly without exposing my account handle. (R17) ✅ landed
 - As a Player I want my personal details (email, names, date of birth) encrypted at rest so a database leak doesn't expose my identity. (R18) ✅ landed
-- As a Player I want to sign in with my Google, Facebook or GitHub account so I can start playing without yet another password. (R19) 🔨 in progress
+- As a Player I want to sign in with my Google, Facebook or GitHub account so I can start playing without yet another password. (R19) ✅ landed (design-draft-v2 §11)
 - As an admin I want the production database seeded with a bootstrap administrator so I can administer the platform from day one. (R20) ✅ landed
 - As a Player I want to change my username after registering so I can pick a handle that grows with my campaign. (R21) ✅ landed (PR #35)
 - As a Player I want a dragon-themed background on the sign-in/sign-up screens so the entry screen fits the game's fantasy feel. (R22) ✅ landed (PR #35)

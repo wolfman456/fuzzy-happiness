@@ -1,5 +1,6 @@
 package com.gamer.fowever.tabletopapi;
 
+import com.gamer.fowever.tabletopapi.dto.AuthProvider;
 import com.gamer.fowever.tabletopapi.dto.AuthResponse;
 import com.gamer.fowever.tabletopapi.dto.LoginRequest;
 import com.gamer.fowever.tabletopapi.dto.RegisterRequest;
@@ -12,6 +13,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+
+import java.util.List;
 
 @RequestMapping("/api/auth")
 public interface AuthApi {
@@ -27,4 +30,8 @@ public interface AuthApi {
 
     @PostMapping("/resend-verification")
     ResponseEntity<String> resendVerification(@Valid @RequestBody ResendRequest request);
+
+    /** Social-login providers currently configured (empty when no provider credentials are set). */
+    @GetMapping("/providers")
+    List<AuthProvider> providers();
 }
