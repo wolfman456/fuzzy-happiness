@@ -31,6 +31,14 @@ const DWARF = {
   index: 'dwarf',
   name: 'Dwarf',
   ability_bonuses: [{ ability_score: { index: 'con' }, bonus: 2 }],
+  size: 'Medium',
+  size_description: 'Dwarves stand between 4 and 5 feet tall and average about 150 pounds.',
+  age: 'Dwarves mature at the same rate as humans, but live about 350 years.',
+  alignment: 'Most dwarves are lawful, tending toward good.',
+  languages: [
+    { index: 'common', name: 'Common' },
+    { index: 'dwarvish', name: 'Dwarvish' },
+  ],
 }
 
 const CLERIC = {
@@ -715,5 +723,57 @@ describe('CharacterWizardPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Race' }))
     expect(screen.getByLabelText('Character name')).toBeInTheDocument()
     expect(screen.getByRole('status')).toHaveTextContent(/Complete this step before jumping ahead/)
+  })
+
+  it('shows a heading and guidance for the current step', async () => {
+    setupSrd()
+    renderWizard()
+
+    expect(screen.getByRole('heading', { name: 'Name & basics' })).toBeInTheDocument()
+    expect(screen.getByText(/Give your hero a name, choose the level/)).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText('Character name'), { target: { value: 'Tordek' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Ability scores' }))
+
+    expect(screen.getByRole('heading', { name: 'Ability scores' })).toBeInTheDocument()
+    expect(screen.getByText(/Rolled methods are rolled by the server/)).toBeInTheDocument()
+  })
+
+  it('describes the chosen race with the SRD facts', async () => {
+    setupSrd()
+    renderWizard()
+
+    fireEvent.change(screen.getByLabelText('Character name'), { target: { value: 'Tordek' } })
+    chooseStandardArray()
+    fireEvent.click(await screen.findByRole('button', { name: 'Use the standard array (as written)' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Dwarf' }))
+
+    const facts = await screen.findByTestId('race-facts')
+    expect(facts).toHaveTextContent('Medium')
+    expect(facts).toHaveTextContent(/between 4 and 5 feet tall/)
+    expect(facts).toHaveTextContent(/live about 350 years/)
+    expect(facts).toHaveTextContent('Common, Dwarvish')
+  })
+
+  it('hides the race facts block when the SRD race has no descriptive fields', async () => {
+    setupSrd()
+    srdDetail.mockImplementation(async (collection, index) => {
+      if (collection === 'classes' && index === 'cleric') return CLERIC
+      if (collection === 'races' && index === 'dwarf') return { name: 'Dwarf', ability_bonuses: [] }
+      return null
+    })
+    renderWizard()
+
+    fireEvent.change(screen.getByLabelText('Character name'), { target: { value: 'Tordek' } })
+    chooseStandardArray()
+    fireEvent.click(await screen.findByRole('button', { name: 'Use the standard array (as written)' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Dwarf' }))
+
+    await screen.findByText(/Dwarf ability bonuses/)
+    expect(screen.queryByTestId('race-facts')).not.toBeInTheDocument()
   })
 })

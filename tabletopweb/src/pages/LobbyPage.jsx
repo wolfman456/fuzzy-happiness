@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { createSession, joinSession, listGames } from '../lib/api'
+import { Alert, Card, PageHeading } from '../components/ui'
 
 export default function LobbyPage() {
   const navigate = useNavigate()
@@ -52,16 +53,15 @@ export default function LobbyPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-semibold">Game sessions</h1>
+      <PageHeading
+        title="Game sessions"
+        subtitle="Create a room to game master, or join a friend's table with their invite code."
+      />
 
-      {formError && (
-        <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
-          {formError}
-        </p>
-      )}
+      {formError && <Alert tone="error">{formError}</Alert>}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <section className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <Card>
           <h2 className="text-lg font-semibold">Create a session</h2>
           <p className="mt-1 text-sm text-zinc-500">
             Start a new room as the game master.
@@ -105,9 +105,9 @@ export default function LobbyPage() {
               {creating ? 'Creating…' : 'Create session'}
             </button>
           </form>
-        </section>
+        </Card>
 
-        <section className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <Card>
           <h2 className="text-lg font-semibold">Join a session</h2>
           <p className="mt-1 text-sm text-zinc-500">
             Enter the invite code shared by a game master.
@@ -133,7 +133,7 @@ export default function LobbyPage() {
               {joining ? 'Joining…' : 'Join session'}
             </button>
           </form>
-        </section>
+        </Card>
       </div>
     </div>
   )
