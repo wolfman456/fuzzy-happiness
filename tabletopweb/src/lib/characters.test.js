@@ -168,11 +168,11 @@ describe('sheetToDraft', () => {
       level: 1,
       scoreSource: 'STANDARD_ARRAY',
       sex: 'FEMALE',
-      appearance: { skinTone: 120, hairTone: 300 },
+      appearance: { skinTone: 120, hairTone: 300, hairStyle: 'ponytail' },
     })
 
     expect(draft.sex).toBe('FEMALE')
-    expect(draft.appearance).toEqual({ skinTone: 120, hairTone: 300 })
+    expect(draft.appearance).toEqual({ skinTone: 120, hairTone: 300, hairStyle: 'ponytail' })
   })
 
   it('falls back to an empty sex and default tints for legacy sheets', () => {

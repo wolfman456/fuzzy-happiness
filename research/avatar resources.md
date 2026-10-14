@@ -9,6 +9,14 @@ curation step**. This doc records where to source them and under what licences.
 Mirrors `research/maps resources.md`: downloads are a manual curation step when we actually
 need the assets.
 
+> **Revised 2026-10-14 (Slice 2c):** the avatar is now **modular/parametric** — one rigged
+> **CC0 base per sex** (MakeHuman-derived, authored in Blender) with named sockets
+> (`socket_ears|horns|tusks|tail|hair`), plus swappable **race-feature parts** (ears/horns/
+> tusks/tail) and a **hair-style** part. The single per-race×sex GLB plan described below is
+> superseded; the base + parts need the same CC0 sourcing treatment. Hosted/AI platforms
+> (Ready Player Me — **shut down 2026-01-31** — Avaturn, Avatar SDK) are ruled out by the
+> **self-hosted + offline + CC0** constraint chosen for the project.
+
 ---
 
 ## What the app expects

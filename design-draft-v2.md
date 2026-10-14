@@ -8,8 +8,9 @@ maintainer approves the slices; the living bug ledger stays in
 **Status:** 🚧 in delivery — v2 vision + slice plan agreed (2026-09-13); Slice 0 Flyway baseline,
 Slice 1 wizard UX, Slice 2a sex + appearance and Slice 2b 3D avatar preview landed (2026-10-13); the in-app release
 notes page (R52, §10) landed (`feature/release-notes-page`, PR #106, 2026-10-14); social OAuth
-login (R19, §11) landed (`feature/social-oauth-login`, 2026-10-14); Slice 2c and
-Slice 3 planned.
+login (R19, §11) landed (`feature/social-oauth-login`, 2026-10-14); Slice 2c re-planned as a
+**modular avatar** (`feature/v2-modular-avatar`, in progress 2026-10-14 — §5) with Slice 3
+planned.
 
 ---
 
@@ -18,9 +19,9 @@ Slice 3 planned.
 Move the app from "a legal-sheet + map session tool" to a **presentable, gameable table**:
 
 1. **Appearance that follows the character.** Character creation produces a 3D avatar drawn
-   from the chosen **race × sex** (binary `MALE`/`FEMALE` only), with cosmetic skin/hair tints.
-   That avatar shows up in the wizard, on the character sheet, and as the player's token in the
-   battle map.
+   from the chosen **race × sex** (binary `MALE`/`FEMALE` only), assembled at runtime from a base
+   mesh + race-feature parts, with cosmetic skin/hair tints and a hair-style choice. That avatar
+   shows up in the wizard, on the character sheet, and as the player's token in the battle map.
 2. **Map creation as a first-class tool.** GMs edit a real map — not just a token grid — by
    painting **tiles** and placing **environment items** (walls, props, terrain) to build the
    encounter space.
@@ -37,8 +38,14 @@ Move the app from "a legal-sheet + map session tool" to a **presentable, gameabl
 - **Schema:** enable **Flyway + migrations** on prod now (design-v1 §13 Stage 5 pulled forward).
   v2 data needs new tables/columns that `ddl-auto=validate` will reject; a baseline + `V2`
   migration is the forward path.
-- **Avatar build:** **curated low-poly GLBs per race×sex** (9 races × 2 sexes = 18 models,
-  free CC0 packs) plus **cosmetic tint sliders** (skin/hair). No parametric body builder in v2.
+- **Avatar build (revised 2026-10-14 — supersedes the earlier static-GLB decision):** a
+  **modular/parametric runtime avatar** — one rigged **CC0 base per sex** (MakeHuman-derived,
+  authored in Blender) with named sockets, plus **swappable race-feature parts**
+  (ears/horns/tusks/tail) and a **hair-style part**, tinted by cosmetic **skin/hair sliders**.
+  Race features are **derived from the race**; the player customizes hair/tints (body-build/face
+  **morph targets** are a later phase). This **re-opens** the v2 "curated GLB per race×sex / no
+  parametric body builder" decision. Hosted/AI avatar platforms (e.g. Ready Player Me, shut down
+  2026-01-31; Avaturn; Avatar SDK) are ruled out by the **self-hosted + offline + CC0** constraint.
 - **Avatar usage:** wizard preview **+** character-sheet portrait **+** in-session 3D token
   (re-opens deferred **R12**, design-v1 §17 blueprint — R3F + drei, WebGL2, OrbitControls,
   server-authoritative state).
@@ -167,7 +174,9 @@ blocked on the 3D-asset research and the in-session viewport:
 > entities, `V2__character_appearance.sql`), a required-sex **Appearance** wizard step with 2D
 > tint swatches, and sex/tint display on `CharacterSheetPage`. 2b adds the code-split R3F stack +
 > an `AvatarPreview` with a race×sex→GLB resolver and 2D-swatch fallback (assets are a manual CC0
-> curation step — see `research/avatar resources.md`).
+> curation step — see `research/avatar resources.md`). **2c was re-planned 2026-10-14** as a
+> modular avatar (base + race-feature parts + hair), superseding the static per-race×sex GLB set
+> — see the revised 2c below.
 
 - **Slice 2a — Sex + appearance field (data chain + wizard step, 2D).** Ships everything except
   the 3D mesh and the in-session viewport.
@@ -198,12 +207,24 @@ blocked on the 3D-asset research and the in-session viewport:
     back to the swatch via an error boundary. Changing race/sex re-resolves the model.
   - **Wizard:** the Appearance step's disc becomes `<AvatarPreview>` (swatch fallback today);
     `CharacterSheetPage` reuses it as the portrait.
-- **Slice 2c — Avatar consumption (portrait + in-session token).** Re-opens deferred R12
-  (design-v1 §17).
-  - Portrait render on `CharacterSheetPage` (3D snapshot or GLB thumbnail).
-  - In-session: a linked player's token renders their avatar GLB instead of the color disc
-    (`MapToken.appearanceRef`), inside a 3D viewport sharing the same server-authoritative
-    `BattleMapDto` state.
+- **Slice 2c — Modular avatar + portrait/token (revised 2026-10-14, R51).** Re-opens deferred
+  R12 (design-v1 §17) **and** the earlier static-GLB build decision. Delivered in shippable PRs
+  on `feature/v2-modular-avatar`:
+  1. **Data chain** — extend `CharacterAppearance` with an optional `hairStyle` slug (validated
+     server-side). It rides the existing free-form `appearance` JSON column, so **no Flyway
+     migration** is needed.
+  2. **Assets + compositor** — one rigged **CC0 base per sex** with named sockets
+     (`socket_ears|horns|tusks|tail|hair`) plus race-feature and hair **part** GLBs;
+     `resolveAvatar()` + socket attachment in `AvatarCanvas`. The 2D swatch stays the fallback
+     until assets land.
+  3. **Wizard creator** — the Appearance step gains a hair-style picker; race features
+     auto-apply from the chosen race; skin/hair tints stay.
+  4. **Portrait** — a client-side, config-keyed **cached PNG snapshot** of the same scene renders
+     the sheet portrait (deterministic, no storage, no migration).
+  5. **Map token** — the 2D map token renders that cached thumbnail instead of the color disc
+     (`MapTokenDto` carries `{raceIndex, sex, appearance}`).
+  6. **(later) Morphs** — `bodyType`/`buildScale`/`faceShape` morph-target sliders.
+  - Assets remain a manual CC0 curation step (`research/avatar resources.md`).
 
 ## 6. Slice 3 — Map builder: tiles + environment items
 
