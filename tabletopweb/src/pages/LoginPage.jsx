@@ -1,15 +1,19 @@
 import { useState } from 'react'
-import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
 import AuthBackground from '../components/AuthBackground'
+import SocialLoginButtons from '../components/SocialLoginButtons'
 
 export default function LoginPage() {
   const { login, isAuthenticated } = useAuth()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState(null)
   const [submitting, setSubmitting] = useState(false)
+
+  const oauthMessage = searchParams.get('oauthMessage')
 
   if (isAuthenticated) {
     return <Navigate to="/" replace />
@@ -35,6 +39,11 @@ export default function LoginPage() {
     <AuthBackground>
       <div className="mx-auto w-full max-w-sm rounded-xl border border-zinc-700 bg-zinc-100 p-8 shadow-xl">
         <h1 className="mb-6 text-2xl font-semibold tracking-tight">Log in</h1>
+        {error || oauthMessage ? (
+          <p role="alert" className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700">
+            {error ?? oauthMessage}
+          </p>
+        ) : null}
         <form onSubmit={handleSubmit} className="space-y-4">
           <label className="block text-sm font-medium" htmlFor="identifier">
             Username or email
@@ -60,11 +69,6 @@ export default function LoginPage() {
               className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-zinc-500"
             />
           </label>
-          {error && (
-            <p role="alert" className="rounded-md bg-red-50 p-3 text-sm text-red-700">
-              {error}
-            </p>
-          )}
           <button
             type="submit"
             disabled={submitting}
@@ -73,6 +77,7 @@ export default function LoginPage() {
             {submitting ? 'Logging in…' : 'Log in'}
           </button>
         </form>
+        <SocialLoginButtons />
         <p className="mt-4 text-sm text-zinc-600">
           No account yet?{' '}
           <Link to="/register" className="text-zinc-900 underline">

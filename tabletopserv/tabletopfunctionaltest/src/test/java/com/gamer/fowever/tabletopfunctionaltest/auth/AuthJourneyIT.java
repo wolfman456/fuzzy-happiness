@@ -98,6 +98,15 @@ class AuthJourneyIT extends FunctionalTestBase {
     }
 
     @Test
+    void providersEndpointIsPublicAndEmptyWithoutConfiguration() {
+        Api.Response providers = Api.get(baseUrl() + "/api/auth/providers", null);
+        Api.requireStatus(providers, 200, "social providers list");
+        JsonNode body = Api.json(providers.body());
+        assertThat(body.isArray()).as("providers response is a JSON array").isTrue();
+        assertThat(body.size()).as("no providers configured in the functional run").isZero();
+    }
+
+    @Test
     void userCanChangeOwnUsername() throws Exception {
         String username = "itarename";
         Api.requireStatus(Api.post(baseUrl() + "/api/auth/register", null,

@@ -13,6 +13,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     Optional<User> findByUsernameIgnoreCaseOrEmailKey(String username, String emailKey);
 
+    Optional<User> findByOauthProviderAndOauthSubject(String oauthProvider, String oauthSubject);
+
     boolean existsByUsernameIgnoreCase(String username);
 
     boolean existsByEmailKey(String emailKey);

@@ -265,6 +265,19 @@ backend tests, jacoco gate met. Frontend: `src/lib/monsters.js` (CR/role/edition
   (`npm run gen:release-notes`; `npm run check:release-notes` guards drift). Each dated release
   links to its GitHub tag; an undated entry renders as "In development". Static data — no API or
   gateway surface.
+- **Social OAuth login (R19)** — `feature/social-oauth-login` (design-draft-v2 §11). Optional
+  **Google / GitHub / Facebook** sign-in alongside passwords, **opt-in and disabled by default**:
+  Spring Security's OAuth2 client registers a provider only when its client id (+ secret) is set
+  (`GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`, …), so with no creds the app stays password-only.
+  `SocialLoginService` resolves a validated profile link-or-create (reuse the `(oauth_provider,
+  oauth_subject)` row; else link by email only when the provider vouches it verified — Google
+  `email_verified`, Facebook always, GitHub never; else create a `USER` with no DOB and an
+  unusable random hash). Forward migration `V3__oauth_login.sql` adds the nullable identity
+  columns + unique `(oauth_provider, oauth_subject)` and drops `date_of_birth NOT NULL`. New
+  public `GET /api/auth/providers` lists configured providers; the SPA renders "Continue with …"
+  buttons and adopts the token from the `/oauth/callback` URL fragment, with failures bounced to
+  `/login?oauthError=…`. Covered by unit, integrated (dummy Google registration), functional,
+  Vitest and Playwright tests; real provider logins aren't exercised in CI (no creds).
 
 Next: avatar consumption (Slice 2c: in-session 3D token, §17) and the rest of the game table
 (multi-map, fog of war, turn timers, conditions). The out-of-MVP list lives in
@@ -301,7 +314,9 @@ never clobbers them.
   `PGPORT` `PGDATABASE` `PGUSER` `PGPASSWORD` (referenced from the Postgres service).
   `SMTP_HOST` `SMTP_PORT` `SMTP_USER` `SMTP_PASSWORD` are **optional today** — email
   verification is disabled (registrations auto-verify), so they're only needed when
-  verification is re-enabled (§19).
+  verification is re-enabled (§19). Social login is **opt-in**: set
+  `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` (and/or `GITHUB_CLIENT_ID`/`GITHUB_CLIENT_SECRET`)
+  to expose that provider — leave them unset to keep the app password-only (design-draft-v2 §11).
 - **gateway:** `GATEWAY_TOKEN` (same value as backend).
 - **web:** `VITE_API_URL` (backend public URL) — read at **build time**, so change it and
   redeploy.

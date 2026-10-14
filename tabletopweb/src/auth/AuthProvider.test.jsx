@@ -6,13 +6,16 @@ import { useAuth } from './useAuth'
 const BASE = 'http://localhost:8080'
 
 function Probe() {
-  const { user, loading, login, logout, refreshMe } = useAuth()
+  const { user, loading, login, loginWithToken, logout, refreshMe } = useAuth()
   return (
     <div>
       <span data-testid="loading">{String(loading)}</span>
       <span data-testid="user">{user ? user.username : 'none'}</span>
       <button type="button" onClick={() => login({ identifier: 'aria', password: 'Password1!' })}>
         login
+      </button>
+      <button type="button" onClick={() => loginWithToken('jwt-oauth').catch(() => {})}>
+        loginWithToken
       </button>
       <button type="button" onClick={refreshMe}>
         refresh
@@ -89,6 +92,36 @@ describe('AuthProvider', () => {
     await screen.findByText('sam')
     expect(JSON.parse(localStorage.getItem('tt.auth'))).toMatchObject({ token: 'jwt-new' })
     expect(fetch.mock.calls[0][1].body).toBe(JSON.stringify({ identifier: 'aria', password: 'Password1!' }))
+  })
+
+  it('adopts a social-login token by fetching the user', async () => {
+    mockFetchOnce(200, { id: 3, username: 'ghost', displayName: 'Ghost', email: 'g@e.com', role: 'USER', emailVerified: true })
+
+    render(
+      <AuthProvider>
+        <Probe />
+      </AuthProvider>,
+    )
+
+    fireEvent.click(screen.getByText('loginWithToken'))
+    await screen.findByText('ghost')
+    expect(JSON.parse(localStorage.getItem('tt.auth'))).toMatchObject({ token: 'jwt-oauth' })
+    expect(fetch.mock.calls[0][0]).toBe(`${BASE}/api/users/me`)
+    expect(fetch.mock.calls[0][1].headers.Authorization).toBe('Bearer jwt-oauth')
+  })
+
+  it('rejects an invalid social-login token and keeps the session empty', async () => {
+    mockFetchOnce(401, { status: 401, message: 'Authentication required' })
+
+    render(
+      <AuthProvider>
+        <Probe />
+      </AuthProvider>,
+    )
+
+    fireEvent.click(screen.getByText('loginWithToken'))
+    await waitFor(() => expect(localStorage.getItem('tt.auth')).toBeNull())
+    expect(screen.getByTestId('user').textContent).toBe('none')
   })
 
   it('refreshMe persists a refreshed user to the stored session', async () => {

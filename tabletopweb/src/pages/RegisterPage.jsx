@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
 import AuthBackground from '../components/AuthBackground'
+import SocialLoginButtons from '../components/SocialLoginButtons'
 import { isAdult } from '../lib/age'
 
 const PASSWORD_PATTERN = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/
@@ -176,6 +177,7 @@ export default function RegisterPage() {
             {submitting ? 'Creating account…' : 'Create account'}
           </button>
         </form>
+        <SocialLoginButtons />
         <p className="mt-4 text-sm text-zinc-600">
           Already have an account?{' '}
           <Link to="/login" className="text-zinc-900 underline">
