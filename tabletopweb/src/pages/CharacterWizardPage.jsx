@@ -25,6 +25,8 @@ import {
   subclassLevel,
 } from '../lib/srd'
 import { Alert, PageHeading } from '../components/ui'
+import AvatarPreview from '../components/AvatarPreview'
+import { hueCss } from '../lib/avatars'
 
 const STEPS = [
   'Basics',
@@ -137,12 +139,6 @@ function scoreRangeFor(scoreSource) {
 
 function plainSkill(index) {
   return index.startsWith('skill-') ? index.slice('skill-'.length) : index
-}
-
-/** CSS colour for a hue slider value; a null hue falls back to the default tint. */
-function hueCss(hue, fallback) {
-  const value = Number.isInteger(hue) ? hue : fallback
-  return `hsl(${value} 45% 60%)`
 }
 
 function initialDraft() {
@@ -896,10 +892,11 @@ export default function CharacterWizardPage() {
             </fieldset>
 
             <div className="flex items-center gap-4">
-              <div
-                data-testid="appearance-swatch"
-                className="h-16 w-16 shrink-0 rounded-full border border-zinc-300"
-                style={{ backgroundColor: hueCss(draft.appearance?.skinTone, DEFAULT_APPEARANCE.skinTone) }}
+              <AvatarPreview
+                raceIndex={draft.raceIndex}
+                sex={draft.sex}
+                appearance={draft.appearance}
+                size={64}
               />
               <div className="flex-1 space-y-3">
                 <label className="block">

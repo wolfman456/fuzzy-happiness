@@ -110,3 +110,39 @@ export function mockSrd(page, { lists = {}, details = {} } = {}) {
 export function mockChargenCatalog(page, catalog = { backgrounds: [], subclasses: [] }) {
   return page.route('**/api/characters/catalog', (route) => route.fulfill(jsonResponse(200, catalog)))
 }
+
+export const E2E_CHARACTER = {
+  id: 7,
+  name: 'Tordek',
+  level: 3,
+  scoreSource: 'STANDARD_ARRAY',
+  sex: 'FEMALE',
+  appearance: { skinTone: 120, hairTone: 300 },
+  raceIndex: 'dwarf',
+  classIndex: 'cleric',
+  subclassIndex: 'life',
+  backgroundIndex: 'acolyte',
+  strength: 15,
+  dexterity: 14,
+  constitution: 13,
+  intelligence: 12,
+  wisdom: 10,
+  charisma: 8,
+  proficiencyBonus: 2,
+  hitPoints: 22,
+  armorClass: 16,
+  speedFeet: 25,
+  savingThrows: ['wis', 'cha'],
+  classSkills: ['medicine', 'religion'],
+  backgroundSkills: [],
+  skillPicks: ['medicine', 'religion'],
+  spellIndexes: ['sacred-flame', 'bless'],
+  featureIndexes: ['spellcasting', 'disciple-of-life', 'darkvision'],
+  equipmentIndexes: ['leather-armor', 'shield'],
+}
+
+export function mockCharacter(page, character = E2E_CHARACTER) {
+  return page.route(`**/api/users/me/characters/${character.id}`, (route) =>
+    route.fulfill(jsonResponse(200, character)),
+  )
+}
