@@ -4,6 +4,7 @@ vi.mock('./api', () => ({ api: vi.fn() }))
 
 import { api } from './api'
 import {
+  DEFAULT_APPEARANCE,
   SCORE_SOURCES,
   PHB_STANDARD_ARRAY,
   abilityModifier,
@@ -17,6 +18,7 @@ import {
   listMyCharacters,
   pointBuyCost,
   rollScores,
+  sheetToDraft,
   startingGoldClassBudget,
   validateBaseScores,
 } from './characters'
@@ -156,5 +158,27 @@ describe('score source math', () => {
     expect(equipmentCostGp({ quantity: 300, unit: 'cp' })).toBe(3)
     expect(equipmentCostGp({ quantity: 5, unit: 'pp' })).toBe(50)
     expect(equipmentCostGp(undefined)).toBe(0)
+  })
+})
+
+describe('sheetToDraft', () => {
+  it('carries sex and appearance through from a sheet', () => {
+    const draft = sheetToDraft({
+      name: 'Tordek',
+      level: 1,
+      scoreSource: 'STANDARD_ARRAY',
+      sex: 'FEMALE',
+      appearance: { skinTone: 120, hairTone: 300 },
+    })
+
+    expect(draft.sex).toBe('FEMALE')
+    expect(draft.appearance).toEqual({ skinTone: 120, hairTone: 300 })
+  })
+
+  it('falls back to an empty sex and default tints for legacy sheets', () => {
+    const draft = sheetToDraft({ name: 'Old Timer', level: 1, scoreSource: 'STANDARD_ARRAY' })
+
+    expect(draft.sex).toBe('')
+    expect(draft.appearance).toEqual(DEFAULT_APPEARANCE)
   })
 })

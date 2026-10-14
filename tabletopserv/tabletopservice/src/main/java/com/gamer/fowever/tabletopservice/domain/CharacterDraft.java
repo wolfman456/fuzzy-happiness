@@ -1,6 +1,7 @@
 package com.gamer.fowever.tabletopservice.domain;
 
 import com.gamer.fowever.tabletopapi.ScoreSource;
+import com.gamer.fowever.tabletopapi.Sex;
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
 import jakarta.persistence.ElementCollection;
@@ -12,6 +13,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.Lob;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.Getter;
@@ -61,6 +63,14 @@ public class CharacterDraft {
     @Enumerated(EnumType.STRING)
     @Column(name = "score_source", nullable = false)
     private ScoreSource scoreSource;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "sex")
+    private Sex sex;
+
+    @Lob
+    @Column(name = "appearance")
+    private String appearance;
 
     @Column(name = "starting_level", nullable = false)
     private int startingLevel;

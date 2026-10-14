@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
   ABILITIES,
+  DEFAULT_APPEARANCE,
   SCORE_SOURCES,
   SCORE_SOURCE_LABELS,
   abilityModifier,
@@ -29,6 +30,7 @@ const STEPS = [
   'Basics',
   'Ability scores',
   'Race',
+  'Appearance',
   'Class',
   'Subclass',
   'Background',
@@ -36,6 +38,11 @@ const STEPS = [
   'Spells',
   'Equipment',
   'Review',
+]
+
+const SEX_OPTIONS = [
+  { value: 'MALE', label: 'Male' },
+  { value: 'FEMALE', label: 'Female' },
 ]
 
 const STEP_GUIDES = [
@@ -53,6 +60,11 @@ const STEP_GUIDES = [
     heading: 'Race',
     guidance:
       'Your race grants ability bonuses, traits and languages. Pick the people your hero belongs to.',
+  },
+  {
+    heading: 'Appearance',
+    guidance:
+      "Choose your hero's sex and tune their skin and hair tint. Appearance is cosmetic — it never changes the rules.",
   },
   {
     heading: 'Class',
@@ -127,6 +139,12 @@ function plainSkill(index) {
   return index.startsWith('skill-') ? index.slice('skill-'.length) : index
 }
 
+/** CSS colour for a hue slider value; a null hue falls back to the default tint. */
+function hueCss(hue, fallback) {
+  const value = Number.isInteger(hue) ? hue : fallback
+  return `hsl(${value} 45% 60%)`
+}
+
 function initialDraft() {
   return {
     name: '',
@@ -138,6 +156,8 @@ function initialDraft() {
     charisma: 10,
     scoreSource: 'FOUR_D6_DROP_LOWEST',
     startingLevel: 1,
+    sex: '',
+    appearance: { ...DEFAULT_APPEARANCE },
     raceIndex: '',
     classIndex: '',
     subclassIndex: '',
@@ -231,7 +251,12 @@ export default function CharacterWizardPage() {
 
   useEffect(() => {
     if (location.state?.draft) {
-      const stored = location.state.draft
+      const stored = {
+        ...initialDraft(),
+        ...location.state.draft,
+        sex: location.state.draft.sex ?? '',
+        appearance: location.state.draft.appearance ?? { ...DEFAULT_APPEARANCE },
+      }
       setDraft(stored)
       const scores = ABILITIES.reduce((acc, ability) => ({ ...acc, [ability]: stored[ability] }), {})
       setRaceError('')
@@ -395,8 +420,8 @@ export default function CharacterWizardPage() {
       .map((level) => ({ level: Number(level), spells: groups[level] }))
   }, [classSpells])
 
-  const spellsStepVisible = caster && step === 7
-  const spellsSkipped = !caster && step === 7
+  const spellsStepVisible = caster && step === 8
+  const spellsSkipped = !caster && step === 8
 
   const budget = startingGoldClassBudget(draft.classIndex)
   const priceOf = (index) => (index in equipmentPrices ? equipmentPrices[index] : equipmentPriceGp(index))
@@ -412,6 +437,16 @@ export default function CharacterWizardPage() {
         setBaseScores(null)
       }
     }
+    setResult(null)
+    setCompiledDraft(null)
+    setError('')
+  }
+
+  function updateAppearance(field, value) {
+    setDraft((current) => ({
+      ...current,
+      appearance: { ...current.appearance, [field]: value },
+    }))
     setResult(null)
     setCompiledDraft(null)
     setError('')
@@ -673,15 +708,16 @@ export default function CharacterWizardPage() {
     if (draft.name.trim().length === 0 && step === 0) return false
     if (step === 1 && !baseScoresLegal()) return false
     if (step === 2 && !draft.raceIndex) return false
-    if (step === 3 && !draft.classIndex) return false
-    if (step === 4 && hasSubclasses && draft.startingLevel >= requiredSubclassLevel && !draft.subclassIndex) {
+    if (step === 3 && !draft.sex) return false
+    if (step === 4 && !draft.classIndex) return false
+    if (step === 5 && hasSubclasses && draft.startingLevel >= requiredSubclassLevel && !draft.subclassIndex) {
       return false
     }
-    if (step === 5 && !draft.backgroundIndex) return false
+    if (step === 6 && !draft.backgroundIndex) return false
     if (raceError && step >= 2) return false
-    if (step === 8 && (overBudget || unpricedSelected.length > 0 || pricing)) return false
-    if (step === 7 && caster && cantripsSelected < cantripsRequired) return false
-    if (step === 7 && !caster) return true
+    if (step === 9 && (overBudget || unpricedSelected.length > 0 || pricing)) return false
+    if (step === 8 && caster && cantripsSelected < cantripsRequired) return false
+    if (step === 8 && !caster) return true
     return true
   }
 
@@ -719,7 +755,7 @@ export default function CharacterWizardPage() {
                     : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
                 }`}
               >
-                {index === 7 && classDetail && !caster ? `${label} (skipped)` : label}
+                {index === 8 && classDetail && !caster ? `${label} (skipped)` : label}
               </button>
             </li>
           ))}
@@ -831,9 +867,80 @@ export default function CharacterWizardPage() {
           </div>
         )}
 
-        {step === 3 && <PickGrid label="Class" rows={catalog.classes} value={draft.classIndex} onSelect={(value) => update('classIndex', value)} />}
+        {step === 3 && (
+          <div className="space-y-4">
+            <fieldset className="space-y-2">
+              <legend className="text-sm font-medium text-zinc-700">Sex</legend>
+              <div className="flex flex-wrap gap-3">
+                {SEX_OPTIONS.map((option) => (
+                  <label
+                    key={option.value}
+                    className={`flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm ${
+                      draft.sex === option.value
+                        ? 'border-zinc-900 bg-zinc-900 text-white'
+                        : 'border-zinc-300 hover:bg-zinc-50'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="sex"
+                      value={option.value}
+                      checked={draft.sex === option.value}
+                      onChange={() => update('sex', option.value)}
+                      className="accent-zinc-900"
+                    />
+                    {option.label}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
 
-        {step === 4 && (
+            <div className="flex items-center gap-4">
+              <div
+                data-testid="appearance-swatch"
+                className="h-16 w-16 shrink-0 rounded-full border border-zinc-300"
+                style={{ backgroundColor: hueCss(draft.appearance?.skinTone, DEFAULT_APPEARANCE.skinTone) }}
+              />
+              <div className="flex-1 space-y-3">
+                <label className="block">
+                  <span className="text-sm font-medium text-zinc-700">
+                    Skin tint ({draft.appearance?.skinTone ?? DEFAULT_APPEARANCE.skinTone}°)
+                  </span>
+                  <input
+                    type="range"
+                    min="0"
+                    max="359"
+                    value={draft.appearance?.skinTone ?? DEFAULT_APPEARANCE.skinTone}
+                    onChange={(event) => updateAppearance('skinTone', Number(event.target.value))}
+                    className="mt-1 w-full"
+                  />
+                </label>
+                <label className="block">
+                  <span className="text-sm font-medium text-zinc-700">
+                    Hair tint ({draft.appearance?.hairTone ?? DEFAULT_APPEARANCE.hairTone}°)
+                  </span>
+                  <input
+                    type="range"
+                    min="0"
+                    max="359"
+                    value={draft.appearance?.hairTone ?? DEFAULT_APPEARANCE.hairTone}
+                    onChange={(event) => updateAppearance('hairTone', Number(event.target.value))}
+                    className="mt-1 w-full"
+                  />
+                  <span
+                    data-testid="appearance-hair-swatch"
+                    className="mt-2 inline-block h-4 w-16 rounded"
+                    style={{ backgroundColor: hueCss(draft.appearance?.hairTone, DEFAULT_APPEARANCE.hairTone) }}
+                  />
+                </label>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {step === 4 && <PickGrid label="Class" rows={catalog.classes} value={draft.classIndex} onSelect={(value) => update('classIndex', value)} />}
+
+        {step === 5 && (
           <div className="space-y-3">
             {!classDetail && <p className="text-sm text-zinc-500">Pick a class first.</p>}
             {classDetail && !hasSubclasses && (
@@ -859,9 +966,9 @@ export default function CharacterWizardPage() {
           </div>
         )}
 
-        {step === 5 && <PickGrid label="Background" rows={catalog.backgrounds} value={draft.backgroundIndex} onSelect={(value) => update('backgroundIndex', value)} />}
+        {step === 6 && <PickGrid label="Background" rows={catalog.backgrounds} value={draft.backgroundIndex} onSelect={(value) => update('backgroundIndex', value)} />}
 
-        {step === 6 && (
+        {step === 7 && (
           <div className="space-y-4">
             <p className="text-sm text-zinc-500">
               Pick up to {classCap} skills from your class and up to 2 more from your background.
@@ -929,7 +1036,7 @@ export default function CharacterWizardPage() {
           </div>
         )}
 
-        {step === 8 && (
+        {step === 9 && (
           <ShopStep
             items={catalog.equipment}
             selected={draft.equipmentIndexes}
@@ -947,7 +1054,7 @@ export default function CharacterWizardPage() {
           />
         )}
 
-        {step === 9 && (
+        {step === 10 && (
           <ReviewStep
             draft={draft}
             result={result}
@@ -1345,6 +1452,13 @@ function ReviewStep({ draft, result, compiledDraft, classSkills, hasSubclasses, 
         <ReviewRow label="Level" value={draft.startingLevel} />
         <ReviewRow label="Scores" value={SCORE_SOURCE_LABELS[draft.scoreSource]} />
         <ReviewRow label="Race" value={draft.raceIndex || '—'} />
+        <ReviewRow label="Sex" value={draft.sex || '—'} />
+        <ReviewRow
+          label="Appearance"
+          value={`skin ${draft.appearance?.skinTone ?? DEFAULT_APPEARANCE.skinTone}° · hair ${
+            draft.appearance?.hairTone ?? DEFAULT_APPEARANCE.hairTone
+          }°`}
+        />
         <ReviewRow label="Class" value={draft.classIndex || '—'} />
         <ReviewRow
           label="Subclass"
