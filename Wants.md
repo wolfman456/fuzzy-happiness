@@ -41,7 +41,7 @@ Status key: ✅ landed · 🔨 in progress · ⏭ deferred (post-MVP)
 - As a Player I want each class in the character wizard to offer all of its official 2014 subclass options — not just the single SRD example archetype — so I can build the hero I planned. ✅ landed (curated catalog, PR D → expanded to PHB + XGtE + Tasha's + SCAG, PR #71)
 - As a Player I want the full standard Player's Handbook background list in the character wizard — not just Acolyte from the SRD — so I can pick the origin I planned. ✅ landed (curated PHB catalog, PR D)
 - As a Player I want my email address verified with a login link after registration once production email delivery is configured, so my account is tied to an address I actually control — until prod SMTP is set up accounts are auto-verified on registration so nobody is locked out. (R31) ✅ landed (verification disabled/auto-verify shipped, PR #53)
-- As a Player I want the character wizard to explain each choice in plain language and the site to look and feel finished, so I can build a hero without guessing — including seeing what a race actually is (size, age, alignment, languages) on the Race step. (R48) 🔨 in progress (design-draft-v2 §4 Slice 1)
+- As a Player I want the character wizard to explain each choice in plain language and the site to look and feel finished, so I can build a hero without guessing — including seeing what a race actually is (size, age, alignment, languages) on the Race step. (R48) 🔨 in progress (design-draft-v2 §4 Slice 1, PR #103)
 
 ## V2 (post-MVP, deferred)
 
