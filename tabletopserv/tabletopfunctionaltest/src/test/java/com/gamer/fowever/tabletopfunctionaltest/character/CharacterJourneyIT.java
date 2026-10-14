@@ -25,6 +25,8 @@ class CharacterJourneyIT extends FunctionalTestBase {
                 Map.entry("wisdom", 10), Map.entry("charisma", 8),
                 Map.entry("scoreSource", "STANDARD_ARRAY"),
                 Map.entry("startingLevel", 1),
+                Map.entry("sex", "MALE"),
+                Map.entry("appearance", Map.of("skinTone", 120, "hairTone", 300)),
                 Map.entry("raceIndex", "dwarf"),
                 Map.entry("classIndex", "cleric"),
                 Map.entry("subclassIndex", "life"),
@@ -48,6 +50,9 @@ class CharacterJourneyIT extends FunctionalTestBase {
         JsonNode sheet = body.get("sheet");
         assertThat(sheet.get("name").asText()).isEqualTo("Tordek");
         assertThat(sheet.get("level").asInt()).isEqualTo(1);
+        assertThat(sheet.get("sex").asText()).isEqualTo("MALE");
+        assertThat(sheet.get("appearance").get("skinTone").asInt()).isEqualTo(120);
+        assertThat(sheet.get("appearance").get("hairTone").asInt()).isEqualTo(300);
         assertThat(sheet.get("hitPoints").asInt()).isEqualTo(10);
         assertThat(sheet.get("armorClass").asInt()).isEqualTo(15);
         assertThat(sheet.get("speedFeet").asInt()).isEqualTo(25);
@@ -90,6 +95,7 @@ class CharacterJourneyIT extends FunctionalTestBase {
                 Map.entry("wisdom", 10), Map.entry("charisma", 8),
                 Map.entry("scoreSource", "STANDARD_ARRAY"),
                 Map.entry("startingLevel", 1),
+                Map.entry("sex", "MALE"),
                 Map.entry("raceIndex", "dwarf"), Map.entry("classIndex", "cleric"),
                 Map.entry("subclassIndex", "life"), Map.entry("backgroundIndex", "acolyte"),
                 Map.entry("skillPickIndexes", Set.of("medicine", "religion")),
@@ -221,6 +227,18 @@ class CharacterJourneyIT extends FunctionalTestBase {
                 Map.entry("equipmentIndexes", List.of()))));
 
         assertThat(created.status()).isEqualTo(400);
+    }
+
+    @Test
+    void createRejectsDraftWithoutSex() throws Exception {
+        String jwt = registerVerifyLogin("char7");
+
+        Map<String, Object> draft = new java.util.LinkedHashMap<>(legalDraft());
+        draft.remove("sex");
+
+        Api.Response created = Api.post(baseUrl() + "/api/users/me/characters", jwt, Api.body(draft));
+        assertThat(created.status()).isEqualTo(400);
+        assertThat(created.body()).contains("sex");
     }
 
     @Test

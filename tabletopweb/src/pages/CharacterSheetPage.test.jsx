@@ -5,6 +5,7 @@ import CharacterSheetPage from './CharacterSheetPage'
 
 vi.mock('../lib/characters', () => ({
   ABILITIES: ['strength', 'dexterity', 'constitution', 'intelligence', 'wisdom', 'charisma'],
+  DEFAULT_APPEARANCE: { skinTone: 200, hairTone: 30 },
   abilityModifier: (score) => Math.floor((score - 10) / 2),
   getCharacter: vi.fn(),
   deleteCharacter: vi.fn(),
@@ -17,6 +18,8 @@ const SHEET = {
   name: 'Tordek',
   level: 3,
   scoreSource: 'STANDARD_ARRAY',
+  sex: 'FEMALE',
+  appearance: { skinTone: 120, hairTone: 300 },
   raceIndex: 'dwarf',
   classIndex: 'cleric',
   subclassIndex: 'life',
@@ -58,6 +61,8 @@ describe('CharacterSheetPage', () => {
 
     expect(await screen.findByRole('heading', { name: 'Tordek' })).toBeInTheDocument()
     expect(screen.getByText(/Level 3 · dwarf cleric \(life\) · acolyte/)).toBeInTheDocument()
+    expect(screen.getByText('Female')).toBeInTheDocument()
+    expect(screen.getByTestId('character-avatar')).toBeInTheDocument()
     expect(screen.getByText('22')).toBeInTheDocument()
     expect(screen.getByText('16')).toBeInTheDocument()
     expect(screen.getByText('25 ft')).toBeInTheDocument()
@@ -67,6 +72,15 @@ describe('CharacterSheetPage', () => {
     expect(screen.getByText('disciple-of-life')).toBeInTheDocument()
     expect(screen.getByText('leather-armor')).toBeInTheDocument()
     expect(screen.getByText('shield')).toBeInTheDocument()
+  })
+
+  it('shows a fallback label for a legacy sheet without a sex', async () => {
+    getCharacter.mockResolvedValue({ ...SHEET, sex: null, appearance: null })
+    renderSheet()
+
+    expect(await screen.findByRole('heading', { name: 'Tordek' })).toBeInTheDocument()
+    expect(screen.getByText('Sex not set')).toBeInTheDocument()
+    expect(screen.getByTestId('character-avatar')).toBeInTheDocument()
   })
 
   it('renders empty-state lists for a bare sheet', async () => {

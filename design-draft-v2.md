@@ -5,8 +5,8 @@ Draft spec for the second major release of the tabletop platform. Companion to t
 maintainer approves the slices; the living bug ledger stays in
 [`design-v1-fixes.md`](design-v1-fixes.md).
 
-**Status:** 🏗 in planning — v2 vision + slice plan agreed (2026-09-13); Slice 0 Flyway baseline
-landed (2026-10-13).
+**Status:** 🚧 in delivery — v2 vision + slice plan agreed (2026-09-13); Slice 0 Flyway baseline and
+Slice 1 wizard UX landed (2026-10-13); Slice 2 split into 2a/2b/2c with **2a in progress**.
 
 ---
 
@@ -101,13 +101,14 @@ Groundwork every other slice leans on.
   Wiring uses `spring-boot-starter-flyway` (Boot 4's modular Flyway auto-configuration — the raw
   `flyway-core` dependency alone does not activate it). No Java config classes were added
   (properties only), so the jacoco gate is untouched.
-- ⏳ **Still to come** — v2 schema changes ship as forward migrations (never edits to V1), e.g.
-  `V2__v2_appearance_maps.sql`:
-  - `character` / `dnd5e_characters`: `sex` (`varchar(10)`, `MALE|FEMALE`) and `appearance`
-    (`jsonb`: avatar GLB ref + skin/hair tints).
+- ✅ **`V2__character_appearance.sql` landed** (Slice 2a): `sex` (`varchar(255)` with a
+  `MALE|FEMALE` check) and `appearance` (`oid` JSON, skin/hair hue tints) on **both** `characters`
+  and `character_drafts`. See §5.
+- ⏳ **Still to come** — further v2 schema changes ship as forward migrations (never edits to V1):
+  - Avatar GLB reference added to the `appearance` JSON (Slice 2c).
   - New tables `battle_map_tiles` (`map_id`, `x`, `y`, `tile_index`, PK `(map_id,x,y)`) and
     `battle_map_objects` (`map_id`, `id`, `object_index`, `x`, `y`, `w`, `h`, `rotation`,
-    `blocks_movement`).
+    `blocks_movement`) for Slice 3.
 - **Risk (deliberate):** prod DB is live. The baseline is proven safe against a fresh Postgres
   in CI; the first `railway` deploy that enables Flyway will create only the `flyway_schema_history`
   table and record the baseline (no app-table DDL), so a drifted prod schema cannot be clobbered.
@@ -148,21 +149,43 @@ Pure-frontend polish; cheapest slice, unblocks the rest.
 "An avatar that matches race and sex." Sex is **required, binary `MALE`/`FEMALE` only, cosmetic —
 no mechanical effect** (5e does not gate chargen choices by sex).
 
-- **Data chain** (rides Slice 0 columns): wizard draft → `CharacterDraftDto` → `CharacterDraft` /
-  `Dnd5eCharacter` → `CharacterSheetDto` → `sheetToDraft`. Server validates `sex ∈ {MALE,FEMALE}`
-  and compiles it into every sheet.
-- **Wizard:** new **Appearance** step after Race (avatar is race×sex). Sex radio, live 3D preview
-  (`Canvas`, R3F) of the race-base mesh, skin/hair tint sliders. Changing race after this step
-  re-validates the model.
-- **3D stack:** add `three`, `@react-three/fiber`, `@react-three/drei`. Models:
-  `tabletopweb/public/models/avatars/{race}-{M|F}.glb`, curated CC0 (asset-licensing research
-  first, mirroring `research/maps resources.md`). WebGL2 now; WebGPU later (§17).
-  jsdom tests **mock the Canvas** and test selection/tint logic, not pixels.
-- **Consumption:**
-  - Portrait render on `CharacterSheetPage`.
+The slice is delivered as three independent, shippable increments so the data/UX work is not
+blocked on the 3D-asset research and the in-session viewport:
+
+> **Status:** 🔨 **2a in progress** (`feature/v2-slice-2a-sex-appearance`, R49); **2b** and **2c**
+> ⏳ planned (R50, R51). 2a ships the full data chain (`Sex` enum, `CharacterAppearance` record,
+> both DTOs, both entities, `V2__character_appearance.sql`), a required-sex **Appearance** wizard
+> step with 2D tint swatches, and sex/tint display on `CharacterSheetPage`.
+
+- **Slice 2a — Sex + appearance field (data chain + wizard step, 2D).** Ships everything except
+  the 3D mesh and the in-session viewport.
+  - **Schema:** Slice 0's baseline snapshot predates this slice, so the columns ship as a forward
+    `V2__character_appearance.sql` (nullable `sex varchar(255)` with a `MALE`/`FEMALE` check +
+    `appearance oid` JSON) on **both** `characters` and `character_drafts`; dev/H2 stays
+    Hibernate-managed as usual.
+  - **Data chain:** wizard draft → `CharacterDraftDto` → `CharacterDraft` / `Dnd5eCharacter` →
+    `CharacterSheetDto` → `sheetToDraft`. New `Sex` enum (`MALE`/`FEMALE`) and
+    `CharacterAppearance` record (`skinTone`/`hairTone` hue 0-359, both optional) live in
+    `tabletopapi`. Server validates `sex ∈ {MALE,FEMALE}` (required) and tint ranges, and compiles
+    both into every sheet (and the persisted snapshot). Legacy rows/snapshots tolerate a null sex.
+  - **Wizard:** new **Appearance** step after Race — sex radio (required) plus skin/hair tint
+    sliders with a 2D swatch preview. Changing race after this step keeps sex/tints. `sheetToDraft`
+    round-trips sex + appearance.
+  - **Sheet:** `CharacterSheetPage` shows sex and the tint swatch.
+- **Slice 2b — 3D avatar preview.** Adds the R3F stack and curated CC0 assets; swaps the 2D swatch
+  for a live preview. Depends on 2a's data + sex/race in the draft.
+  - **3D stack:** add `three`, `@react-three/fiber`, `@react-three/drei`. Models:
+    `tabletopweb/public/models/avatars/{race}-{M|F}.glb`, curated CC0 (asset-licensing research
+    first, mirroring `research/maps resources.md`). WebGL2 now; WebGPU later (§17).
+    jsdom tests **mock the Canvas** and test selection/tint logic, not pixels.
+  - **Wizard:** live `Canvas` preview of the race-base mesh with the tint sliders applied. Changing
+    race re-resolves the model; a missing asset falls back to the 2D swatch.
+- **Slice 2c — Avatar consumption (portrait + in-session token).** Re-opens deferred R12
+  (design-v1 §17).
+  - Portrait render on `CharacterSheetPage` (3D snapshot or GLB thumbnail).
   - In-session: a linked player's token renders their avatar GLB instead of the color disc
     (`MapToken.appearanceRef`), inside a 3D viewport sharing the same server-authoritative
-    `BattleMapDto` state. Re-opens deferred R12 (design-v1 §17).
+    `BattleMapDto` state.
 
 ## 6. Slice 3 — Map builder: tiles + environment items
 

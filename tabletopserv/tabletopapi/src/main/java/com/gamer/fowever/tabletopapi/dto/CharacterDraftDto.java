@@ -1,6 +1,8 @@
 package com.gamer.fowever.tabletopapi.dto;
 
 import com.gamer.fowever.tabletopapi.ScoreSource;
+import com.gamer.fowever.tabletopapi.Sex;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -23,6 +25,8 @@ public record CharacterDraftDto(
         @Min(1) @Max(30) int charisma,
         @NotNull ScoreSource scoreSource,
         @Min(1) @Max(20) int startingLevel,
+        @NotNull Sex sex,
+        @Valid CharacterAppearance appearance,
         String raceIndex,
         String classIndex,
         String subclassIndex,
