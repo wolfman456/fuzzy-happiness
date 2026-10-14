@@ -43,7 +43,7 @@ Status key: ✅ landed · 🔨 in progress · ⏳ planned (scheduled v2 slice, n
 - As a Player I want my email address verified with a login link after registration once production email delivery is configured, so my account is tied to an address I actually control — until prod SMTP is set up accounts are auto-verified on registration so nobody is locked out. (R31) ✅ landed (verification disabled/auto-verify shipped, PR #53)
 - As a Player I want the character wizard to explain each choice in plain language and the site to look and feel finished, so I can build a hero without guessing — including seeing what a race actually is (size, age, alignment, languages) on the Race step. (R48) ✅ landed (design-draft-v2 §4 Slice 1, PR #103)
 - As a Player I want to choose my hero's sex and a skin/hair tint on a new Appearance step, and have it saved with the character, so who they are is part of the sheet. (R49) ✅ landed (design-draft-v2 §5 Slice 2a, PR #104)
-- As a Player I want to see a 3D avatar of my chosen race and sex as I build my hero, so I can picture them before I play. (R50) ⏳ planned (design-draft-v2 §5 Slice 2b)
+- As a Player I want to see a 3D avatar of my chosen race and sex as I build my hero, so I can picture them before I play. (R50) ✅ landed (3D preview plumbing + 2D fallback, design-draft-v2 §5 Slice 2b, PR #105; CC0 model curation is a follow-up manual step)
 - As a Player I want my avatar to show as my character portrait and as my token on the battle map, so my hero is recognizable at the table. (R51) ⏳ planned (design-draft-v2 §5 Slice 2c; re-opens deferred R12)
 
 ## V2 (post-MVP, deferred)

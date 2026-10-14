@@ -59,6 +59,12 @@ test.describe('character wizard labeling & race facts', () => {
     await expect(page.getByText(/Skin tint \(200°\)/)).toBeVisible()
     await page.getByLabel(/Skin tint/).fill('40')
     await expect(page.getByText(/Skin tint \(40°\)/)).toBeVisible()
-    await expect(page.getByTestId('appearance-swatch')).toBeVisible()
+
+    const swatch = page.getByTestId('appearance-swatch')
+    await expect(swatch).toBeVisible()
+    await expect(swatch).toHaveCSS('background-color', 'rgb(199, 168, 107)')
+    await expect(page.getByTestId('appearance-hair-swatch')).toBeVisible()
+    // No curated GLB is registered yet, so no WebGL canvas is mounted.
+    await expect(page.locator('canvas')).toHaveCount(0)
   })
 })

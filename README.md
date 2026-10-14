@@ -247,10 +247,20 @@ backend tests, jacoco gate met. Frontend: `src/lib/monsters.js` (CR/role/edition
   tint sliders; `CharacterSheetPage` shows the sex and a tinted avatar disc (the 3D render follows
   in Slice 2b). 299 backend unit + 37 functional ITs green (incl. Flyway validate of V2), 237
   frontend unit + 8 Playwright green, oxlint + build clean.
+- **Slice 2b — 3D avatar preview plumbing** — `feature/v2-slice-2b-3d-avatar-preview`
+  (design-draft-v2 §5). Adds the R3F stack (`three`, `@react-three/fiber`, `@react-three/drei`)
+  and a **code-split** `AvatarCanvas` (lazy `<Canvas>`) so the three.js chunk loads only once a
+  model is curated — the base bundle is unchanged. `lib/avatars.js` carries a race×sex→GLB
+  registry/resolver (`AVATAR_MODEL_BASE` = `public/models/avatars/{race}-{M|F}.glb`) and the
+  `Skin`/`Hair` material tinting; `AvatarPreview` renders the 3D model when one is registered and
+  otherwise (or if WebGL/loading fails) falls back to the 2D tint swatch. Wired into the wizard's
+  **Appearance** step and the `CharacterSheetPage` portrait. No binaries ship — the CC0 models are
+  a manual curation step (`research/avatar resources.md`, mirroring maps). 260 frontend unit + 9
+  Playwright green, oxlint + build clean.
 
-Next: production deploys (R14 — Railway auto-deploy from GitHub, rootDirectory per service), the
-optional 3D viewport (§17), and the rest of the game table (multi-map, fog of war, turn timers,
-conditions). The out-of-MVP list lives in [Wants.md](Wants.md).
+Next: production deploys (R14 — Railway auto-deploy from GitHub, rootDirectory per service), avatar
+consumption (Slice 2c: in-session 3D token, §17), and the rest of the game table (multi-map, fog of
+war, turn timers, conditions). The out-of-MVP list lives in [Wants.md](Wants.md).
 
 ## Deployment (Railway)
 
