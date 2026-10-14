@@ -1,6 +1,6 @@
 # IntelliJ IDEA
 .idea/
 
-# Node (root Railway IaC CLI artifacts)
+# Node (root Railway IaC CLI artifacts only — app lockfiles stay tracked)
 node_modules/
-package-lock.json
+/package-lock.json
