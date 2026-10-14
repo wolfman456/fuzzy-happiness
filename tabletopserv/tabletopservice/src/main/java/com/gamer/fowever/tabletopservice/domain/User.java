@@ -14,6 +14,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -27,7 +28,8 @@ import java.util.Collection;
 import java.util.List;
 
 @Entity
-@Table(name = "users")
+@Table(name = "users", uniqueConstraints = @UniqueConstraint(
+        name = "uq_users_oauth_identity", columnNames = {"oauth_provider", "oauth_subject"}))
 @Getter
 @Setter
 @NoArgsConstructor
@@ -60,11 +62,19 @@ public class User implements UserDetails {
     private String passwordHash;
 
     @Convert(converter = EncryptingLocalDateConverter.class)
-    @Column(name = "date_of_birth", nullable = false, length = 90)
+    @Column(name = "date_of_birth", nullable = true, length = 90)
     private LocalDate dateOfBirth;
 
     @Column(name = "email_verified", nullable = false)
     private boolean emailVerified;
+
+    /** Social-login provider id (e.g. {@code google}), or {@code null} for local password accounts. */
+    @Column(name = "oauth_provider", length = 32)
+    private String oauthProvider;
+
+    /** Provider-issued stable subject identifier paired with {@link #oauthProvider}. */
+    @Column(name = "oauth_subject", length = 255)
+    private String oauthSubject;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "auth_role", nullable = false)
@@ -83,6 +93,18 @@ public class User implements UserDetails {
         this.emailKey = PiiCrypto.emailKey(email);
         this.dateOfBirth = dateOfBirth;
         this.passwordHash = passwordHash;
+    }
+
+    /**
+     * Creates a social-login account. The date of birth is unknown (the provider asserts the user
+     * meets its own minimum age), so the age gate is not applied; {@code passwordHash} holds an
+     * unusable random value so password login can never succeed.
+     */
+    public User(String username, String displayName, String email, String passwordHash,
+                String oauthProvider, String oauthSubject) {
+        this(username, displayName, email, null, passwordHash);
+        this.oauthProvider = oauthProvider;
+        this.oauthSubject = oauthSubject;
     }
 
     @Override

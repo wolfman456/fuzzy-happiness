@@ -13,6 +13,7 @@ import CharacterWizardPage from './pages/CharacterWizardPage'
 import CharacterSheetPage from './pages/CharacterSheetPage'
 import SettingsPage from './pages/SettingsPage'
 import ReleaseNotesPage from './pages/ReleaseNotesPage'
+import OAuthCallbackPage from './pages/OAuthCallbackPage'
 
 export default function App() {
   return (
@@ -22,6 +23,7 @@ export default function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/verify" element={<VerifyPage />} />
+          <Route path="/oauth/callback" element={<OAuthCallbackPage />} />
           <Route element={<ProtectedRoute />}>
             <Route element={<ShellLayout />}>
               <Route path="/" element={<Dashboard />} />

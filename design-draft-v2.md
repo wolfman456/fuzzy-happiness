@@ -7,7 +7,8 @@ maintainer approves the slices; the living bug ledger stays in
 
 **Status:** 🚧 in delivery — v2 vision + slice plan agreed (2026-09-13); Slice 0 Flyway baseline,
 Slice 1 wizard UX, Slice 2a sex + appearance and Slice 2b 3D avatar preview landed (2026-10-13); the in-app release
-notes page (R52, §10) landed (`feature/release-notes-page`, PR #106, 2026-10-14); Slice 2c and
+notes page (R52, §10) landed (`feature/release-notes-page`, PR #106, 2026-10-14); social OAuth
+login (R19, §11) landed (`feature/social-oauth-login`, 2026-10-14); Slice 2c and
 Slice 3 planned.
 
 ---
@@ -286,6 +287,48 @@ first, and points players at the project's GitHub issue tracker.
   tracker (browse / open a new issue). `src/lib/releases.js` owns the repo/URL constants.
 - **No backend:** static data shipped in the web bundle, so it works offline and adds no API or
   gateway surface. `RELEASES.md`'s cut-a-release checklist regenerates it in the same change.
+
+## 11. Social OAuth login (R19)
+
+Optional sign-in with **Google, GitHub or Facebook** alongside the password flow, so a new player
+can skip yet another password. The provider handshake is owned by Spring Security's OAuth2 client;
+the app only resolves the returned profile to a local `users` row and mints its own JWT.
+
+> **Status:** ✅ **landed** (`feature/social-oauth-login`, 2026-10-14). Opt-in and disabled by
+> default — with no client credentials the app is byte-for-byte password-only.
+
+- **Opt-in activation.** Social login is registered only when at least one provider's client id
+  (+ secret) is configured (`spring.security.oauth2.client.registration.<id>.*`). Spring Boot
+  supplies the authorize/token/user-info defaults for the known ids, so enabling a provider is
+  just `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` (etc.). An empty client id would create a broken
+  registration, so the properties stay commented in `application.properties` until real creds
+  exist (never add them blank).
+- **Account resolution (`SocialLoginService`, link-or-create).** Given a validated profile
+  `(provider, subject, email, emailVerified, displayName, avatar)`: (a) reuse the row matching
+  `(oauth_provider, oauth_subject)`; (b) else link to an existing row with the same email **only
+  when the provider vouches the email is verified** (Google `email_verified`, Facebook always,
+  GitHub never) — an unverified email that already has an account is refused, and an email already
+  linked to a *different* provider is refused; (c) else create a fresh `USER`. New social accounts
+  have **no date of birth** (the provider asserts its own minimum age; the age gate still applies
+  to password registration) and an **unusable random bcrypt hash** so password login can never
+  succeed. Usernames derive from the email local part (sanitised, deduped with `-N`).
+- **Schema (Slice 0 forward migration `V3__oauth_login.sql`).** Adds nullable `oauth_provider`
+  (`varchar(32)`) and `oauth_subject` (`varchar(255)`) to `users` with unique
+  `uq_users_oauth_identity (oauth_provider, oauth_subject)` (NULLs stay distinct, so
+  password-only rows are unaffected) and drops `date_of_birth NOT NULL`.
+- **API + frontend.** `GET /api/auth/providers` (public) lists the configured providers
+  (`{id, label, authorizationPath}`, ordered google→github→facebook) — empty when none are
+  configured. The SPA renders "Continue with …" buttons from it, and `/oauth/callback` adopts the
+  token handed back **in the URL fragment** (`#token=…&tokenType=Bearer&expiresInSeconds=…`,
+  so it never reaches a server or logs). Failures bounce to `/login` with
+  `?oauthError=…&oauthMessage=…`. The success/failure redirect targets derive from
+  `tabletopserv.app.frontend-url`; the JWT is the same one issued by password login.
+- **Tests.** Unit coverage for `OAuthProfile` (per-provider claim shapes), `SocialLoginService`
+  (every link/create/refuse branch), the user-service/handlers, and `ClientRegistrations`; an
+  integrated providers + authorisation-redirect test with a dummy Google registration; a
+  functional `AuthJourneyIT` journey for the empty providers list; Vitest for the buttons,
+  callback and token adoption; and Playwright specs for the buttons, empty state, callback and
+  error surface. Real provider logins are not exercised in CI (no creds), by design.
 
 ---
 

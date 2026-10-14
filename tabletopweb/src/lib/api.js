@@ -1,5 +1,7 @@
 const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8080'
 
+export const apiBaseUrl = BASE_URL
+
 export class ApiError extends Error {
   constructor(status, message, correlationId = null) {
     super(message)
@@ -63,6 +65,10 @@ export async function api(path, { method = 'GET', body } = {}) {
 
 export function listGames() {
   return api('/api/games')
+}
+
+export function fetchProviders() {
+  return api('/api/auth/providers')
 }
 
 export function createSession({ name, gameSlug }) {

@@ -44,6 +44,19 @@ export function AuthProvider({ children }) {
     return api('/api/auth/register', { method: 'POST', body: payload })
   }, [])
 
+  const loginWithToken = useCallback(async (token) => {
+    setAuthToken(token)
+    try {
+      const me = await api('/api/users/me')
+      saveSession(token, me)
+      setUser(me)
+      return me
+    } catch (err) {
+      setAuthToken(null)
+      throw err
+    }
+  }, [])
+
   const logout = useCallback(() => {
     clearSession()
     setAuthToken(null)
@@ -64,11 +77,12 @@ export function AuthProvider({ children }) {
       loading,
       isAuthenticated: !!user,
       login,
+      loginWithToken,
       register,
       logout,
       refreshMe,
     }),
-    [user, loading, login, register, logout, refreshMe],
+    [user, loading, login, loginWithToken, register, logout, refreshMe],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

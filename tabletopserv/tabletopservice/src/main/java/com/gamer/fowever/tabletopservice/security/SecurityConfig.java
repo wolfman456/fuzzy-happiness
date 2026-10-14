@@ -3,6 +3,7 @@ package com.gamer.fowever.tabletopservice.security;
 import com.gamer.fowever.tabletopservice.repository.UserRepository;
 import com.gamer.fowever.tabletopservice.support.PiiCrypto;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -18,6 +19,7 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
@@ -77,7 +79,11 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http,
                                                    JwtAuthenticationFilter jwtFilter,
                                                    AuthenticationProvider authenticationProvider,
-                                                   CorsConfigurationSource corsConfigurationSource) throws Exception {
+                                                   CorsConfigurationSource corsConfigurationSource,
+                                                   ObjectProvider<ClientRegistrationRepository> clientRegistrations,
+                                                   AppOAuth2UserService appOAuth2UserService,
+                                                   OAuth2LoginSuccessHandler oauth2SuccessHandler,
+                                                   OAuth2LoginFailureHandler oauth2FailureHandler) throws Exception {
         http
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource))
@@ -97,13 +103,24 @@ public class SecurityConfig {
                 .authenticationProvider(authenticationProvider)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/register", "/api/auth/login",
-                                "/api/auth/verify", "/api/auth/resend-verification").permitAll()
+                                "/api/auth/verify", "/api/auth/resend-verification",
+                                "/api/auth/providers").permitAll()
+                        .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
                         .requestMatchers("/h2-console/**").permitAll()
                         .requestMatchers("/ws/**").permitAll()
                         .requestMatchers("/actuator/health").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
+
+        // Social login is opt-in: registered only when provider credentials are configured, so the
+        // app boots and behaves identically when they are absent.
+        if (!ClientRegistrations.list(clientRegistrations.getIfAvailable()).isEmpty()) {
+            http.oauth2Login(oauth -> oauth
+                    .userInfoEndpoint(userInfo -> userInfo.userService(appOAuth2UserService))
+                    .successHandler(oauth2SuccessHandler)
+                    .failureHandler(oauth2FailureHandler));
+        }
         return http.build();
     }
 }

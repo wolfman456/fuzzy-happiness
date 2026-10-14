@@ -740,7 +740,7 @@ export default function CharacterWizardPage() {
         <ol className="mt-4 flex flex-wrap items-center gap-1 text-xs">
           {STEPS.map((label, index) => (
             <li key={label} className="flex items-center gap-0.5">
-              {index > 0 && <span className="text-zinc-300">›</span>}
+              {index > 0 && <span className="text-zinc-500">›</span>}
               <button
                 type="button"
                 onClick={() => goToStep(index)}
@@ -850,7 +850,7 @@ export default function CharacterWizardPage() {
               </div>
             )}
             {raceDetail && (
-              <p className="text-sm text-zinc-500">
+              <p className="text-sm text-zinc-600">
                 {raceDetail.name} ability bonuses:{' '}
                 {abilityBonusMap(raceDetail) && Object.keys(abilityBonusMap(raceDetail)).length
                   ? Object.entries(abilityBonusMap(raceDetail))
@@ -939,13 +939,13 @@ export default function CharacterWizardPage() {
 
         {step === 5 && (
           <div className="space-y-3">
-            {!classDetail && <p className="text-sm text-zinc-500">Pick a class first.</p>}
+            {!classDetail && <p className="text-sm text-zinc-600">Pick a class first.</p>}
             {classDetail && !hasSubclasses && (
-              <p className="text-sm text-zinc-500">This class has no subclasses at the start — nothing to choose.</p>
+              <p className="text-sm text-zinc-600">This class has no subclasses at the start — nothing to choose.</p>
             )}
             {classDetail && hasSubclasses && (
               <>
-                <p className="text-sm text-zinc-500">
+                <p className="text-sm text-zinc-600">
                   {draft.startingLevel < requiredSubclassLevel
                     ? `Subclasses unlock at level ${requiredSubclassLevel} — nothing to choose yet.`
                     : 'Choose your subclass.'}
@@ -967,7 +967,7 @@ export default function CharacterWizardPage() {
 
         {step === 7 && (
           <div className="space-y-4">
-            <p className="text-sm text-zinc-500">
+            <p className="text-sm text-zinc-600">
               Pick up to {classCap} skills from your class and up to 2 more from your background.
             </p>
             <SkillGroup
@@ -986,12 +986,12 @@ export default function CharacterWizardPage() {
         )}
 
         {spellsSkipped && (
-          <p className="text-sm text-zinc-500">This class cannot cast spells at the start — nothing to choose.</p>
+          <p className="text-sm text-zinc-600">This class cannot cast spells at the start — nothing to choose.</p>
         )}
 
         {spellsStepVisible && (
           <div className="space-y-4">
-            <p className="text-sm text-zinc-500">
+            <p className="text-sm text-zinc-600">
               Cantrips known: {cantripsKnown} · spells up to level {maxSlot}.
             </p>
             {cantripsSelected < cantripsRequired && (
@@ -1156,7 +1156,7 @@ function ScoreStep({
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-zinc-500">
+      <p className="text-sm text-zinc-600">
         {rolled
           ? 'Roll dice for each ability (or roll them all) — the server decides every die so nobody can stack the dice.'
           : `Assign the ${scoreSource === 'STANDARD_ARRAY' ? 'standard array (15,14,13,12,10,8)' : '27-point-buy values (8–15)'} yourself.`}
@@ -1174,7 +1174,7 @@ function ScoreStep({
             {rollingAbility === 'ALL' ? 'Rolling…' : rolledDone ? (rerollExhausted ? 'Rerolls used' : 'Roll all again') : 'Roll all'}
           </button>
           {rolledDone && (
-            <span className="text-sm text-zinc-500">
+            <span className="text-sm text-zinc-600">
               {rerollExhausted
                 ? `${MAX_FULL_REROLLS} rerolls used — the full set is locked in. Per-ability rolls still work (${MAX_PER_ABILITY_ROLLS} each).`
                 : `Locked in — you may reroll the whole set ${rerollsLeft} more time${rerollsLeft === 1 ? '' : 's'}. Per-ability rolls cap at ${MAX_PER_ABILITY_ROLLS} each. The race bonus is applied on the Race step.`}
@@ -1193,7 +1193,7 @@ function ScoreStep({
         </button>
       )}
       {!rolled && scoreSource === 'POINT_BUY' && (
-        <p className={usedPoints <= 27 ? 'text-sm text-zinc-500' : 'text-sm text-red-600'}>
+        <p className={usedPoints <= 27 ? 'text-sm text-zinc-600' : 'text-sm text-red-600'}>
           Points used: {usedPoints} / 27
         </p>
       )}
@@ -1210,7 +1210,7 @@ function ScoreStep({
                 <p
                   data-testid={`score-${ability}`}
                   className={`mt-1 w-16 text-lg font-semibold tabular-nums ${
-                    shownValue(ability) === '' ? 'text-zinc-300' : 'text-zinc-900'
+                    shownValue(ability) === '' ? 'text-zinc-600' : 'text-zinc-900'
                   }`}
                 >
                   {shownValue(ability) || '—'}
@@ -1232,7 +1232,7 @@ function ScoreStep({
                   ))}
                 </select>
               )}
-              <p className="mt-1 text-xs text-zinc-500">mod {modNote(ability)}</p>
+              <p className="mt-1 text-xs text-zinc-600">mod {modNote(ability)}</p>
             </div>
             {rolled && (
               <button
@@ -1246,7 +1246,7 @@ function ScoreStep({
               </button>
             )}
             {rolled && abilityRollsUsed(ability) >= MAX_PER_ABILITY_ROLLS && (
-              <p className="text-xs text-zinc-400">Used {abilityRollsUsed(ability)}/{MAX_PER_ABILITY_ROLLS} rolls</p>
+              <p className="text-xs text-zinc-600">Used {abilityRollsUsed(ability)}/{MAX_PER_ABILITY_ROLLS} rolls</p>
             )}
           </div>
         ))}
@@ -1283,8 +1283,8 @@ function ShopStep({
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm font-medium text-zinc-700">
-          Starting gold <span className="text-zinc-500">({budget} gp)</span> · Spent{' '}
-          <span className={overBudget ? 'text-red-600' : 'text-zinc-500'}>{spentGold} gp</span>
+          Starting gold <span className="text-zinc-600">({budget} gp)</span> · Spent{' '}
+          <span className={overBudget ? 'text-red-600' : 'text-zinc-600'}>{spentGold} gp</span>
           {' '}· Remaining{' '}
           <span className={overBudget ? 'text-red-600' : 'text-emerald-700'}>
             {Math.max(0, budget - spentGold)} gp
@@ -1321,12 +1321,12 @@ function ShopStep({
           Retry pricing
         </button>
       )}
-      <p className="text-sm text-zinc-500">
+      <p className="text-sm text-zinc-600">
         Every item is bought out of your starting gold. The class kit is suggested (and trims itself to fit your budget) but
         you choose.
       </p>
       {recommendedKit.length > 0 && (
-        <p className="text-sm text-zinc-500">Recommended kit: {recommendedKit.join(', ')}</p>
+        <p className="text-sm text-zinc-600">Recommended kit: {recommendedKit.join(', ')}</p>
       )}
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         {items.map((item) => {
@@ -1380,7 +1380,7 @@ function RaceFacts({ raceDetail }) {
     >
       {facts.map(([label, value]) => (
         <div key={label}>
-          <dt className="text-zinc-500">{label}</dt>
+          <dt className="text-zinc-600">{label}</dt>
           <dd className="text-zinc-700">{value}</dd>
         </div>
       ))}
@@ -1391,7 +1391,7 @@ function RaceFacts({ raceDetail }) {
 function PickGrid({ label, rows, value, onSelect }) {
   return (
     <div className="space-y-3">
-      <p className="text-sm text-zinc-500">Choose your {label.toLowerCase()}.</p>
+      <p className="text-sm text-zinc-600">Choose your {label.toLowerCase()}.</p>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         {rows.map((row) => {
           const selected = value === row.index
@@ -1532,7 +1532,7 @@ function ReviewStep({ draft, result, compiledDraft, classSkills, hasSubclasses, 
 function ReviewRow({ label, value }) {
   return (
     <div>
-      <dt className="text-zinc-500">{label}</dt>
+      <dt className="text-zinc-600">{label}</dt>
       <dd className="font-medium">{value}</dd>
     </div>
   )

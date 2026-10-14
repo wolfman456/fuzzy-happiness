@@ -1,12 +1,14 @@
 package com.gamer.fowever.tabletopservice.web;
 
 import com.gamer.fowever.tabletopapi.AuthApi;
+import com.gamer.fowever.tabletopapi.dto.AuthProvider;
 import com.gamer.fowever.tabletopapi.dto.AuthResponse;
 import com.gamer.fowever.tabletopapi.dto.LoginRequest;
 import com.gamer.fowever.tabletopapi.dto.RegisterRequest;
 import com.gamer.fowever.tabletopapi.dto.RegisterResponse;
 import com.gamer.fowever.tabletopapi.dto.ResendRequest;
 import com.gamer.fowever.tabletopservice.service.AuthService;
+import com.gamer.fowever.tabletopservice.service.SocialLoginService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -17,14 +19,18 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/auth")
 public class AuthControllerImpl implements AuthApi {
 
     private final AuthService authService;
+    private final SocialLoginService socialLoginService;
 
-    public AuthControllerImpl(AuthService authService) {
+    public AuthControllerImpl(AuthService authService, SocialLoginService socialLoginService) {
         this.authService = authService;
+        this.socialLoginService = socialLoginService;
     }
 
     @PostMapping("/register")
@@ -47,5 +53,10 @@ public class AuthControllerImpl implements AuthApi {
     public ResponseEntity<String> resendVerification(@Valid @RequestBody ResendRequest request) {
         authService.resendVerification(request.identifier());
         return ResponseEntity.accepted().body("If the account exists and is unverified, a new link has been sent.");
+    }
+
+    @GetMapping("/providers")
+    public List<AuthProvider> providers() {
+        return socialLoginService.providers();
     }
 }
