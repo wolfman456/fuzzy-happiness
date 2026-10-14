@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ABILITIES, abilityModifier, deleteCharacter, getCharacter } from '../lib/characters'
-import { Alert, Card, LoadingState } from '../components/ui'
+import { Alert, LoadingState } from '../components/ui'
 import AvatarPreview from '../components/AvatarPreview'
 
 const ABILITY_LABELS = {
@@ -36,11 +36,7 @@ export default function CharacterSheetPage() {
   }
 
   if (!sheet) {
-    return (
-      <Card>
-        <LoadingState message="Loading character…" />
-      </Card>
-    )
+    return <LoadingState tone="light" message="Loading character…" />
   }
 
   async function handleDelete() {

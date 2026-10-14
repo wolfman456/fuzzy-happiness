@@ -16,29 +16,45 @@ export function Alert({ tone = 'error', children, className = '' }) {
 }
 
 /** Page-level heading with the display serif and an optional one-line subtitle. */
-export function PageHeading({ title, subtitle, children }) {
+export function PageHeading({ title, subtitle, children, tone = 'dark' }) {
+  const light = tone === 'light'
   return (
-    <div>
-      <h1 className="font-display text-2xl font-semibold tracking-tight text-zinc-900">{title}</h1>
-      {subtitle && <p className="mt-1 text-sm text-zinc-600">{subtitle}</p>}
+    <div className={light ? '[text-shadow:0_1px_3px_rgb(0_0_0_/_0.6)]' : ''}>
+      <h1
+        className={`font-display text-2xl font-semibold tracking-tight ${
+          light ? 'text-parchment-50' : 'text-zinc-900'
+        }`}
+      >
+        {title}
+      </h1>
+      {subtitle && (
+        <p className={`mt-1 text-sm ${light ? 'text-parchment-100' : 'text-zinc-600'}`}>{subtitle}</p>
+      )}
       {children}
     </div>
   )
 }
 
 /** A raised content panel, matching the white cards used across the app. */
-export function Card({ className = '', children }) {
+export function Card({ className = '', children, pressable = false }) {
+  const motion = pressable
+    ? 'transition-transform duration-150 ease-out active:scale-[0.98] motion-reduce:transition-none'
+    : ''
   return (
-    <section className={`rounded-xl border border-zinc-200 bg-white p-6 shadow-sm ${className}`}>
+    <section className={`rounded-xl border border-zinc-200 bg-white p-6 shadow-sm ${motion} ${className}`}>
       {children}
     </section>
   )
 }
 
 /** Shared loading placeholder so every page says the same thing the same way. */
-export function LoadingState({ message = 'Loading…' }) {
+export function LoadingState({ message = 'Loading…', tone = 'dark' }) {
+  const light = tone === 'light'
   return (
-    <p role="status" className="text-sm text-zinc-600">
+    <p
+      role="status"
+      className={`text-sm ${light ? 'text-parchment-100 [text-shadow:0_1px_3px_rgb(0_0_0_/_0.6)]' : 'text-zinc-600'}`}
+    >
       {message}
     </p>
   )
