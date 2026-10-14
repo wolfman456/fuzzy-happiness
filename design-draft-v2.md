@@ -118,7 +118,7 @@ Groundwork every other slice leans on.
 
 Pure-frontend polish; cheapest slice, unblocks the rest.
 
-> **Status:** 🚧 in progress in `feature/v2-slice-1-wizard-ux` (R48, PR #103). Ships a Tailwind v4 `@theme`
+> **Status:** ✅ landed (`feature/v2-slice-1-wizard-ux`, R48, PR #103, 2026-10-13). Ships a Tailwind v4 `@theme`
 > design language (parchment/ink/brass palette + display serif, no runtime font fetch), shared UI
 > primitives (`PageHeading`, `Card`, `Alert`, `LoadingState`, `EmptyState`), a per-step `<h2>` +
 > guidance paragraph on every wizard step, and a **Race step facts block** rendering the already-fetched
