@@ -218,5 +218,11 @@ filed, plus an investigation-only "not a bug".
   `compile` (all network I/O) **before** opening a transaction and wraps only the `saveAndFlush` in a
   `TransactionTemplate`, so a slow rules feed can never hold a pooled JDBC connection. The prod Hikari
   pool is now `DB_MAX_POOL_SIZE` (default 10, previously hard-coded 5). Covered by
-  `GatewayClientTest.slowUpstreamTimesOutAndMapsTo502` plus the full `CharacterJourneyIT` suite
-  (295 unit tests, 35 functional ITs green; jacoco gate met).
+   `GatewayClientTest.slowUpstreamTimesOutAndMapsTo502` plus the full `CharacterJourneyIT` suite
+   (295 unit tests, 35 functional ITs green; jacoco gate met).
+- **2026-10-13 — wizard step-order doc drift reconciled (design-draft-v2 §4, R48).** The locked
+  design-v1 §8 lists the wizard as `… → spells → equipment → review`, but the shipped wizard has
+  been `Skills → Spells → Equipment → Review` since the gold-budget shop landed (R25/R28). Slice 1
+  reconciles the docs to the shipped order rather than re-ordering the code, so the hard-coded
+  step indexes and the existing wizard test journeys stay stable. Docs only — no behavior change.
+

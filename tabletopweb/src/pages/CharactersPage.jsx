@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { createCharacter, deleteCharacter, generateCharacter, listMyCharacters, sheetToDraft } from '../lib/characters'
+import { Alert, EmptyState, LoadingState, PageHeading } from '../components/ui'
 
 export default function CharactersPage() {
   const navigate = useNavigate()
   const [characters, setCharacters] = useState([])
+  const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [generating, setGenerating] = useState(false)
   const [preview, setPreview] = useState(null)
@@ -18,6 +20,7 @@ export default function CharactersPage() {
     listMyCharacters()
       .then(setCharacters)
       .catch(() => setLoadError('Could not load your characters'))
+      .finally(() => setLoading(false))
   }, [])
 
   async function reload() {
@@ -82,7 +85,10 @@ export default function CharactersPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold">My characters</h1>
+        <PageHeading
+          title="My characters"
+          subtitle="Build a hero with the guided wizard, or let the dice decide with a quick-build."
+        />
         <div className="flex items-center gap-2">
           <Link
             to="/characters/new"
@@ -101,16 +107,9 @@ export default function CharactersPage() {
         </div>
       </div>
 
-      {loadError && (
-        <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
-          {loadError}
-        </p>
-      )}
-      {actionError && (
-        <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
-          {actionError}
-        </p>
-      )}
+      {loadError && <Alert tone="error">{loadError}</Alert>}
+      {actionError && <Alert tone="error">{actionError}</Alert>}
+      {loading && !loadError && <LoadingState message="Loading your characters…" />}
 
       {preview && (
         <section className="rounded-xl border border-emerald-300 bg-emerald-50 p-6 shadow-sm">
@@ -138,11 +137,23 @@ export default function CharactersPage() {
         </section>
       )}
 
-      {characters.length === 0 && !loadError ? (
-        <p className="text-sm text-zinc-500">
-          No characters yet — use the wizard to build your first hero, or hit “Create Random Character”.
-        </p>
-      ) : (
+      {characters.length === 0 && !loadError && !loading && (
+        <EmptyState
+          title="No characters yet"
+          action={
+            <Link
+              to="/characters/new"
+              className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700"
+            >
+              Build your first hero
+            </Link>
+          }
+        >
+          Use the wizard to build your first hero, or hit “Create Random Character”.
+        </EmptyState>
+      )}
+
+      {characters.length > 0 && (
         <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {characters.map((character) => (
             <li

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useAuth } from '../auth/useAuth'
 import { changePassword, updateProfile, updateUsername } from '../lib/api'
+import { Alert, Card, PageHeading } from '../components/ui'
 
 const PASSWORD_PATTERN = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/
 const PASSWORD_HINT = 'Password needs 8+ characters with an upper, lower, digit and symbol.'
@@ -113,8 +114,11 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-8">
-      <section className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
-        <h1 className="text-xl font-semibold">Settings</h1>
+      <Card>
+        <PageHeading
+          title="Settings"
+          subtitle="Manage the account you sign in with and how other players see you."
+        />
         <div className="mt-4 rounded-lg border border-zinc-200 bg-zinc-50 p-4">
           <h2 className="font-semibold">Account</h2>
           <dl className="mt-3 grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
@@ -144,23 +148,15 @@ export default function SettingsPage() {
             </span>
           </label>
           {fieldError && <p className="text-xs text-red-600">{fieldError}</p>}
-          {error && (
-            <p role="alert" className="rounded-md bg-red-50 p-3 text-sm text-red-700">
-              {error}
-            </p>
-          )}
-          {success && (
-            <p role="status" className="rounded-md bg-green-50 p-3 text-sm text-green-700">
-              {success}
-            </p>
-          )}
+          {error && <Alert tone="error">{error}</Alert>}
+          {success && <Alert tone="success">{success}</Alert>}
           <button type="submit" disabled={submitting} className={buttonClass}>
             {submitting ? 'Saving…' : 'Change username'}
           </button>
         </form>
-      </section>
+      </Card>
 
-      <section className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <Card>
         <h2 className="font-semibold">Edit profile</h2>
         <p className="mt-1 text-sm text-zinc-500">
           Update how your name appears to other players. Your email and date of birth stay the same.
@@ -194,23 +190,15 @@ export default function SettingsPage() {
               className={inputClass}
             />
           </label>
-          {profileError && (
-            <p role="alert" className="rounded-md bg-red-50 p-3 text-sm text-red-700">
-              {profileError}
-            </p>
-          )}
-          {profileSuccess && (
-            <p role="status" className="rounded-md bg-green-50 p-3 text-sm text-green-700">
-              {profileSuccess}
-            </p>
-          )}
+          {profileError && <Alert tone="error">{profileError}</Alert>}
+          {profileSuccess && <Alert tone="success">{profileSuccess}</Alert>}
           <button type="submit" disabled={profileSubmitting} className={buttonClass}>
             {profileSubmitting ? 'Saving…' : 'Save profile'}
           </button>
         </form>
-      </section>
+      </Card>
 
-      <section className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <Card>
         <h2 className="font-semibold">Change password</h2>
         <p className="mt-1 text-sm text-zinc-500">
           Choose a new password. Your current password is required to make the change.
@@ -260,21 +248,13 @@ export default function SettingsPage() {
             />
           </label>
           {pwFieldError && <p className="text-xs text-red-600">{pwFieldError}</p>}
-          {pwError && (
-            <p role="alert" className="rounded-md bg-red-50 p-3 text-sm text-red-700">
-              {pwError}
-            </p>
-          )}
-          {pwSuccess && (
-            <p role="status" className="rounded-md bg-green-50 p-3 text-sm text-green-700">
-              {pwSuccess}
-            </p>
-          )}
+          {pwError && <Alert tone="error">{pwError}</Alert>}
+          {pwSuccess && <Alert tone="success">{pwSuccess}</Alert>}
           <button type="submit" disabled={pwSubmitting} className={buttonClass}>
             {pwSubmitting ? 'Saving…' : 'Change password'}
           </button>
         </form>
-      </section>
+      </Card>
     </div>
   )
 }

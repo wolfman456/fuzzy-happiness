@@ -23,6 +23,7 @@ import {
   srdSubresource,
   subclassLevel,
 } from '../lib/srd'
+import { Alert, PageHeading } from '../components/ui'
 
 const STEPS = [
   'Basics',
@@ -35,6 +36,59 @@ const STEPS = [
   'Spells',
   'Equipment',
   'Review',
+]
+
+const STEP_GUIDES = [
+  {
+    heading: 'Name & basics',
+    guidance:
+      'Give your hero a name, choose the level they start at, and pick how their six ability scores are generated.',
+  },
+  {
+    heading: 'Ability scores',
+    guidance:
+      'Strength, Dexterity, Constitution, Intelligence, Wisdom and Charisma. Rolled methods are rolled by the server; standard array and point-buy let you assign legal values.',
+  },
+  {
+    heading: 'Race',
+    guidance:
+      'Your race grants ability bonuses, traits and languages. Pick the people your hero belongs to.',
+  },
+  {
+    heading: 'Class',
+    guidance:
+      'Your class is your adventuring role — it sets hit points, proficiencies, skills and, for casters, spellcasting.',
+  },
+  {
+    heading: 'Subclass',
+    guidance:
+      'Many classes specialise into a subclass at a later level. Choose one when your starting level unlocks it.',
+  },
+  {
+    heading: 'Background',
+    guidance:
+      'Your background is what your hero did before adventuring. It grants skills and shapes their story.',
+  },
+  {
+    heading: 'Skills',
+    guidance:
+      'Choose the skills your character is trained in: a few from your class plus up to two from your background.',
+  },
+  {
+    heading: 'Spells',
+    guidance:
+      'Spellcasters choose cantrips here, and leveled spells at higher levels. Classes that cannot cast at the start skip this step.',
+  },
+  {
+    heading: 'Equipment',
+    guidance:
+      "Spend your starting gold on gear. The class's recommended kit is a sensible start and trims itself to fit your budget.",
+  },
+  {
+    heading: 'Review your choices',
+    guidance:
+      'Check everything, compile the sheet against the rules, then create your character.',
+  },
 ]
 
 const ABILITY_LABELS = {
@@ -646,7 +700,10 @@ export default function CharacterWizardPage() {
   return (
     <div className="space-y-6">
       <section className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
-        <h1 className="text-xl font-semibold text-zinc-900">Character wizard</h1>
+        <PageHeading
+          title="Character wizard"
+          subtitle="A guided path from a blank page to a legal hero you can bring to the table."
+        />
 
         <ol className="mt-4 flex flex-wrap items-center gap-1 text-xs">
           {STEPS.map((label, index) => (
@@ -668,23 +725,21 @@ export default function CharacterWizardPage() {
           ))}
         </ol>
 
-        {catalogError && (
-          <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
-            {catalogError}
-          </p>
-        )}
-        {hint && (
-          <p role="status" className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
-            {hint}
-          </p>
-        )}
-        {error && (
-          <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
-            {error}
-          </p>
+        {(catalogError || hint || error) && (
+          <div className="mt-4 space-y-3">
+            {catalogError && <Alert tone="error">{catalogError}</Alert>}
+            {hint && <Alert tone="warning">{hint}</Alert>}
+            {error && <Alert tone="error">{error}</Alert>}
+          </div>
         )}
 
-        <div className="mt-6">
+        <div className="mt-6 space-y-4">
+          <div>
+            <h2 className="font-display text-lg font-semibold text-zinc-900">
+              {STEP_GUIDES[step].heading}
+            </h2>
+            <p className="mt-1 text-sm text-zinc-600">{STEP_GUIDES[step].guidance}</p>
+          </div>
         {step === 0 && (
           <div className="space-y-4">
             <label className="block">
@@ -772,6 +827,7 @@ export default function CharacterWizardPage() {
                   : 'none'}
               </p>
             )}
+            <RaceFacts raceDetail={raceDetail} />
           </div>
         )}
 
@@ -1199,6 +1255,35 @@ function ShopStep({
   )
 }
 
+function RaceFacts({ raceDetail }) {
+  if (!raceDetail) return null
+  const languageNames = (raceDetail.languages ?? [])
+    .map((language) => language?.name)
+    .filter(Boolean)
+    .join(', ')
+  const facts = [
+    ['Size', raceDetail.size],
+    ['Size notes', raceDetail.size_description],
+    ['Typical age', raceDetail.age],
+    ['Alignment', raceDetail.alignment],
+    ['Languages', languageNames],
+  ].filter(([, value]) => value)
+  if (facts.length === 0) return null
+  return (
+    <dl
+      data-testid="race-facts"
+      className="grid grid-cols-1 gap-2 rounded-md border border-zinc-200 bg-zinc-50 p-3 text-sm sm:grid-cols-2"
+    >
+      {facts.map(([label, value]) => (
+        <div key={label}>
+          <dt className="text-zinc-500">{label}</dt>
+          <dd className="text-zinc-700">{value}</dd>
+        </div>
+      ))}
+    </dl>
+  )
+}
+
 function PickGrid({ label, rows, value, onSelect }) {
   return (
     <div className="space-y-3">
@@ -1255,7 +1340,6 @@ function ReviewStep({ draft, result, compiledDraft, classSkills, hasSubclasses, 
 
   return (
     <div className="space-y-4">
-      <h2 className="font-semibold">Review your choices</h2>
       <dl className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
         <ReviewRow label="Name" value={draft.name} />
         <ReviewRow label="Level" value={draft.startingLevel} />

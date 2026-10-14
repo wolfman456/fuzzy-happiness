@@ -1,1 +1,26 @@
 @import "tailwindcss";
+
+/*
+ * Design language (v2 Slice 1). A warm "parchment & brass" palette and a
+ * display serif that match the dragon backdrop. Kept to a small, semantic
+ * token set so pages can share one look without bulk-repainting every class.
+ * No runtime font fetch — the stack prefers fonts already present on the OS.
+ */
+@theme {
+  --font-display: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, ui-serif, serif;
+
+  --color-parchment-50: #faf6ec;
+  --color-parchment-100: #f5ecd7;
+  --color-parchment-200: #ecdab4;
+  --color-parchment-300: #ddc38a;
+
+  --color-ink-700: #3f3a33;
+  --color-ink-800: #292420;
+  --color-ink-900: #1c1917;
+
+  --color-brass-400: #d4a53f;
+  --color-brass-500: #b8860b;
+  --color-brass-600: #96690a;
+
+  --color-ember-600: #b45309;
+}

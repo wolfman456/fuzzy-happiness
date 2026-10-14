@@ -7,6 +7,7 @@ import { createMap, getMap, rollDice } from '../lib/battleMap'
 import BattleMapPanel from '../components/BattleMapPanel'
 import DiceTray from '../components/DiceTray'
 import MonsterGenerator from '../components/MonsterGenerator'
+import { Alert, LoadingState } from '../components/ui'
 
 const ROLE_LABEL = { GM: 'GM', PLAYER: 'Player', SPECTATOR: 'Spectator' }
 
@@ -176,15 +177,13 @@ export default function SessionPage() {
   if (loadError) {
     return (
       <div className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
-        <p role="alert" className="text-sm text-red-700">
-          {loadError}
-        </p>
+        <Alert tone="error">{loadError}</Alert>
       </div>
     )
   }
 
   if (!session) {
-    return <p className="text-sm text-zinc-500">Loading session…</p>
+    return <LoadingState message="Loading session…" />
   }
 
   const isClosed = session.status === 'CLOSED'
@@ -260,9 +259,7 @@ export default function SessionPage() {
       <section className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
         <h2 className="text-lg font-semibold">Battle map</h2>
         <div className="mt-3">
-          {mapState === 'loading' && (
-            <p className="text-sm text-zinc-500">Loading battle map…</p>
-          )}
+          {mapState === 'loading' && <LoadingState message="Loading battle map…" />}
           {mapState === 'none' &&
             (me?.role === 'GM' ? (
               <form
@@ -296,11 +293,7 @@ export default function SessionPage() {
                 No battle map yet — ask your GM to set one up.
               </p>
             ))}
-          {mapState === 'error' && (
-            <p role="alert" className="text-sm text-red-700">
-              {mapError}
-            </p>
-          )}
+          {mapState === 'error' && <Alert tone="error">{mapError}</Alert>}
           {mapState === 'ready' && map && (
             <BattleMapPanel
               sessionId={id}
@@ -316,11 +309,7 @@ export default function SessionPage() {
 
       <section className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
         <h2 className="text-lg font-semibold">Table chat</h2>
-        {realtimeError && (
-          <p role="alert" className="mt-2 text-sm text-amber-700">
-            {realtimeError}
-          </p>
-        )}
+        {realtimeError && <Alert tone="error" className="mt-2">{realtimeError}</Alert>}
         <ul className="mt-3 max-h-72 space-y-3 overflow-y-auto" data-testid="event-feed">
           {events.map((event, index) => {
             const fullRoll =
