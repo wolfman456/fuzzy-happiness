@@ -21,6 +21,11 @@ number everywhere.
 3. Create an annotated tag `vX.Y.Z` on that commit and push it.
 4. On `develop`, bump to `X.(Y+1).0-SNAPSHOT` and commit.
 5. Add the release to the history below.
+6. Regenerate the in-app release-notes data and commit it in the same change:
+   `cd tabletopweb && npm run gen:release-notes`. The page at `/releases`
+   (design-draft-v2.md §10) is built from the history above, so it must not drift.
+7. Publish a GitHub Release for the tag (`gh release create vX.Y.Z --notes …`) so the page's
+   per-release links resolve to a real release.
 
 ## History
 

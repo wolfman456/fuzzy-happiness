@@ -257,10 +257,18 @@ backend tests, jacoco gate met. Frontend: `src/lib/monsters.js` (CR/role/edition
   **Appearance** step and the `CharacterSheetPage` portrait. No binaries ship — the CC0 models are
   a manual curation step (`research/avatar resources.md`, mirroring maps). 260 frontend unit + 9
   Playwright green, oxlint + build clean.
+- **In-app release notes page (R52)** — `feature/release-notes-page` (design-draft-v2 §10). A
+  signed-in `/releases` page (nav drawer + route) lists every update, newest first, and links to
+  the project's GitHub issue tracker. The data is **bundled from `RELEASES.md`**:
+  `scripts/generate-release-notes.mjs` parses its `## History` section into a pure
+  `src/lib/parseReleaseNotes.js` helper and a committed `src/lib/releaseNotes.generated.js`
+  (`npm run gen:release-notes`; `npm run check:release-notes` guards drift). Each dated release
+  links to its GitHub tag; an undated entry renders as "In development". Static data — no API or
+  gateway surface.
 
-Next: production deploys (R14 — Railway auto-deploy from GitHub, rootDirectory per service), avatar
-consumption (Slice 2c: in-session 3D token, §17), and the rest of the game table (multi-map, fog of
-war, turn timers, conditions). The out-of-MVP list lives in [Wants.md](Wants.md).
+Next: avatar consumption (Slice 2c: in-session 3D token, §17) and the rest of the game table
+(multi-map, fog of war, turn timers, conditions). The out-of-MVP list lives in
+[Wants.md](Wants.md).
 
 ## Deployment (Railway)
 
