@@ -118,6 +118,14 @@ Groundwork every other slice leans on.
 
 Pure-frontend polish; cheapest slice, unblocks the rest.
 
+> **Status:** 🚧 in progress in `feature/v2-slice-1-wizard-ux` (R48). Ships a Tailwind v4 `@theme`
+> design language (parchment/ink/brass palette + display serif, no runtime font fetch), shared UI
+> primitives (`PageHeading`, `Card`, `Alert`, `LoadingState`, `EmptyState`), a per-step `<h2>` +
+> guidance paragraph on every wizard step, and a **Race step facts block** rendering the already-fetched
+> SRD `size` / `size_description` / `age` / `alignment` / `languages`. Covered by Vitest + a new
+> Playwright `character-wizard.spec.js`. The v1 doc's step-order drift is reconciled in favour of the
+> shipped code order (Skills → Spells → Equipment → Review), recorded in `design-v1-fixes.md`.
+
 - **Wizard** (`tabletopweb/src/pages/CharacterWizardPage.jsx`):
   - Per-step `<h2>` heading + a guidance paragraph on every step; existing copy is expanded,
     kept verbatim where good.

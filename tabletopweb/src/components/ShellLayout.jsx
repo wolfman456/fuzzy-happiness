@@ -38,7 +38,7 @@ export default function ShellLayout() {
             >
               {menuOpen ? '\u2715' : '\u2630'}
             </button>
-            <Link to="/" className="text-lg font-semibold tracking-tight text-zinc-900">
+            <Link to="/" className="font-display text-xl font-semibold tracking-tight text-zinc-900">
               Tabletop
             </Link>
           </div>
@@ -81,7 +81,7 @@ export default function ShellLayout() {
                   end={item.end}
                   onClick={() => setMenuOpen(false)}
                   className={({ isActive }) =>
-                    `rounded-md px-3 py-2 text-sm font-medium ${
+                    `rounded-md px-3 py-2 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-brass-500 ${
                       isActive
                         ? 'bg-zinc-900 text-white'
                         : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'

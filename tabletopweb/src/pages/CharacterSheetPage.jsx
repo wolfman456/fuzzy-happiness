@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ABILITIES, abilityModifier, deleteCharacter, getCharacter } from '../lib/characters'
+import { Alert, LoadingState } from '../components/ui'
 
 const ABILITY_LABELS = {
   strength: 'Strength',
@@ -30,15 +31,11 @@ export default function CharacterSheetPage() {
   }, [id])
 
   if (error) {
-    return (
-      <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
-        {error}
-      </p>
-    )
+    return <Alert tone="error">{error}</Alert>
   }
 
   if (!sheet) {
-    return <p className="text-sm text-zinc-500">Loading character…</p>
+    return <LoadingState message="Loading character…" />
   }
 
   async function handleDelete() {
