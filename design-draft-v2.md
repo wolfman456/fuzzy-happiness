@@ -6,8 +6,9 @@ maintainer approves the slices; the living bug ledger stays in
 [`design-v1-fixes.md`](design-v1-fixes.md).
 
 **Status:** 🚧 in delivery — v2 vision + slice plan agreed (2026-09-13); Slice 0 Flyway baseline,
-Slice 1 wizard UX, Slice 2a sex + appearance and Slice 2b 3D avatar preview landed (2026-10-13);
-in-app release notes page (R52, §10) in progress; Slice 2c and Slice 3 planned.
+Slice 1 wizard UX, Slice 2a sex + appearance and Slice 2b 3D avatar preview landed (2026-10-13); the in-app release
+notes page (R52, §10) landed (`feature/release-notes-page`, PR #106, 2026-10-14); Slice 2c and
+Slice 3 planned.
 
 ---
 
@@ -274,6 +275,8 @@ All four resolved 2026-09-14 — see §2 "Decisions locked in".
 
 Pure-frontend convenience surface: a signed-in `/releases` page that lists every update, newest
 first, and points players at the project's GitHub issue tracker.
+
+> **Status:** ✅ **landed** (`feature/release-notes-page`, PR #106, 2026-10-14).
 
 - **Source of truth:** the page is bundled from `RELEASES.md`'s history. `scripts/generate-release-notes.mjs`
   parses the `## History` section into `src/lib/releaseNotes.generated.js` (regenerate with
