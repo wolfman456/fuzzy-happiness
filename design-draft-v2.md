@@ -6,8 +6,8 @@ maintainer approves the slices; the living bug ledger stays in
 [`design-v1-fixes.md`](design-v1-fixes.md).
 
 **Status:** 🚧 in delivery — v2 vision + slice plan agreed (2026-09-13); Slice 0 Flyway baseline,
-Slice 1 wizard UX and Slice 2a sex + appearance landed (2026-10-13); Slice 2b/2c and Slice 3
-planned.
+Slice 1 wizard UX and Slice 2a sex + appearance landed (2026-10-13); Slice 2b 3D avatar preview
+in progress; Slice 2c and Slice 3 planned.
 
 ---
 
@@ -154,10 +154,12 @@ The slice is delivered as three independent, shippable increments so the data/UX
 blocked on the 3D-asset research and the in-session viewport:
 
 > **Status:** ✅ **2a landed** (`feature/v2-slice-2a-sex-appearance`, R49, PR #104, 2026-10-13);
-> **2b** and **2c** ⏳ planned (R50, R51). 2a ships the full data chain (`Sex` enum,
-> `CharacterAppearance` record, both DTOs, both entities, `V2__character_appearance.sql`), a
-> required-sex **Appearance** wizard step with 2D tint swatches, and sex/tint display on
-> `CharacterSheetPage`.
+> 🔨 **2b in progress** (`feature/v2-slice-2b-3d-avatar-preview`, R50); **2c** ⏳ planned (R51).
+> 2a ships the full data chain (`Sex` enum, `CharacterAppearance` record, both DTOs, both
+> entities, `V2__character_appearance.sql`), a required-sex **Appearance** wizard step with 2D
+> tint swatches, and sex/tint display on `CharacterSheetPage`. 2b adds the R3F stack + an
+> `AvatarPreview` with a race×sex→GLB resolver and 2D-swatch fallback (assets are a manual CC0
+> curation step — see `research/avatar resources.md`).
 
 - **Slice 2a — Sex + appearance field (data chain + wizard step, 2D).** Ships everything except
   the 3D mesh and the in-session viewport.
@@ -174,14 +176,20 @@ blocked on the 3D-asset research and the in-session viewport:
     sliders with a 2D swatch preview. Changing race after this step keeps sex/tints. `sheetToDraft`
     round-trips sex + appearance.
   - **Sheet:** `CharacterSheetPage` shows sex and the tint swatch.
-- **Slice 2b — 3D avatar preview.** Adds the R3F stack and curated CC0 assets; swaps the 2D swatch
-  for a live preview. Depends on 2a's data + sex/race in the draft.
-  - **3D stack:** add `three`, `@react-three/fiber`, `@react-three/drei`. Models:
+- **Slice 2b — 3D avatar preview.** Adds the R3F stack and swaps the 2D swatch for a live preview
+  when a model is available. Depends on 2a's data + sex/race in the draft.
+  - **3D stack:** add `three`, `@react-three/fiber`, `@react-three/drei`, **code-split** behind a
+    `React.lazy` Canvas so the base bundle is unchanged while no assets are curated. Models:
     `tabletopweb/public/models/avatars/{race}-{M|F}.glb`, curated CC0 (asset-licensing research
-    first, mirroring `research/maps resources.md`). WebGL2 now; WebGPU later (§17).
-    jsdom tests **mock the Canvas** and test selection/tint logic, not pixels.
-  - **Wizard:** live `Canvas` preview of the race-base mesh with the tint sliders applied. Changing
-    race re-resolves the model; a missing asset falls back to the 2D swatch.
+    first — `research/avatar resources.md`, mirroring `research/maps resources.md`; link-only,
+    binaries are a manual curation step). WebGL2 now; WebGPU later (§17). jsdom tests **mock the
+    Canvas** and test selection/tint/fallback logic, not pixels.
+  - **Preview (`AvatarPreview`):** a race×sex→GLB resolver (`lib/avatars.js`) + `AvatarSwatch`
+    2D fallback. When a model is registered, a lazy `<Canvas>` loads it, applies the skin/hair
+    tints to the `Skin`/`Hair` materials, and orbits; a missing/failed asset (or no WebGL) falls
+    back to the swatch via an error boundary. Changing race/sex re-resolves the model.
+  - **Wizard:** the Appearance step's disc becomes `<AvatarPreview>` (swatch fallback today);
+    `CharacterSheetPage` reuses it as the portrait.
 - **Slice 2c — Avatar consumption (portrait + in-session token).** Re-opens deferred R12
   (design-v1 §17).
   - Portrait render on `CharacterSheetPage` (3D snapshot or GLB thumbnail).

@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ABILITIES, DEFAULT_APPEARANCE, abilityModifier, deleteCharacter, getCharacter } from '../lib/characters'
+import { ABILITIES, abilityModifier, deleteCharacter, getCharacter } from '../lib/characters'
 import { Alert, LoadingState } from '../components/ui'
+import AvatarPreview from '../components/AvatarPreview'
 
 const ABILITY_LABELS = {
   strength: 'Strength',
@@ -14,12 +15,6 @@ const ABILITY_LABELS = {
 
 function signed(value) {
   return value >= 0 ? `+${value}` : `${value}`
-}
-
-/** Cosmetic avatar stand-in until the 3D render lands (Slice 2b): a tinted disc. */
-function hueCss(hue, fallback) {
-  const value = Number.isInteger(hue) ? hue : fallback
-  return `hsl(${value} 45% 60%)`
 }
 
 export default function CharacterSheetPage() {
@@ -61,17 +56,13 @@ export default function CharacterSheetPage() {
       <div className="space-y-6">
         <header className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex items-start gap-4">
-            <div
-              data-testid="character-avatar"
-              aria-hidden="true"
-              className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full border border-zinc-300"
-              style={{ backgroundColor: hueCss(sheet.appearance?.skinTone, DEFAULT_APPEARANCE.skinTone) }}
-            >
-              <span
-                className="mt-10 h-4 w-10 rounded-t-full"
-                style={{ backgroundColor: hueCss(sheet.appearance?.hairTone, DEFAULT_APPEARANCE.hairTone) }}
-              />
-            </div>
+            <AvatarPreview
+              raceIndex={sheet.raceIndex}
+              sex={sheet.sex}
+              appearance={sheet.appearance}
+              size={80}
+              testId="character-avatar"
+            />
             <div>
               <h1 className="font-display text-2xl font-semibold text-zinc-900">{sheet.name}</h1>
               <p className="text-sm text-zinc-500">
