@@ -24,3 +24,43 @@
 
   --color-ember-600: #b45309;
 }
+
+/*
+ * Global button motion. Every button (plus `[role="button"]` and elements
+ * opting in with `.btn-lift`, used for anchors styled as buttons) lifts and
+ * drops a soft shadow on hover. Text links are deliberately excluded.
+ * Respects prefers-reduced-motion.
+ */
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not(:disabled),
+  .btn-lift {
+    transition:
+      transform 150ms ease,
+      box-shadow 150ms ease,
+      background-color 150ms ease,
+      border-color 150ms ease,
+      color 150ms ease;
+  }
+
+  button:not(:disabled):hover,
+  [role="button"]:not(:disabled):hover,
+  .btn-lift:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgb(0 0 0 / 0.15);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    button:not(:disabled),
+    [role="button"]:not(:disabled),
+    .btn-lift {
+      transition: none;
+    }
+
+    button:not(:disabled):hover,
+    [role="button"]:not(:disabled):hover,
+    .btn-lift:hover {
+      transform: none;
+    }
+  }
+}

@@ -84,16 +84,17 @@ export default function CharactersPage() {
 
   return (
     <div className="space-y-6">
-      <Card>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <PageHeading
-            title="My characters"
-            subtitle="Build a hero with the guided wizard, or let the dice decide with a quick-build."
-          />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <PageHeading
+          tone="light"
+          title="My characters"
+          subtitle="Build a hero with the guided wizard, or let the dice decide with a quick-build."
+        />
+        <Card pressable>
           <div className="flex items-center gap-2">
             <Link
               to="/characters/new"
-              className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700"
+              className="btn-lift rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700"
             >
               Guided wizard
             </Link>
@@ -106,15 +107,13 @@ export default function CharactersPage() {
               {generating ? 'Rolling…' : 'Create Random Character'}
             </button>
           </div>
-        </div>
-      </Card>
+        </Card>
+      </div>
 
       {loadError && <Alert tone="error">{loadError}</Alert>}
       {actionError && <Alert tone="error">{actionError}</Alert>}
       {loading && !loadError && (
-        <Card>
-          <LoadingState message="Loading your characters…" />
-        </Card>
+        <LoadingState tone="light" message="Loading your characters…" />
       )}
 
       {preview && (
@@ -149,7 +148,7 @@ export default function CharactersPage() {
           action={
             <Link
               to="/characters/new"
-              className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700"
+              className="btn-lift rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700"
             >
               Build your first hero
             </Link>

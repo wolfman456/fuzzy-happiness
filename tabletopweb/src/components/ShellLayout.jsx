@@ -82,7 +82,7 @@ export default function ShellLayout() {
                   end={item.end}
                   onClick={() => setMenuOpen(false)}
                   className={({ isActive }) =>
-                    `rounded-md px-3 py-2 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-brass-500 ${
+                    `btn-lift rounded-md px-3 py-2 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-brass-500 ${
                       isActive
                         ? 'bg-zinc-900 text-white'
                         : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'

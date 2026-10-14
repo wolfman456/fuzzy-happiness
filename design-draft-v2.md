@@ -129,6 +129,11 @@ Pure-frontend polish; cheapest slice, unblocks the rest.
 > SRD `size` / `size_description` / `age` / `alignment` / `languages`. Covered by Vitest + a new
 > Playwright `character-wizard.spec.js`. The v1 doc's step-order drift is reconciled in favour of the
 > shipped code order (Skills → Spells → Equipment → Review), recorded in `design-v1-fixes.md`.
+> Follow-up contrast/motion pass (PR #109, #110): pages whose heading/loading text sits
+> directly on the dark backdrop use the new `PageHeading`/`LoadingState` `tone="light"` variant
+> (parchment text + text-shadow) instead of a white card; every `<button>` lifts on hover via a global
+> CSS rule (`.btn-lift` covers anchors styled as buttons) and `Card` gained an opt-in `pressable`
+> press-scale.
 
 - **Wizard** (`tabletopweb/src/pages/CharacterWizardPage.jsx`):
   - Per-step `<h2>` heading + a guidance paragraph on every step; existing copy is expanded,
