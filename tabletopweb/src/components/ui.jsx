@@ -47,9 +47,9 @@ export function LoadingState({ message = 'Loading…' }) {
 /** Shared empty-state block: a short title, optional body and optional action. */
 export function EmptyState({ title, children, action }) {
   return (
-    <div className="rounded-xl border border-dashed border-zinc-300 bg-white/60 p-6 text-center">
+    <div className="rounded-xl border border-dashed border-zinc-300 bg-white p-6 text-center">
       <p className="font-medium text-zinc-700">{title}</p>
-      {children && <p className="mt-1 text-sm text-zinc-500">{children}</p>}
+      {children && <p className="mt-1 text-sm text-zinc-600">{children}</p>}
       {action && <div className="mt-4 flex justify-center">{action}</div>}
     </div>
   )
