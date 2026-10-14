@@ -46,8 +46,10 @@ describe('ui components', () => {
         Start by building a hero.
       </EmptyState>,
     )
-    expect(screen.getByText('No characters yet')).toBeInTheDocument()
-    expect(screen.getByText('Start by building a hero.')).toBeInTheDocument()
+    const title = screen.getByText('No characters yet')
+    expect(title).toBeInTheDocument()
+    expect(title.closest('div')).toHaveClass('bg-white')
+    expect(screen.getByText('Start by building a hero.')).toHaveClass('text-zinc-600')
     expect(screen.getByRole('button', { name: 'Build one' })).toBeInTheDocument()
   })
 })

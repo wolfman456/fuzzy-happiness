@@ -7,7 +7,7 @@ import { createMap, getMap, rollDice } from '../lib/battleMap'
 import BattleMapPanel from '../components/BattleMapPanel'
 import DiceTray from '../components/DiceTray'
 import MonsterGenerator from '../components/MonsterGenerator'
-import { Alert, LoadingState } from '../components/ui'
+import { Alert, Card, LoadingState } from '../components/ui'
 
 const ROLE_LABEL = { GM: 'GM', PLAYER: 'Player', SPECTATOR: 'Spectator' }
 
@@ -183,7 +183,11 @@ export default function SessionPage() {
   }
 
   if (!session) {
-    return <LoadingState message="Loading session…" />
+    return (
+      <Card>
+        <LoadingState message="Loading session…" />
+      </Card>
+    )
   }
 
   const isClosed = session.status === 'CLOSED'

@@ -57,6 +57,15 @@ describe('CharactersPage', () => {
     expect(await screen.findByText(/No characters yet/)).toBeInTheDocument()
   })
 
+  it('renders the heading and empty state on readable white surfaces', async () => {
+    listMyCharacters.mockResolvedValue([])
+    renderPage()
+
+    const subtitle = await screen.findByText(/Build a hero with the guided wizard/)
+    expect(subtitle.closest('section')).toHaveClass('bg-white')
+    expect(screen.getByText(/No characters yet/).closest('div')).toHaveClass('bg-white')
+  })
+
   it('lists the user’s characters', async () => {
     listMyCharacters.mockResolvedValue([
       { id: 7, name: 'Tordek', level: 2, raceIndex: 'dwarf', classIndex: 'cleric', subclassIndex: 'life', backgroundIndex: 'acolyte', hitPoints: 14, armorClass: 16 },
