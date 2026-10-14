@@ -6,8 +6,8 @@ maintainer approves the slices; the living bug ledger stays in
 [`design-v1-fixes.md`](design-v1-fixes.md).
 
 **Status:** 🚧 in delivery — v2 vision + slice plan agreed (2026-09-13); Slice 0 Flyway baseline,
-Slice 1 wizard UX and Slice 2a sex + appearance landed (2026-10-13); Slice 2b 3D avatar preview
-in progress; Slice 2c and Slice 3 planned.
+Slice 1 wizard UX, Slice 2a sex + appearance and Slice 2b 3D avatar preview landed (2026-10-13);
+Slice 2c and Slice 3 planned.
 
 ---
 
@@ -154,11 +154,12 @@ The slice is delivered as three independent, shippable increments so the data/UX
 blocked on the 3D-asset research and the in-session viewport:
 
 > **Status:** ✅ **2a landed** (`feature/v2-slice-2a-sex-appearance`, R49, PR #104, 2026-10-13);
-> 🔨 **2b in progress** (`feature/v2-slice-2b-3d-avatar-preview`, R50); **2c** ⏳ planned (R51).
+> ✅ **2b landed** (`feature/v2-slice-2b-3d-avatar-preview`, R50, PR #105, 2026-10-13);
+> **2c** ⏳ planned (R51).
 > 2a ships the full data chain (`Sex` enum, `CharacterAppearance` record, both DTOs, both
 > entities, `V2__character_appearance.sql`), a required-sex **Appearance** wizard step with 2D
-> tint swatches, and sex/tint display on `CharacterSheetPage`. 2b adds the R3F stack + an
-> `AvatarPreview` with a race×sex→GLB resolver and 2D-swatch fallback (assets are a manual CC0
+> tint swatches, and sex/tint display on `CharacterSheetPage`. 2b adds the code-split R3F stack +
+> an `AvatarPreview` with a race×sex→GLB resolver and 2D-swatch fallback (assets are a manual CC0
 > curation step — see `research/avatar resources.md`).
 
 - **Slice 2a — Sex + appearance field (data chain + wizard step, 2D).** Ships everything except
