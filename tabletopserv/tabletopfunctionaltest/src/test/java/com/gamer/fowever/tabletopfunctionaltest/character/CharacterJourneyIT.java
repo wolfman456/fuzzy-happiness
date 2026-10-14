@@ -26,7 +26,7 @@ class CharacterJourneyIT extends FunctionalTestBase {
                 Map.entry("scoreSource", "STANDARD_ARRAY"),
                 Map.entry("startingLevel", 1),
                 Map.entry("sex", "MALE"),
-                Map.entry("appearance", Map.of("skinTone", 120, "hairTone", 300)),
+                Map.entry("appearance", Map.of("skinTone", 120, "hairTone", 300, "hairStyle", "ponytail")),
                 Map.entry("raceIndex", "dwarf"),
                 Map.entry("classIndex", "cleric"),
                 Map.entry("subclassIndex", "life"),
@@ -53,6 +53,7 @@ class CharacterJourneyIT extends FunctionalTestBase {
         assertThat(sheet.get("sex").asText()).isEqualTo("MALE");
         assertThat(sheet.get("appearance").get("skinTone").asInt()).isEqualTo(120);
         assertThat(sheet.get("appearance").get("hairTone").asInt()).isEqualTo(300);
+        assertThat(sheet.get("appearance").get("hairStyle").asText()).isEqualTo("ponytail");
         assertThat(sheet.get("hitPoints").asInt()).isEqualTo(10);
         assertThat(sheet.get("armorClass").asInt()).isEqualTo(15);
         assertThat(sheet.get("speedFeet").asInt()).isEqualTo(25);
@@ -182,6 +183,7 @@ class CharacterJourneyIT extends FunctionalTestBase {
         assertThat(fetched.get("id").asLong()).isEqualTo(id);
         assertThat(fetched.get("name").asText()).isEqualTo("Tordek");
         assertThat(fetched.get("sheetSnapshot").get("name").asText()).isEqualTo("Tordek");
+        assertThat(fetched.get("appearance").get("hairStyle").asText()).isEqualTo("ponytail");
 
         JsonNode otherMine = Api.json(Api.get(baseUrl() + "/api/users/me/characters", otherJwt).body());
         assertThat(otherMine).isEmpty();
