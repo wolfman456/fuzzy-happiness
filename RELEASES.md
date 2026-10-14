@@ -45,3 +45,4 @@ number everywhere.
   (R52, §10) and config-gated social OAuth login — Google/Facebook/GitHub (R19, §11); chargen
   hardening (gateway-call bounding #49, merged subclass features #85, ability-score reroll cap
   #87) and a character-wizard helper-text contrast fix.
+- **v1.4.0 — (next release).** Current `develop` (`1.4.0-SNAPSHOT`).

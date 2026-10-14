@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { createCharacter, deleteCharacter, generateCharacter, listMyCharacters, sheetToDraft } from '../lib/characters'
-import { Alert, EmptyState, LoadingState, PageHeading } from '../components/ui'
+import { Alert, Card, EmptyState, LoadingState, PageHeading } from '../components/ui'
 
 export default function CharactersPage() {
   const navigate = useNavigate()
@@ -84,32 +84,38 @@ export default function CharactersPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <PageHeading
-          title="My characters"
-          subtitle="Build a hero with the guided wizard, or let the dice decide with a quick-build."
-        />
-        <div className="flex items-center gap-2">
-          <Link
-            to="/characters/new"
-            className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700"
-          >
-            Guided wizard
-          </Link>
-          <button
-            type="button"
-            onClick={handleSurpriseMe}
-            disabled={generating}
-            className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50"
-          >
-            {generating ? 'Rolling…' : 'Create Random Character'}
-          </button>
+      <Card>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <PageHeading
+            title="My characters"
+            subtitle="Build a hero with the guided wizard, or let the dice decide with a quick-build."
+          />
+          <div className="flex items-center gap-2">
+            <Link
+              to="/characters/new"
+              className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700"
+            >
+              Guided wizard
+            </Link>
+            <button
+              type="button"
+              onClick={handleSurpriseMe}
+              disabled={generating}
+              className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50"
+            >
+              {generating ? 'Rolling…' : 'Create Random Character'}
+            </button>
+          </div>
         </div>
-      </div>
+      </Card>
 
       {loadError && <Alert tone="error">{loadError}</Alert>}
       {actionError && <Alert tone="error">{actionError}</Alert>}
-      {loading && !loadError && <LoadingState message="Loading your characters…" />}
+      {loading && !loadError && (
+        <Card>
+          <LoadingState message="Loading your characters…" />
+        </Card>
+      )}
 
       {preview && (
         <section className="rounded-xl border border-emerald-300 bg-emerald-50 p-6 shadow-sm">

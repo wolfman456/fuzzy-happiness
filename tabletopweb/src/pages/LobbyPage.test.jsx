@@ -28,6 +28,14 @@ function renderLobby() {
 }
 
 describe('LobbyPage', () => {
+  it('renders the heading on a readable white surface', async () => {
+    listGames.mockResolvedValue([])
+    renderLobby()
+
+    const heading = screen.getByRole('heading', { name: 'Game sessions' })
+    expect(heading.closest('section')).toHaveClass('bg-white')
+  })
+
   it('loads games into the create form', async () => {
     listGames.mockResolvedValue([
       { slug: 'dnd-5e', displayName: 'D&D 5e' },
