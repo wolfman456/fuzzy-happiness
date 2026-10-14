@@ -754,7 +754,10 @@ describe('CharacterWizardPage', () => {
     renderWizard()
 
     expect(screen.getByRole('heading', { name: 'Name & basics' })).toBeInTheDocument()
-    expect(screen.getByText(/Give your hero a name, choose the level/)).toBeInTheDocument()
+    const guidance = screen.getByText(/Give your hero a name, choose the level/)
+    expect(guidance).toBeInTheDocument()
+    expect(guidance).toHaveClass('text-zinc-600')
+    expect(guidance).not.toHaveClass('text-zinc-300', 'text-zinc-400', 'text-zinc-500')
 
     fireEvent.change(screen.getByLabelText('Character name'), { target: { value: 'Tordek' } })
     fireEvent.click(screen.getByRole('button', { name: 'Ability scores' }))
