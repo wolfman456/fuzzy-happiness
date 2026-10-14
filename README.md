@@ -237,6 +237,16 @@ backend tests, jacoco gate met. Frontend: `src/lib/monsters.js` (CR/role/edition
   password policy blocks the request) — each stubbing the backend with `page.route` (no
   Spring/Postgres needed). Vitest excludes `e2e/**`. New `e2e` CI job installs Chromium
   (`--with-deps`) and runs `npm run test:e2e`, uploading the report. 6 E2E + 221 unit green.
+- **Slice 2a — hero sex + appearance** — `feature/v2-slice-2a-sex-appearance` (design-draft-v2
+  §5). Adds a required, cosmetic `sex` (`MALE`/`FEMALE`) and optional `appearance` skin/hair hue
+  tints to the character chain: new `Sex` enum + `CharacterAppearance` record in `tabletopapi`,
+  carried through `CharacterDraftDto`/`CharacterSheetDto` and the `Dnd5eCharacter`/`CharacterDraft`
+  entities into a forward `V2__character_appearance.sql` migration (on both `characters` and
+  `character_drafts`; nullable so old rows survive, app-validated on compile). The wizard gains an
+  **Appearance** step after Race (making it an **11-step** flow) with a sex radio + 2D skin/hair
+  tint sliders; `CharacterSheetPage` shows the sex and a tinted avatar disc (the 3D render follows
+  in Slice 2b). 299 backend unit + 37 functional ITs green (incl. Flyway validate of V2), 237
+  frontend unit + 8 Playwright green, oxlint + build clean.
 
 Next: production deploys (R14 — Railway auto-deploy from GitHub, rootDirectory per service), the
 optional 3D viewport (§17), and the rest of the game table (multi-map, fog of war, turn timers,

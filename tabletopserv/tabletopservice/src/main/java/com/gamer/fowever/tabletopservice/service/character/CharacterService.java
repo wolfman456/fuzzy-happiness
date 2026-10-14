@@ -1,7 +1,9 @@
 package com.gamer.fowever.tabletopservice.service.character;
 
 import com.gamer.fowever.tabletopapi.ScoreSource;
+import com.gamer.fowever.tabletopapi.Sex;
 import com.gamer.fowever.tabletopapi.dto.ChargenCatalogDto;
+import com.gamer.fowever.tabletopapi.dto.CharacterAppearance;
 import com.gamer.fowever.tabletopapi.dto.CharacterDraftDto;
 import com.gamer.fowever.tabletopapi.dto.CharacterSheetDto;
 import com.gamer.fowever.tabletopapi.dto.CharacterSummaryDto;
@@ -133,11 +135,13 @@ public class CharacterService {
         List<String> spells = caster ? randomSpells(classSpells, classLevels, level, random) : List.of();
         List<String> equipment = randomEquipment(equipmentList, background, random);
 
+        Sex sex = random.nextBoolean() ? Sex.MALE : Sex.FEMALE;
         CharacterDraftDto draft = new CharacterDraftDto(
                 isBlank(request.name()) ? "Surprise Me" : request.name().trim(),
                 finalScores.get("str"), finalScores.get("dex"), finalScores.get("con"),
                 finalScores.get("int"), finalScores.get("wis"), finalScores.get("cha"),
                 source, level,
+                sex, null,
                 raceIndex, classIndex, subclass, backgroundIndex,
                 new HashSet<>(skillPicks), new HashSet<>(spells), new HashSet<>(equipment));
         return compile(actor, draft);
@@ -206,6 +210,8 @@ public class CharacterService {
         entity.setWisdom(sheet.wisdom());
         entity.setCharisma(sheet.charisma());
         entity.setScoreSource(sheet.scoreSource());
+        entity.setSex(sheet.sex());
+        entity.setAppearance(sheet.appearance() == null ? null : toJson(sheet.appearance()));
         entity.setLevel(sheet.level());
         entity.setRaceIndex(sheet.raceIndex());
         entity.setClassIndex(sheet.classIndex());
@@ -279,11 +285,34 @@ public class CharacterService {
     }
 
     private void validate(CharacterDraftDto draft, SrdFacts facts, List<String> violations) {
+        validateSex(draft, violations);
+        validateAppearance(draft, violations);
         validateScores(draft, facts, violations);
         validateSubclass(draft, facts, violations);
         validateSkills(draft, facts, violations);
         validateSpells(draft, facts, violations);
         validateEquipment(draft, facts, violations);
+    }
+
+    /** Sex is required and binary (design-draft-v2.md §5) — cosmetic, no mechanical effect. */
+    private void validateSex(CharacterDraftDto draft, List<String> violations) {
+        if (draft.sex() == null) {
+            violations.add("sex: choose MALE or FEMALE");
+        }
+    }
+
+    /** Appearance tints are optional; when present each hue must be within [0, 359]. */
+    private void validateAppearance(CharacterDraftDto draft, List<String> violations) {
+        CharacterAppearance appearance = draft.appearance();
+        if (appearance == null) {
+            return;
+        }
+        if (appearance.skinTone() != null && (appearance.skinTone() < 0 || appearance.skinTone() > 359)) {
+            violations.add("appearance.skinTone: must be a hue between 0 and 359");
+        }
+        if (appearance.hairTone() != null && (appearance.hairTone() < 0 || appearance.hairTone() > 359)) {
+            violations.add("appearance.hairTone: must be a hue between 0 and 359");
+        }
     }
 
     private void validateScores(CharacterDraftDto draft, SrdFacts facts, List<String> violations) {
@@ -443,7 +472,7 @@ public class CharacterService {
         int spentGoldGp = facts.equipmentFacts().stream().mapToInt(EquipmentFact::goldCostGp).sum();
 
         CharacterSheetDto core = new CharacterSheetDto(
-                null, draft.name(), level, draft.scoreSource(),
+                null, draft.name(), level, draft.scoreSource(), draft.sex(), draft.appearance(),
                 draft.raceIndex(), draft.classIndex(), draft.subclassIndex(), draft.backgroundIndex(),
                 scores.get("str"), scores.get("dex"), scores.get("con"),
                 scores.get("int"), scores.get("wis"), scores.get("cha"),
@@ -452,7 +481,7 @@ public class CharacterService {
                 features, equipment, startingGoldGp, spentGoldGp, null);
         JsonNode snapshot = toNode(toJson(core));
         return new CharacterSheetDto(
-                null, draft.name(), level, draft.scoreSource(),
+                null, draft.name(), level, draft.scoreSource(), draft.sex(), draft.appearance(),
                 draft.raceIndex(), draft.classIndex(), draft.subclassIndex(), draft.backgroundIndex(),
                 scores.get("str"), scores.get("dex"), scores.get("con"),
                 scores.get("int"), scores.get("wis"), scores.get("cha"),
@@ -467,7 +496,7 @@ public class CharacterService {
 
     private CharacterSheetDto withId(Long id, CharacterSheetDto sheet) {
         return new CharacterSheetDto(
-                id, sheet.name(), sheet.level(), sheet.scoreSource(),
+                id, sheet.name(), sheet.level(), sheet.scoreSource(), sheet.sex(), sheet.appearance(),
                 sheet.raceIndex(), sheet.classIndex(), sheet.subclassIndex(), sheet.backgroundIndex(),
                 sheet.strength(), sheet.dexterity(), sheet.constitution(),
                 sheet.intelligence(), sheet.wisdom(), sheet.charisma(),
@@ -914,9 +943,9 @@ public class CharacterService {
         return value == null || value.isBlank();
     }
 
-    private String toJson(CharacterSheetDto sheet) {
+    private String toJson(Object value) {
         try {
-            return objectMapper.writeValueAsString(sheet);
+            return objectMapper.writeValueAsString(value);
         } catch (JacksonException ex) {
             throw ApiException.badGateway("sheet serialization failed");
         }

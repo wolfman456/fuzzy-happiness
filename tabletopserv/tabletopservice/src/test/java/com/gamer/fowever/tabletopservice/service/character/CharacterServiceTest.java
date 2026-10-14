@@ -1,6 +1,8 @@
 package com.gamer.fowever.tabletopservice.service.character;
 
 import com.gamer.fowever.tabletopapi.ScoreSource;
+import com.gamer.fowever.tabletopapi.Sex;
+import com.gamer.fowever.tabletopapi.dto.CharacterAppearance;
 import com.gamer.fowever.tabletopapi.dto.CharacterDraftDto;
 import com.gamer.fowever.tabletopapi.dto.CharacterSheetDto;
 import com.gamer.fowever.tabletopapi.dto.CharacterSummaryDto;
@@ -130,12 +132,65 @@ class CharacterServiceTest {
         assertThat(sheet.spellIndexes()).containsExactly("cure-wounds", "sacred-flame");
         assertThat(sheet.spellSlots()).containsEntry(0, 3).containsEntry(1, 2);
         assertThat(sheet.featureIndexes()).contains("spellcasting", "disciple-of-life", "darkvision");
+        assertThat(sheet.sex()).isEqualTo(Sex.MALE);
         assertThat(sheet.sheetSnapshot()).isNotNull();
         assertThat(sheet.startingGoldGp()).isEqualTo(125);
         assertThat(sheet.spentGoldGp()).isEqualTo(20);
 
         verify(srd).subresource("classes", "cleric", "levels", Map.of());
         verify(srd).subresource("subclasses", "life", "levels", Map.of());
+    }
+
+    @Test
+    void compileCarriesSexAndAppearanceIntoTheSheet() {
+        stubCommonCatalog();
+        CharacterDraftDto draft = draftBuilder(legalDraft())
+                .sex(Sex.FEMALE)
+                .appearance(new CharacterAppearance(120, 30))
+                .build();
+
+        CompileResult result = service.compile(user(5L), draft);
+
+        assertThat(result.valid()).isTrue();
+        assertThat(result.sheet().sex()).isEqualTo(Sex.FEMALE);
+        assertThat(result.sheet().appearance()).isEqualTo(new CharacterAppearance(120, 30));
+        assertThat(result.sheet().sheetSnapshot().path("sex").asText()).isEqualTo("FEMALE");
+        assertThat(result.sheet().sheetSnapshot().path("appearance").path("skinTone").asInt()).isEqualTo(120);
+    }
+
+    @Test
+    void compileRejectsMissingSex() {
+        stubCommonCatalog();
+        CharacterDraftDto draft = draftBuilder(legalDraft()).sex(null).build();
+
+        CompileResult result = service.compile(user(5L), draft);
+
+        assertThat(result.valid()).isFalse();
+        assertThat(result.violations()).anyMatch(v -> v.contains("sex"));
+    }
+
+    @Test
+    void compileRejectsOutOfRangeSkinTone() {
+        stubCommonCatalog();
+        CharacterDraftDto draft = draftBuilder(legalDraft())
+                .appearance(new CharacterAppearance(400, null)).build();
+
+        CompileResult result = service.compile(user(5L), draft);
+
+        assertThat(result.valid()).isFalse();
+        assertThat(result.violations()).anyMatch(v -> v.contains("skinTone"));
+    }
+
+    @Test
+    void compileRejectsOutOfRangeHairTone() {
+        stubCommonCatalog();
+        CharacterDraftDto draft = draftBuilder(legalDraft())
+                .appearance(new CharacterAppearance(null, -1)).build();
+
+        CompileResult result = service.compile(user(5L), draft);
+
+        assertThat(result.valid()).isFalse();
+        assertThat(result.violations()).anyMatch(v -> v.contains("hairTone"));
     }
 
     @Test
@@ -486,7 +541,7 @@ class CharacterServiceTest {
     @Test
     void getReturnsSnapshotRePairedWithId() {
         CharacterSheetDto sheet = new CharacterSheetDto(
-                null, "Tordek", 1, ScoreSource.STANDARD_ARRAY, "dwarf", "cleric", "life", "acolyte",
+                null, "Tordek", 1, ScoreSource.STANDARD_ARRAY, Sex.MALE, null, "dwarf", "cleric", "life", "acolyte",
                 15, 14, 13, 12, 10, 8, 2, 10, 13, 25,
                 List.of("cha", "wis"),
                 List.of("skill-medicine", "skill-religion"),
@@ -706,6 +761,7 @@ class CharacterServiceTest {
     private CharacterDraftDto wizardDraft() {
         return new CharacterDraftDto(
                 "Merlin", 15, 14, 15, 12, 10, 8, ScoreSource.STANDARD_ARRAY, 1,
+                Sex.FEMALE, null,
                 "dwarf", "wizard", "evocation", "sage",
                 Set.of("skill-arcana", "skill-history"),
                 Set.of("fire-bolt", "magic-missile"),
@@ -731,6 +787,7 @@ class CharacterServiceTest {
     private CharacterDraftDto legalDraft() {
         return new CharacterDraftDto(
                 "Tordek", 15, 14, 15, 12, 10, 8, ScoreSource.STANDARD_ARRAY, 1,
+                Sex.MALE, null,
                 "dwarf", "cleric", "life", "acolyte",
                 Set.of("skill-medicine", "skill-religion"),
                 Set.of("sacred-flame", "cure-wounds"),
@@ -751,6 +808,8 @@ class CharacterServiceTest {
         private int charisma;
         private ScoreSource scoreSource;
         private int startingLevel;
+        private Sex sex;
+        private CharacterAppearance appearance;
         private String raceIndex;
         private String classIndex;
         private String subclassIndex;
@@ -769,6 +828,8 @@ class CharacterServiceTest {
             this.charisma = d.charisma();
             this.scoreSource = d.scoreSource();
             this.startingLevel = d.startingLevel();
+            this.sex = d.sex();
+            this.appearance = d.appearance();
             this.raceIndex = d.raceIndex();
             this.classIndex = d.classIndex();
             this.subclassIndex = d.subclassIndex();
@@ -785,6 +846,8 @@ class CharacterServiceTest {
         DraftBuilder wisdom(int v) { this.wisdom = v; return this; }
         DraftBuilder charisma(int v) { this.charisma = v; return this; }
         DraftBuilder startingLevel(int v) { this.startingLevel = v; return this; }
+        DraftBuilder sex(Sex v) { this.sex = v; return this; }
+        DraftBuilder appearance(CharacterAppearance v) { this.appearance = v; return this; }
         DraftBuilder raceIndex(String v) { this.raceIndex = v; return this; }
         DraftBuilder classIndex(String v) { this.classIndex = v; return this; }
         DraftBuilder subclassIndex(String v) { this.subclassIndex = v; return this; }
@@ -795,8 +858,8 @@ class CharacterServiceTest {
 
         CharacterDraftDto build() {
             return new CharacterDraftDto(name, strength, dexterity, constitution, intelligence, wisdom,
-                    charisma, scoreSource, startingLevel, raceIndex, classIndex, subclassIndex,
-                    backgroundIndex, skillPickIndexes, spellIndexes, equipmentIndexes);
+                    charisma, scoreSource, startingLevel, sex, appearance, raceIndex, classIndex,
+                    subclassIndex, backgroundIndex, skillPickIndexes, spellIndexes, equipmentIndexes);
         }
     }
 

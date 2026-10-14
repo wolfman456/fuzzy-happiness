@@ -190,6 +190,21 @@ function chooseStandardArray() {
   fireEvent.click(screen.getByRole('button', { name: 'Next' }))
 }
 
+/** Picks a sex (and leaves the default tints) on the Appearance step. */
+function chooseAppearance(sex = 'Male') {
+  fireEvent.click(screen.getByRole('radio', { name: sex }))
+}
+
+async function walkToAppearanceStep() {
+  fireEvent.change(screen.getByLabelText('Character name'), { target: { value: 'Tordek' } })
+  chooseStandardArray()
+  fireEvent.click(await screen.findByRole('button', { name: 'Use the standard array (as written)' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+  fireEvent.click(await screen.findByRole('button', { name: 'Dwarf' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+  await screen.findByRole('radio', { name: 'Male' })
+}
+
 async function walkToSkillsStep() {
   fireEvent.change(screen.getByLabelText('Character name'), { target: { value: 'Tordek' } })
   chooseStandardArray()
@@ -198,6 +213,9 @@ async function walkToSkillsStep() {
   fireEvent.click(screen.getByRole('button', { name: 'Next' }))
 
   fireEvent.click(await screen.findByRole('button', { name: 'Dwarf' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+
+  chooseAppearance()
   fireEvent.click(screen.getByRole('button', { name: 'Next' }))
 
   fireEvent.click(await screen.findByRole('button', { name: 'Cleric' }))
@@ -235,6 +253,9 @@ async function walkToSubclassStep() {
   fireEvent.click(screen.getByRole('button', { name: 'Next' }))
 
   fireEvent.click(await screen.findByRole('button', { name: 'Dwarf' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+
+  chooseAppearance()
   fireEvent.click(screen.getByRole('button', { name: 'Next' }))
 
   fireEvent.click(await screen.findByRole('button', { name: 'Cleric' }))
@@ -602,6 +623,9 @@ describe('CharacterWizardPage', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Dwarf' }))
     fireEvent.click(screen.getByRole('button', { name: 'Next' }))
 
+    chooseAppearance()
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+
     fireEvent.click(await screen.findByRole('button', { name: 'Cleric' }))
     await waitFor(() => expect(screen.getByRole('button', { name: 'Next' })).toBeEnabled())
     fireEvent.click(screen.getByRole('button', { name: 'Next' }))
@@ -775,5 +799,49 @@ describe('CharacterWizardPage', () => {
 
     await screen.findByText(/Dwarf ability bonuses/)
     expect(screen.queryByTestId('race-facts')).not.toBeInTheDocument()
+  })
+
+  it('requires a sex on the Appearance step before continuing', async () => {
+    setupSrd()
+    renderWizard()
+
+    await walkToAppearanceStep()
+
+    expect(screen.getByRole('heading', { name: 'Appearance' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled()
+
+    chooseAppearance('Female')
+    expect(screen.getByRole('radio', { name: 'Female' })).toBeChecked()
+    expect(screen.getByRole('button', { name: 'Next' })).toBeEnabled()
+  })
+
+  it('updates the tint labels and swatch on the Appearance step', async () => {
+    setupSrd()
+    renderWizard()
+
+    await walkToAppearanceStep()
+
+    expect(screen.getByText(/Skin tint \(200°\)/)).toBeInTheDocument()
+    const swatch = screen.getByTestId('appearance-swatch')
+    const initialStyle = swatch.getAttribute('style')
+    fireEvent.change(screen.getByLabelText(/Skin tint/), { target: { value: '40' } })
+    expect(screen.getByText(/Skin tint \(40°\)/)).toBeInTheDocument()
+    expect(swatch.getAttribute('style')).not.toBe(initialStyle)
+    expect(screen.getByTestId('appearance-hair-swatch')).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText(/Hair tint/), { target: { value: '300' } })
+    expect(screen.getByText(/Hair tint \(300°\)/)).toBeInTheDocument()
+  })
+
+  it('reviews the chosen sex and appearance before creating', async () => {
+    setupSrd()
+    compileCharacter.mockResolvedValue({ valid: true, violations: [], sheet: VALID_SHEET })
+    renderWizard()
+
+    await walkToReview()
+
+    expect(screen.getByText('Sex')).toBeInTheDocument()
+    expect(screen.getByText('MALE')).toBeInTheDocument()
+    expect(screen.getByText(/skin 200° · hair 30°/)).toBeInTheDocument()
   })
 })

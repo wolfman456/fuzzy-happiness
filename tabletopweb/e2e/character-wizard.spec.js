@@ -38,4 +38,27 @@ test.describe('character wizard labeling & race facts', () => {
     await expect(facts).toContainText('Medium')
     await expect(facts).toContainText('Common, Dwarvish')
   })
+
+  test('gates the Appearance step on sex and lets the player tune tints', async ({ page }) => {
+    await openWizard(page)
+
+    await page.getByLabel('Character name').fill('Tordek')
+    await page.getByLabel('Ability scores').selectOption('STANDARD_ARRAY')
+    await page.getByRole('button', { name: 'Next' }).click()
+    await page.getByRole('button', { name: 'Use the standard array (as written)' }).click()
+    await page.getByRole('button', { name: 'Next' }).click()
+    await page.getByRole('button', { name: 'Dwarf' }).click()
+    await page.getByRole('button', { name: 'Next' }).click()
+
+    await expect(page.getByRole('heading', { name: 'Appearance' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Next' })).toBeDisabled()
+
+    await page.getByRole('radio', { name: 'Female' }).check()
+    await expect(page.getByRole('button', { name: 'Next' })).toBeEnabled()
+
+    await expect(page.getByText(/Skin tint \(200°\)/)).toBeVisible()
+    await page.getByLabel(/Skin tint/).fill('40')
+    await expect(page.getByText(/Skin tint \(40°\)/)).toBeVisible()
+    await expect(page.getByTestId('appearance-swatch')).toBeVisible()
+  })
 })

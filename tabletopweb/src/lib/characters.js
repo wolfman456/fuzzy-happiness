@@ -228,6 +228,12 @@ export function deleteCharacter(id) {
   return api(`/api/users/me/characters/${id}`, { method: 'DELETE' })
 }
 
+/**
+ * Default cosmetic tints for a new hero (hue 0–359). A quick-build sheet may not
+ * carry an appearance, so the wizard seeds these instead of a null swatch.
+ */
+export const DEFAULT_APPEARANCE = { skinTone: 200, hairTone: 30 }
+
 /** Rebuilds a create/compile draft from a compiled sheet (quick-build → save/revise). */
 export function sheetToDraft(sheet) {
   return {
@@ -240,6 +246,8 @@ export function sheetToDraft(sheet) {
     charisma: sheet.charisma,
     scoreSource: sheet.scoreSource,
     startingLevel: sheet.level,
+    sex: sheet.sex ?? '',
+    appearance: sheet.appearance ?? { ...DEFAULT_APPEARANCE },
     raceIndex: sheet.raceIndex,
     classIndex: sheet.classIndex,
     subclassIndex: sheet.subclassIndex,

@@ -7,7 +7,7 @@ After placing the request in this file and commit it, place a pull request and I
 
 ## Feature Requests
 
-Status key: ✅ landed · 🔨 in progress · ⏭ deferred (post-MVP)
+Status key: ✅ landed · 🔨 in progress · ⏳ planned (scheduled v2 slice, not started) · ⏭ deferred (post-MVP)
 
 - As a Player I want to create a game session (room) and get an invite code so I can invite my friends to play with me. (R2) ✅ landed
 - As a Player I want to join a session with an invite code so all of us can be in the same room at the same time. (R3) ✅ landed
@@ -42,6 +42,9 @@ Status key: ✅ landed · 🔨 in progress · ⏭ deferred (post-MVP)
 - As a Player I want the full standard Player's Handbook background list in the character wizard — not just Acolyte from the SRD — so I can pick the origin I planned. ✅ landed (curated PHB catalog, PR D)
 - As a Player I want my email address verified with a login link after registration once production email delivery is configured, so my account is tied to an address I actually control — until prod SMTP is set up accounts are auto-verified on registration so nobody is locked out. (R31) ✅ landed (verification disabled/auto-verify shipped, PR #53)
 - As a Player I want the character wizard to explain each choice in plain language and the site to look and feel finished, so I can build a hero without guessing — including seeing what a race actually is (size, age, alignment, languages) on the Race step. (R48) ✅ landed (design-draft-v2 §4 Slice 1, PR #103)
+- As a Player I want to choose my hero's sex and a skin/hair tint on a new Appearance step, and have it saved with the character, so who they are is part of the sheet. (R49) 🔨 in progress (design-draft-v2 §5 Slice 2a)
+- As a Player I want to see a 3D avatar of my chosen race and sex as I build my hero, so I can picture them before I play. (R50) ⏳ planned (design-draft-v2 §5 Slice 2b)
+- As a Player I want my avatar to show as my character portrait and as my token on the battle map, so my hero is recognizable at the table. (R51) ⏳ planned (design-draft-v2 §5 Slice 2c; re-opens deferred R12)
 
 ## V2 (post-MVP, deferred)
 

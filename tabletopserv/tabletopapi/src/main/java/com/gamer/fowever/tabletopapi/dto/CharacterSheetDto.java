@@ -1,6 +1,7 @@
 package com.gamer.fowever.tabletopapi.dto;
 
 import com.gamer.fowever.tabletopapi.ScoreSource;
+import com.gamer.fowever.tabletopapi.Sex;
 import tools.jackson.databind.JsonNode;
 
 import java.util.List;
@@ -16,6 +17,8 @@ public record CharacterSheetDto(
         String name,
         int level,
         ScoreSource scoreSource,
+        Sex sex,
+        CharacterAppearance appearance,
         String raceIndex,
         String classIndex,
         String subclassIndex,

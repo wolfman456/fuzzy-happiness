@@ -1,6 +1,7 @@
 package com.gamer.fowever.tabletopservice.domain;
 
 import com.gamer.fowever.tabletopapi.ScoreSource;
+import com.gamer.fowever.tabletopapi.Sex;
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
 import jakarta.persistence.DiscriminatorValue;
@@ -46,6 +47,16 @@ public class Dnd5eCharacter extends Character {
     @Enumerated(EnumType.STRING)
     @Column(name = "score_source")
     private ScoreSource scoreSource;
+
+    /** Required, binary sex chosen on the wizard's Appearance step (design-draft-v2 §5). */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "sex")
+    private Sex sex;
+
+    /** Cosmetic appearance tints as JSON ({@code CharacterAppearance}), nullable. */
+    @Lob
+    @Column(name = "appearance")
+    private String appearance;
 
     @Column(name = "race_index")
     private String raceIndex;
