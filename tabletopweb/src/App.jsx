@@ -12,6 +12,7 @@ import CharactersPage from './pages/CharactersPage'
 import CharacterWizardPage from './pages/CharacterWizardPage'
 import CharacterSheetPage from './pages/CharacterSheetPage'
 import SettingsPage from './pages/SettingsPage'
+import ReleaseNotesPage from './pages/ReleaseNotesPage'
 
 export default function App() {
   return (
@@ -29,6 +30,7 @@ export default function App() {
               <Route path="/characters" element={<CharactersPage />} />
               <Route path="/characters/new" element={<CharacterWizardPage />} />
               <Route path="/characters/:id" element={<CharacterSheetPage />} />
+              <Route path="/releases" element={<ReleaseNotesPage />} />
               <Route path="/settings" element={<SettingsPage />} />
             </Route>
           </Route>

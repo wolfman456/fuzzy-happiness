@@ -7,7 +7,7 @@ maintainer approves the slices; the living bug ledger stays in
 
 **Status:** 🚧 in delivery — v2 vision + slice plan agreed (2026-09-13); Slice 0 Flyway baseline,
 Slice 1 wizard UX, Slice 2a sex + appearance and Slice 2b 3D avatar preview landed (2026-10-13);
-Slice 2c and Slice 3 planned.
+in-app release notes page (R52, §10) in progress; Slice 2c and Slice 3 planned.
 
 ---
 
@@ -269,6 +269,20 @@ wait for slices if severity warrants.
 ## 9. Open decisions for maintainer
 
 All four resolved 2026-09-14 — see §2 "Decisions locked in".
+
+## 10. In-app release notes page (R52)
+
+Pure-frontend convenience surface: a signed-in `/releases` page that lists every update, newest
+first, and points players at the project's GitHub issue tracker.
+
+- **Source of truth:** the page is bundled from `RELEASES.md`'s history. `scripts/generate-release-notes.mjs`
+  parses the `## History` section into `src/lib/releaseNotes.generated.js` (regenerate with
+  `npm run gen:release-notes`; `npm run check:release-notes` fails the build if it drifts). An
+  entry with no date (e.g. `(next release)`) renders as **In development**.
+- **Links:** each dated release links to its GitHub tag; the header links to the repo's issue
+  tracker (browse / open a new issue). `src/lib/releases.js` owns the repo/URL constants.
+- **No backend:** static data shipped in the web bundle, so it works offline and adds no API or
+  gateway surface. `RELEASES.md`'s cut-a-release checklist regenerates it in the same change.
 
 ---
 

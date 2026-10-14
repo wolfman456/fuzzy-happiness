@@ -35,6 +35,7 @@ jobs:
         cache-dependency-path: tabletopweb/package-lock.json
     - run: npm ci
     - run: npm run lint
+    - run: npm run check:release-notes
     - run: npm run build
     - run: npm test
 
