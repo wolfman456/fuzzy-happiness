@@ -45,6 +45,7 @@ Status key: ✅ landed · 🔨 in progress · ⏳ planned (scheduled v2 slice, n
 - As a Player I want to choose my hero's sex and a skin/hair tint on a new Appearance step, and have it saved with the character, so who they are is part of the sheet. (R49) ✅ landed (design-draft-v2 §5 Slice 2a, PR #104)
 - As a Player I want to see a 3D avatar of my chosen race and sex as I build my hero, so I can picture them before I play. (R50) ✅ landed (3D preview plumbing + 2D fallback, design-draft-v2 §5 Slice 2b, PR #105; CC0 model curation is a follow-up manual step)
 - As a Player I want my avatar to show as my character portrait and as my token on the battle map, so my hero is recognizable at the table. (R51) ⏳ planned (design-draft-v2 §5 Slice 2c; re-opens deferred R12)
+- As a Player I want an in-app release notes page that lists what changed in each update and links me to the project's GitHub issue page, so I can see the latest fixes and report problems without leaving the app. (R52) 🔨 in progress (design-draft-v2 §10)
 
 ## V2 (post-MVP, deferred)
 

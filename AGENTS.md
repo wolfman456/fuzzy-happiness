@@ -72,7 +72,7 @@ npm run lint                # oxlint
 
 - **One unified semver across the whole repo** (see `RELEASES.md` for the scheme, history and the full cut-a-release checklist): `tabletopserv/pom.xml` (parent aggregator, inherited by the 3 modules), `tabletopweb/package.json` (+ lockfile), `tabletopgateway/package.json` (+ lockfile), repo-root `package.json`. Bump them all together — never one in isolation.
 - **`develop` = `X.Y.Z-SNAPSHOT`** (the next release); **`master` = `X.Y.Z`** (the live release) + annotated tag `vX.Y.Z`. Bump policy: breaking → major, feature → minor, bug fix → patch.
-- **Release step (round-close):** after the last PR propagates `develop` → `master`, strip `-SNAPSHOT` on `master`, commit "Release X.Y.Z", tag `vX.Y.Z` and push, then bump `develop` to `X.(Y+1).0-SNAPSHOT`. Keep `RELEASES.md` history current in the same change.
+- **Release step (round-close):** after the last PR propagates `develop` → `master`, strip `-SNAPSHOT` on `master`, commit "Release X.Y.Z", tag `vX.Y.Z` and push, then bump `develop` to `X.(Y+1).0-SNAPSHOT`. Keep `RELEASES.md` history current in the same change. The web `/releases` page is generated from that history — run `cd tabletopweb && npm run gen:release-notes` and commit the regenerated `src/lib/releaseNotes.generated.js` (design-draft-v2 §10).
 
 ## CI
 
