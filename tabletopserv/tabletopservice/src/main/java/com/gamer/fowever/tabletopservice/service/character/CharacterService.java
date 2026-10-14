@@ -38,6 +38,7 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.regex.Pattern;
 
 /**
  * Draft → compile → finalize for D&D 5e characters (§8). {@code compile} is a
@@ -51,6 +52,10 @@ public class CharacterService {
     private static final Logger log = LoggerFactory.getLogger(CharacterService.class);
 
     private static final List<String> ABILITIES = List.of("str", "dex", "con", "int", "wis", "cha");
+
+    /** Curated hair-part slug: lowercase words joined by single hyphens (design-draft-v2.md §5). */
+    private static final Pattern HAIR_STYLE_ID = Pattern.compile("[a-z0-9]+(?:-[a-z0-9]+)*");
+    private static final int HAIR_STYLE_MAX_LENGTH = 64;
 
     private final SrdClient srd;
     private final ChargenCatalog catalog;
@@ -301,7 +306,11 @@ public class CharacterService {
         }
     }
 
-    /** Appearance tints are optional; when present each hue must be within [0, 359]. */
+    /**
+     * Appearance is optional; when present each tint hue must be within [0, 359] and
+     * {@code hairStyle}, if set, must be a curated-part slug (the client owns the list
+     * of registered assets — the server bounds the shape so nothing unvetted persists).
+     */
     private void validateAppearance(CharacterDraftDto draft, List<String> violations) {
         CharacterAppearance appearance = draft.appearance();
         if (appearance == null) {
@@ -312,6 +321,11 @@ public class CharacterService {
         }
         if (appearance.hairTone() != null && (appearance.hairTone() < 0 || appearance.hairTone() > 359)) {
             violations.add("appearance.hairTone: must be a hue between 0 and 359");
+        }
+        String hairStyle = appearance.hairStyle();
+        if (hairStyle != null
+                && (hairStyle.length() > HAIR_STYLE_MAX_LENGTH || !HAIR_STYLE_ID.matcher(hairStyle).matches())) {
+            violations.add("appearance.hairStyle: must be a slug of lowercase words joined by hyphens");
         }
     }
 

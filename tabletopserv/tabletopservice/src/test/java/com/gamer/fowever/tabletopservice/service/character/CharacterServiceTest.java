@@ -146,16 +146,18 @@ class CharacterServiceTest {
         stubCommonCatalog();
         CharacterDraftDto draft = draftBuilder(legalDraft())
                 .sex(Sex.FEMALE)
-                .appearance(new CharacterAppearance(120, 30))
+                .appearance(new CharacterAppearance(120, 30, "ponytail"))
                 .build();
 
         CompileResult result = service.compile(user(5L), draft);
 
         assertThat(result.valid()).isTrue();
         assertThat(result.sheet().sex()).isEqualTo(Sex.FEMALE);
-        assertThat(result.sheet().appearance()).isEqualTo(new CharacterAppearance(120, 30));
+        assertThat(result.sheet().appearance()).isEqualTo(new CharacterAppearance(120, 30, "ponytail"));
         assertThat(result.sheet().sheetSnapshot().path("sex").asText()).isEqualTo("FEMALE");
         assertThat(result.sheet().sheetSnapshot().path("appearance").path("skinTone").asInt()).isEqualTo(120);
+        assertThat(result.sheet().sheetSnapshot().path("appearance").path("hairStyle").asText())
+                .isEqualTo("ponytail");
     }
 
     @Test
@@ -173,7 +175,7 @@ class CharacterServiceTest {
     void compileRejectsOutOfRangeSkinTone() {
         stubCommonCatalog();
         CharacterDraftDto draft = draftBuilder(legalDraft())
-                .appearance(new CharacterAppearance(400, null)).build();
+                .appearance(new CharacterAppearance(400, null, null)).build();
 
         CompileResult result = service.compile(user(5L), draft);
 
@@ -185,12 +187,36 @@ class CharacterServiceTest {
     void compileRejectsOutOfRangeHairTone() {
         stubCommonCatalog();
         CharacterDraftDto draft = draftBuilder(legalDraft())
-                .appearance(new CharacterAppearance(null, -1)).build();
+                .appearance(new CharacterAppearance(null, -1, null)).build();
 
         CompileResult result = service.compile(user(5L), draft);
 
         assertThat(result.valid()).isFalse();
         assertThat(result.violations()).anyMatch(v -> v.contains("hairTone"));
+    }
+
+    @Test
+    void compileRejectsMalformedHairStyle() {
+        stubCommonCatalog();
+        CharacterDraftDto draft = draftBuilder(legalDraft())
+                .appearance(new CharacterAppearance(null, null, "Not A Slug")).build();
+
+        CompileResult result = service.compile(user(5L), draft);
+
+        assertThat(result.valid()).isFalse();
+        assertThat(result.violations()).anyMatch(v -> v.contains("hairStyle"));
+    }
+
+    @Test
+    void compileAcceptsBlankHairStyleAsUnset() {
+        stubCommonCatalog();
+        CharacterDraftDto draft = draftBuilder(legalDraft())
+                .appearance(new CharacterAppearance(120, 30, "  ")).build();
+
+        CompileResult result = service.compile(user(5L), draft);
+
+        assertThat(result.valid()).isTrue();
+        assertThat(result.sheet().appearance().hairStyle()).isNull();
     }
 
     @Test
