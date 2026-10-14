@@ -28,12 +28,13 @@ function renderLobby() {
 }
 
 describe('LobbyPage', () => {
-  it('renders the heading on a readable white surface', async () => {
+  it('renders the heading in a light tone over the dark backdrop (no card)', async () => {
     listGames.mockResolvedValue([])
     renderLobby()
 
     const heading = screen.getByRole('heading', { name: 'Game sessions' })
-    expect(heading.closest('section')).toHaveClass('bg-white')
+    expect(heading).toHaveClass('text-parchment-50')
+    expect(heading.closest('section')).toBeNull()
   })
 
   it('loads games into the create form', async () => {

@@ -53,12 +53,11 @@ export default function LobbyPage() {
 
   return (
     <div className="space-y-6">
-      <Card>
-        <PageHeading
-          title="Game sessions"
-          subtitle="Create a room to game master, or join a friend's table with their invite code."
-        />
-      </Card>
+      <PageHeading
+        tone="light"
+        title="Game sessions"
+        subtitle="Create a room to game master, or join a friend's table with their invite code."
+      />
 
       {formError && <Alert tone="error">{formError}</Alert>}
 

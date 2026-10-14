@@ -30,14 +30,33 @@ describe('ui components', () => {
     expect(screen.getByText('Build a hero')).toBeInTheDocument()
   })
 
+  it('renders the PageHeading in a light tone for dark backgrounds', () => {
+    render(<PageHeading tone="light" title="My characters" subtitle="Build a hero" />)
+    expect(screen.getByRole('heading', { name: 'My characters' })).toHaveClass('text-parchment-50')
+    expect(screen.getByText('Build a hero')).toHaveClass('text-parchment-100')
+  })
+
   it('renders a Card wrapper', () => {
     render(<Card>Panel body</Card>)
     expect(screen.getByText('Panel body')).toBeInTheDocument()
   })
 
+  it('gives a pressable Card the press animation and leaves it off by default', () => {
+    const { rerender } = render(<Card>Quiet panel</Card>)
+    expect(screen.getByText('Quiet panel').closest('section')).not.toHaveClass('active:scale-[0.98]')
+
+    rerender(<Card pressable>Pressable panel</Card>)
+    expect(screen.getByText('Pressable panel').closest('section')).toHaveClass('active:scale-[0.98]')
+  })
+
   it('renders a LoadingState with a custom message', () => {
     render(<LoadingState message="Loading heroes…" />)
     expect(screen.getByRole('status')).toHaveTextContent('Loading heroes…')
+  })
+
+  it('renders a LoadingState in a light tone for dark backgrounds', () => {
+    render(<LoadingState tone="light" message="Loading heroes…" />)
+    expect(screen.getByRole('status')).toHaveClass('text-parchment-100')
   })
 
   it('renders an EmptyState with body and an action', () => {

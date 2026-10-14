@@ -57,13 +57,16 @@ describe('CharactersPage', () => {
     expect(await screen.findByText(/No characters yet/)).toBeInTheDocument()
   })
 
-  it('renders the heading and empty state on readable white surfaces', async () => {
+  it('renders the heading in a light tone over the dark backdrop, with actions on a card', async () => {
     listMyCharacters.mockResolvedValue([])
     renderPage()
 
     const subtitle = await screen.findByText(/Build a hero with the guided wizard/)
-    expect(subtitle.closest('section')).toHaveClass('bg-white')
-    expect(screen.getByText(/No characters yet/).closest('div')).toHaveClass('bg-white')
+    expect(subtitle).toHaveClass('text-parchment-100')
+    expect(subtitle.closest('section')).toBeNull()
+
+    const actionCard = screen.getByRole('link', { name: 'Guided wizard' }).closest('section')
+    expect(actionCard).toHaveClass('bg-white')
   })
 
   it('lists the user’s characters', async () => {
