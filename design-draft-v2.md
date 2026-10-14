@@ -5,8 +5,9 @@ Draft spec for the second major release of the tabletop platform. Companion to t
 maintainer approves the slices; the living bug ledger stays in
 [`design-v1-fixes.md`](design-v1-fixes.md).
 
-**Status:** 🚧 in delivery — v2 vision + slice plan agreed (2026-09-13); Slice 0 Flyway baseline and
-Slice 1 wizard UX landed (2026-10-13); Slice 2 split into 2a/2b/2c with **2a in progress**.
+**Status:** 🚧 in delivery — v2 vision + slice plan agreed (2026-09-13); Slice 0 Flyway baseline,
+Slice 1 wizard UX and Slice 2a sex + appearance landed (2026-10-13); Slice 2b/2c and Slice 3
+planned.
 
 ---
 
@@ -152,10 +153,11 @@ no mechanical effect** (5e does not gate chargen choices by sex).
 The slice is delivered as three independent, shippable increments so the data/UX work is not
 blocked on the 3D-asset research and the in-session viewport:
 
-> **Status:** 🔨 **2a in progress** (`feature/v2-slice-2a-sex-appearance`, R49); **2b** and **2c**
-> ⏳ planned (R50, R51). 2a ships the full data chain (`Sex` enum, `CharacterAppearance` record,
-> both DTOs, both entities, `V2__character_appearance.sql`), a required-sex **Appearance** wizard
-> step with 2D tint swatches, and sex/tint display on `CharacterSheetPage`.
+> **Status:** ✅ **2a landed** (`feature/v2-slice-2a-sex-appearance`, R49, PR #104, 2026-10-13);
+> **2b** and **2c** ⏳ planned (R50, R51). 2a ships the full data chain (`Sex` enum,
+> `CharacterAppearance` record, both DTOs, both entities, `V2__character_appearance.sql`), a
+> required-sex **Appearance** wizard step with 2D tint swatches, and sex/tint display on
+> `CharacterSheetPage`.
 
 - **Slice 2a — Sex + appearance field (data chain + wizard step, 2D).** Ships everything except
   the 3D mesh and the in-session viewport.
