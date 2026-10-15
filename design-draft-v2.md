@@ -10,8 +10,10 @@ Slice 1 wizard UX, Slice 2a sex + appearance and Slice 2b 3D avatar preview land
 notes page (R52, §10) landed (`feature/release-notes-page`, PR #106, 2026-10-14); social OAuth
 login (R19, §11) landed (`feature/social-oauth-login`, 2026-10-14); Slice 2c landed as a
 **modular avatar** (`feature/v2-modular-avatar`, 2026-10-14 — §5: data chain, base
-assets/compositor, race-feature parts, hair parts + wizard hair picker, the client-side portrait
-snapshot and the map-token portrait all landed) with Slice 3 planned.
+assets/compositor, race-feature parts, hair parts + wizard hair picker); Slice 3 map builder
+landed (R53, `feature/map-builder`, PR #121, 2026-10-15 — §6: tiles, environment objects,
+blocking/pathing, GM map editor). **In progress:** the token/portrait face re-design (`§5` item 7)
+replaces the full-body 3D token/portrait with a modular 2D SVG face.
 
 ---
 
@@ -21,8 +23,9 @@ Move the app from "a legal-sheet + map session tool" to a **presentable, gameabl
 
 1. **Appearance that follows the character.** Character creation produces a 3D avatar drawn
    from the chosen **race × sex** (binary `MALE`/`FEMALE` only), assembled at runtime from a base
-   mesh + race-feature parts, with cosmetic skin/hair tints and a hair-style choice. That avatar
-   shows up in the wizard, on the character sheet, and as the player's token in the battle map.
+   mesh + race-feature parts, with cosmetic skin/hair/eye tints and a hair-style choice. The live
+   **3D preview** shows in the wizard; the character sheet and the battle-map token render a
+   compact, legible **modular 2D face** derived from the same appearance (revised 2026-10-15).
 2. **Map creation as a first-class tool.** GMs edit a real map — not just a token grid — by
    painting **tiles** and placing **environment items** (walls, props, terrain) to build the
    encounter space.
@@ -47,9 +50,10 @@ Move the app from "a legal-sheet + map session tool" to a **presentable, gameabl
   **morph targets** are a later phase). This **re-opens** the v2 "curated GLB per race×sex / no
   parametric body builder" decision. Hosted/AI avatar platforms (e.g. Ready Player Me, shut down
   2026-01-31; Avaturn; Avatar SDK) are ruled out by the **self-hosted + offline + CC0** constraint.
-- **Avatar usage:** wizard preview **+** character-sheet portrait **+** in-session 3D token
-  (re-opens deferred **R12**, design-v1 §17 blueprint — R3F + drei, WebGL2, OrbitControls,
-  server-authoritative state).
+- **Avatar usage:** wizard live 3D preview **+** character-sheet **and** in-session token as a
+  modular **2D SVG face** (`CharacterFace`, 2026-10-15 — the full-body render was illegible at
+  token size); a live **in-session 3D token** remains a future option (re-opens deferred **R12**,
+  design-v1 §17 blueprint — R3F + drei, WebGL2, OrbitControls, server-authoritative state).
 - **Sequencing:** Slice 1 (labeling/UX) → Slice 2 (sex + 3D avatar) → Slice 3 (map builder).
 - **Slice 3 movement (decided 2026-09-14):** a **mix of blocking and decorative** objects. Fully
   blocking (walls/rock faces/mounts) are hard legal gates — server rejects moves/pathing into
@@ -171,8 +175,10 @@ blocked on the 3D-asset research and the in-session viewport:
 > **Status:** ✅ **2a landed** (`feature/v2-slice-2a-sex-appearance`, R49, PR #104, 2026-10-13);
 > ✅ **2b landed** (`feature/v2-slice-2b-3d-avatar-preview`, R50, PR #105, 2026-10-13);
 > ✅ **2c landed** (R51, 2026-10-14) — data chain, base assets/compositor, race-feature parts,
-> hair parts + the wizard hair picker, the portrait snapshot and the map-token portrait all
-> landed; avatar creator complete.
+> hair parts + the wizard hair picker; avatar creator complete.
+> 🔨 **face re-design in progress** (`feature/face-token`, R54, 2026-10-15): the map token and the
+> sheet portrait swap the unreadable full-body 3D snapshot for a deterministic **modular 2D SVG
+> face** (`CharacterFace`), and the static-snapshot cache is retired — see item 7 below.
 > 2a ships the full data chain (`Sex` enum, `CharacterAppearance` record, both DTOs, both
 > entities, `V2__character_appearance.sql`), a required-sex **Appearance** wizard step with 2D
 > tint swatches, and sex/tint display on `CharacterSheetPage`. 2b adds the code-split R3F stack +
@@ -240,17 +246,37 @@ blocked on the 3D-asset research and the in-session viewport:
       `appearance.hairStyle`; race features auto-apply from the chosen race; skin/hair tints stay.
       `resolveAvatar` (via `AvatarPreview`) reflects the chosen style live, the review row shows it
       (`hairStyleLabel`), and the snapshot cache key already includes `hairStyle`.
-  4. **Portrait** — ✅ **landed** (`feature/v2-avatar-portrait-snapshot`, 2026-10-14): every live
-     avatar canvas captures a PNG snapshot into an in-memory, config-keyed cache
-     (`lib/avatarSnapshot.js`); the sheet portrait renders the cached snapshot as a plain
-     `<img>` (falling back to the live canvas to fill a cache miss). Deterministic, no storage,
-     no migration.
-  5. **Map token** — ✅ **landed** (`feature/v2-avatar-map-token`, 2026-10-14): `MapTokenDto`
-     carries `{raceIndex, sex, appearance}` resolved server-side from the linked player's
-     earliest-created character (`BattleMapService`); the 2D map token renders that character's
-     cached thumbnail instead of the colour disc, falling back to the disc when the player has
-     no character or no snapshot is cached.
+  4. **Portrait** — ✅ **landed** (`feature/v2-avatar-portrait-snapshot`, 2026-10-14), **superseded
+     by item 7**: every live avatar canvas captured a PNG snapshot into an in-memory,
+     config-keyed cache (`lib/avatarSnapshot.js`); the sheet portrait rendered the cached snapshot
+     as a plain `<img>`. **Retired** in the face re-design (a still PNG cannot follow a moving
+     inline token, and the full-body render was illegible at portrait size).
+  5. **Map token** — ✅ **landed** (`feature/v2-avatar-map-token`, 2026-10-14), **superseded by
+     item 7**: `MapTokenDto` carries `{raceIndex, sex, appearance}` resolved server-side from the
+     linked player's earliest-created character (`BattleMapService`); the token rendered that
+     character's cached thumbnail (falling back to the colour disc). The DTO contract stays; only
+     the client renderer changes.
   6. **(later) Morphs** — `bodyType`/`buildScale`/`faceShape` morph-target sliders.
+  7. **Face re-design — modular 2D token/portrait** — 🔨 **in progress** (`feature/face-token`,
+     R54, 2026-10-15). The map token and the character-sheet portrait were showing a full-body 3D
+     render that was illegible at token size; they now draw a deterministic **inline-SVG face**
+     instead. The wizard keeps the live 3D preview (`AvatarPreview`/`AvatarCanvas`) unchanged.
+     - **`lib/face.js`** — pure, asset-free spec: `resolveFace(raceIndex, sex, appearance)` →
+       `{skin, hair, eye, brow, hairStyle, ears, horns, tusks, sex}` with neutral fallbacks for
+       unknown races/unset fields; `eyeCss`/`browCss` tint helpers. Race ear shape (pointed for
+       elf/half-elf/gnome/tiefling), horns (dragonborn/tiefling) and tusks (half-orc) are derived
+       from the existing `RACE_PRESETS`; hair from `HAIR_STYLES`. No contract change.
+     - **`components/CharacterFace.jsx`** — the inline-SVG renderer (`viewBox 0 0 100 100`, size
+       prop), used by `BattleMapPanel`'s `TokenDisc` (`testId token-face-{id}`) and
+       `CharacterSheetPage` (`testId character-avatar`, size 80). Renders where WebGL does not.
+     - **`eyeColor`** added as a 4th optional component on `CharacterAppearance` (hue 0-359,
+       validated server-side like the other tints) — rides the `appearance` JSON column, **no
+       Flyway migration** — plus an Eye-color slider on the wizard Appearance step. The record
+       keeps a 3-arg convenience constructor so existing call sites compile unchanged.
+     - **Snapshot layer retired:** `lib/avatarSnapshot.js`, the `AvatarPortrait` component, the
+       `AvatarCanvas` `SnapshotCapture`, and the `portrait` prop are removed (the reusable 3D
+       compositor — `resolveAvatar`/`applyAvatarTints`/`attachToSocket`/`AvatarCanvas` — is kept
+       for the wizard and a future live 3D token).
    - Assets are **generated in-repo** (`tools/avatar-gen/`, scripted) with the CC0 sourcing notes
      in `research/avatar resources.md`.
 

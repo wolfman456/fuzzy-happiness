@@ -27,6 +27,7 @@ import {
 import { Alert, PageHeading } from '../components/ui'
 import AvatarPreview from '../components/AvatarPreview'
 import { HAIR_STYLES, hairStyleLabel, hueCss } from '../lib/avatars'
+import { eyeCss } from '../lib/face'
 
 const STEPS = [
   'Basics',
@@ -930,6 +931,24 @@ export default function CharacterWizardPage() {
                     style={{ backgroundColor: hueCss(draft.appearance?.hairTone, DEFAULT_APPEARANCE.hairTone) }}
                   />
                 </label>
+                <label className="block">
+                  <span className="text-sm font-medium text-zinc-700">
+                    Eye color ({draft.appearance?.eyeColor ?? DEFAULT_APPEARANCE.eyeColor}°)
+                  </span>
+                  <input
+                    type="range"
+                    min="0"
+                    max="359"
+                    value={draft.appearance?.eyeColor ?? DEFAULT_APPEARANCE.eyeColor}
+                    onChange={(event) => updateAppearance('eyeColor', Number(event.target.value))}
+                    className="mt-1 w-full"
+                  />
+                  <span
+                    data-testid="appearance-eye-swatch"
+                    className="mt-2 inline-block h-4 w-16 rounded"
+                    style={{ backgroundColor: eyeCss(draft.appearance?.eyeColor) }}
+                  />
+                </label>
               </div>
             </div>
 
@@ -1480,7 +1499,7 @@ function ReviewStep({ draft, result, compiledDraft, classSkills, hasSubclasses, 
           label="Appearance"
           value={`skin ${draft.appearance?.skinTone ?? DEFAULT_APPEARANCE.skinTone}° · hair ${
             draft.appearance?.hairTone ?? DEFAULT_APPEARANCE.hairTone
-          }° · ${hairStyleLabel(draft.appearance?.hairStyle)}`}
+          }° · eyes ${draft.appearance?.eyeColor ?? DEFAULT_APPEARANCE.eyeColor}° · ${hairStyleLabel(draft.appearance?.hairStyle)}`}
         />
         <ReviewRow label="Class" value={draft.classIndex || '—'} />
         <ReviewRow

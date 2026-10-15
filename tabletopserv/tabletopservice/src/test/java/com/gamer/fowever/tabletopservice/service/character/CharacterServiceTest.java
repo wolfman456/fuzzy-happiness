@@ -157,16 +157,17 @@ class CharacterServiceTest {
         stubCommonCatalog();
         CharacterDraftDto draft = draftBuilder(legalDraft())
                 .sex(Sex.FEMALE)
-                .appearance(new CharacterAppearance(120, 30, "ponytail"))
+                .appearance(new CharacterAppearance(120, 30, "ponytail", 90))
                 .build();
 
         CompileResult result = service.compile(user(5L), draft);
 
         assertThat(result.valid()).isTrue();
         assertThat(result.sheet().sex()).isEqualTo(Sex.FEMALE);
-        assertThat(result.sheet().appearance()).isEqualTo(new CharacterAppearance(120, 30, "ponytail"));
+        assertThat(result.sheet().appearance()).isEqualTo(new CharacterAppearance(120, 30, "ponytail", 90));
         assertThat(result.sheet().sheetSnapshot().path("sex").asText()).isEqualTo("FEMALE");
         assertThat(result.sheet().sheetSnapshot().path("appearance").path("skinTone").asInt()).isEqualTo(120);
+        assertThat(result.sheet().sheetSnapshot().path("appearance").path("eyeColor").asInt()).isEqualTo(90);
         assertThat(result.sheet().sheetSnapshot().path("appearance").path("hairStyle").asText())
                 .isEqualTo("ponytail");
     }
@@ -204,6 +205,18 @@ class CharacterServiceTest {
 
         assertThat(result.valid()).isFalse();
         assertThat(result.violations()).anyMatch(v -> v.contains("hairTone"));
+    }
+
+    @Test
+    void compileRejectsOutOfRangeEyeColor() {
+        stubCommonCatalog();
+        CharacterDraftDto draft = draftBuilder(legalDraft())
+                .appearance(new CharacterAppearance(null, null, null, 400)).build();
+
+        CompileResult result = service.compile(user(5L), draft);
+
+        assertThat(result.valid()).isFalse();
+        assertThat(result.violations()).anyMatch(v -> v.contains("eyeColor"));
     }
 
     @Test

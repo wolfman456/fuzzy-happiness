@@ -322,6 +322,9 @@ public class CharacterService {
         if (appearance.hairTone() != null && (appearance.hairTone() < 0 || appearance.hairTone() > 359)) {
             violations.add("appearance.hairTone: must be a hue between 0 and 359");
         }
+        if (appearance.eyeColor() != null && (appearance.eyeColor() < 0 || appearance.eyeColor() > 359)) {
+            violations.add("appearance.eyeColor: must be a hue between 0 and 359");
+        }
         String hairStyle = appearance.hairStyle();
         if (hairStyle != null
                 && (hairStyle.length() > HAIR_STYLE_MAX_LENGTH || !HAIR_STYLE_ID.matcher(hairStyle).matches())) {

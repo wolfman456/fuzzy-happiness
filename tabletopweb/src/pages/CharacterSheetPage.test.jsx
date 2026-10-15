@@ -1,26 +1,17 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import CharacterSheetPage from './CharacterSheetPage'
-import {
-  avatarSnapshotKey,
-  clearAvatarSnapshots,
-  setAvatarSnapshot,
-} from '../lib/avatarSnapshot'
 
 vi.mock('../lib/characters', () => ({
   ABILITIES: ['strength', 'dexterity', 'constitution', 'intelligence', 'wisdom', 'charisma'],
-  DEFAULT_APPEARANCE: { skinTone: 200, hairTone: 30 },
+  DEFAULT_APPEARANCE: { skinTone: 200, hairTone: 30, eyeColor: 25 },
   abilityModifier: (score) => Math.floor((score - 10) / 2),
   getCharacter: vi.fn(),
   deleteCharacter: vi.fn(),
 }))
 
 import { deleteCharacter, getCharacter } from '../lib/characters'
-
-afterEach(() => {
-  clearAvatarSnapshots()
-})
 
 const SHEET = {
   id: 7,
@@ -106,18 +97,14 @@ describe('CharacterSheetPage', () => {
     expect(screen.getAllByText('None')).toHaveLength(4)
   })
 
-  it('renders the cached PNG portrait when a snapshot exists', async () => {
-    setAvatarSnapshot(
-      avatarSnapshotKey(SHEET.raceIndex, SHEET.sex, SHEET.appearance),
-      'data:image/png;base64,SHEET',
-    )
+  it('renders the modular face portrait for the character', async () => {
     getCharacter.mockResolvedValue(SHEET)
-    const { container } = renderSheet()
+    renderSheet()
 
     expect(await screen.findByRole('heading', { name: 'Tordek' })).toBeInTheDocument()
-    const img = container.querySelector('img[data-testid="character-avatar"]')
-    expect(img).toBeTruthy()
-    expect(img.getAttribute('src')).toBe('data:image/png;base64,SHEET')
+    const face = screen.getByTestId('character-avatar')
+    expect(face.querySelector('svg')).toBeTruthy()
+    expect(within(face).getByTestId('face-mouth')).toBeInTheDocument()
   })
 
   it('shows an error when the character cannot be loaded', async () => {

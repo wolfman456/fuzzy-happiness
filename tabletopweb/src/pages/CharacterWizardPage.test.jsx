@@ -834,6 +834,10 @@ describe('CharacterWizardPage', () => {
 
     fireEvent.change(screen.getByLabelText(/Hair tint/), { target: { value: '300' } })
     expect(screen.getByText(/Hair tint \(300°\)/)).toBeInTheDocument()
+    expect(screen.getByTestId('appearance-eye-swatch')).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText(/Eye color/), { target: { value: '120' } })
+    expect(screen.getByText(/Eye color \(120°\)/)).toBeInTheDocument()
   })
 
   it('picks a hair style on the Appearance step', async () => {
@@ -857,6 +861,6 @@ describe('CharacterWizardPage', () => {
 
     expect(screen.getByText('Sex')).toBeInTheDocument()
     expect(screen.getByText('MALE')).toBeInTheDocument()
-    expect(screen.getByText(/skin 200° · hair 30° · None/)).toBeInTheDocument()
+    expect(screen.getByText(/skin 200° · hair 30° · eyes 25° · None/)).toBeInTheDocument()
   })
 })

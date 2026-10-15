@@ -1,5 +1,5 @@
 import { Suspense, useEffect, useMemo } from 'react'
-import { Canvas, useThree } from '@react-three/fiber'
+import { Canvas } from '@react-three/fiber'
 import { OrbitControls, useGLTF } from '@react-three/drei'
 import { applyAvatarTints, attachToSocket } from '../lib/avatars'
 
@@ -38,32 +38,6 @@ function AvatarModel({ avatar, appearance }) {
 }
 
 /**
- * Renders nothing; once the model (its sibling inside the Suspense boundary) has
- * loaded, tints applied and the next frame drawn, it hands the canvas pixels to
- * `onCapture` as a PNG data URL (design-draft-v2 §5). Placed inside the
- * boundary so a capture never fires before the avatar exists; failures are
- * swallowed so the live canvas simply stays in place.
- */
-function SnapshotCapture({ onCapture }) {
-  const gl = useThree((state) => state.gl)
-
-  useEffect(() => {
-    if (!onCapture) return undefined
-    const frame = requestAnimationFrame(() => {
-      try {
-        const url = gl.domElement?.toDataURL?.('image/png')
-        if (url) onCapture(url)
-      } catch {
-        /* leave the live canvas in place when the buffer is unreadable */
-      }
-    })
-    return () => cancelAnimationFrame(frame)
-  }, [gl, onCapture])
-
-  return null
-}
-
-/**
  * The lazily-loaded 3D half of `AvatarPreview`. Loads the shared race×sex base
  * GLB, attaches the race's parts at their sockets, applies the skin/hair tints
  * and lets the player orbit. Kept in its own module so three.js/R3F stay out of
@@ -75,8 +49,6 @@ export default function AvatarCanvas({
   size = 64,
   testId = 'appearance-swatch',
   className = '',
-  capture = false,
-  onCapture,
 }) {
   return (
     <div
@@ -94,7 +66,6 @@ export default function AvatarCanvas({
         <directionalLight position={[3, 6, 4]} intensity={1.15} />
         <Suspense fallback={null}>
           <AvatarModel avatar={avatar} appearance={appearance} />
-          {capture ? <SnapshotCapture onCapture={onCapture} /> : null}
         </Suspense>
         <OrbitControls enablePan={false} enableZoom={false} target={[0, 1, 0]} />
       </Canvas>

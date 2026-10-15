@@ -232,7 +232,7 @@ export function deleteCharacter(id) {
  * Default cosmetic tints for a new hero (hue 0–359). A quick-build sheet may not
  * carry an appearance, so the wizard seeds these instead of a null swatch.
  */
-export const DEFAULT_APPEARANCE = { skinTone: 200, hairTone: 30 }
+export const DEFAULT_APPEARANCE = { skinTone: 200, hairTone: 30, eyeColor: 25 }
 
 /** Rebuilds a create/compile draft from a compiled sheet (quick-build → save/revise). */
 export function sheetToDraft(sheet) {
