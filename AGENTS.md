@@ -10,6 +10,7 @@ Three independent apps at the repo root inside their own directories. There is *
   - `tabletopfunctionaltest/` — **functional/E2E module** (package `com.gamer.fowever.tabletopfunctionaltest`): `*IT` journey suites (auth, session/STOMP, dice, battle map/initiative, monster, SRD) that boot the packaged `tabletopservice` JAR as a subprocess against a Testcontainers Postgres + a recorded-fixture gateway stub. No jacoco gate. The JAR-subprocess harness (`support/BackendInstance`) supports a Docker-less escape hatch via `-Dtabletopserv.functional.db-url=jdbc:h2:mem:...` (see design-v1 §18).
 - `tabletopweb/` — Vite 8 + React 19 frontend, plain JSX (no TypeScript), Tailwind CSS v4, react-router.
 - `tabletopgateway/` — Express 5 **egress gateway** (Node 24, ESM, plain JS). The only path out of the backend to internet upstreams (SRD `dnd5eapi.co`, future monster-gen LLM). Spring calls it server-to-server with an `X-Gateway-Token`; it does **not** see client traffic.
+- `tools/avatar-gen/` — **not an app**: the headless **CC0 avatar-asset generator** (Bash + a Blender/MPFB2 Python script) that produces `tabletopweb/public/models/avatars/base-{M,F}.glb`. The toolchain downloads into a gitignored `.cache/`; the generated bases are committed. See that directory's README + `research/avatar resources.md`.
 - Node 24 is pinned everywhere (`tabletopweb/.nvmrc`, `tabletopgateway/.nvmrc`, `engines >= 24`, CI matrix). Ensure `nvm use 24` before any Node command.
 
 ## Commands

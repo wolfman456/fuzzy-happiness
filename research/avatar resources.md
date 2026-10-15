@@ -1,113 +1,94 @@
 # Avatar Resources — Free 3D Character Model Research
 
-**Context:** v2 Slice 2b (`design-draft-v2.md` §5) renders a **wizard 3D preview** of a
-character's **race × sex** avatar, tinted by the skin/hair hues chosen on the Appearance step.
-The renderer, resolver and fallback are implemented; the **models themselves are a manual
-curation step**. This doc records where to source them and under what licences.
+**Context:** v2 Slice 2b (`design-draft-v2.md` §5) renders a wizard **3D preview** of a
+character's avatar, tinted by the skin/hair hues chosen on the Appearance step. Slice 2c turns
+that into a **modular/parametric** avatar (shared base body + race-feature parts + hair). The
+renderer, resolver and fallback are implemented in `tabletopweb/`; the **assets are generated
+in-repo** by the scripted pipeline in [`tools/avatar-gen/`](../tools/avatar-gen/).
 
-**Scope:** free/CC0 sources only, link-only research — **nothing is bundled into the repo**.
-Mirrors `research/maps resources.md`: downloads are a manual curation step when we actually
-need the assets.
-
-> **Revised 2026-10-14 (Slice 2c):** the avatar is now **modular/parametric** — one rigged
-> **CC0 base per sex** (MakeHuman-derived, authored in Blender) with named sockets
-> (`socket_ears|horns|tusks|tail|hair`), plus swappable **race-feature parts** (ears/horns/
-> tusks/tail) and a **hair-style** part. The single per-race×sex GLB plan described below is
-> superseded; the base + parts need the same CC0 sourcing treatment. Hosted/AI platforms
-> (Ready Player Me — **shut down 2026-01-31** — Avaturn, Avatar SDK) are ruled out by the
-> **self-hosted + offline + CC0** constraint chosen for the project.
+> **Revised 2026-10-14 (Slice 2c, R51):** the avatar is **modular** — one shared rigged **CC0
+> base body per sex** with named sockets (`socket_ears|horns|tusks|tail|hair`), plus swappable
+> **race-feature parts** (ears/horns/tusks/tail) and **hair-style** parts. This supersedes both
+> the original 18-file per-race×sex plan *and* the "no parametric body builder" decision (R12
+> re-opened). Hosted/AI platforms are ruled out by the **self-hosted + offline + CC0**
+> constraint: Ready Player Me (**shut down 2026-01-31**, Netflix-acquired), Avaturn (~$800/mo),
+> Avatar SDK / MetaPerson (enterprise local-compute).
 
 ---
 
 ## What the app expects
 
-- **Naming:** `tabletopweb/public/models/avatars/{race}-{M|F}.glb` (e.g. `dwarf-M.glb`,
-  `tiefling-F.glb`), one GLB per **race × sex** (9 SRD races × 2 sexes = **18 models**).
-- **Registration:** add an entry to `AVATAR_MODELS` in `tabletopweb/src/lib/avatars.js`
-  (`"dwarf-M": "/models/avatars/dwarf-M.glb"`). Until then the resolver returns `null` and the
-  UI falls back to the 2D tint swatch.
-- **Format:** glTF-binary (`.glb`), low-poly, ideally < ~1 MB each so the wizard stays snappy.
-- **Tinting (optional per model):** the renderer recolours materials whose **name contains
-  `Skin` or `Hair`** (case-insensitive) to the chosen hues. Assets that name those materials
-  just work; others render with baked colours until renamed/remapped.
-- **Orientation:** Y-up, roughly 1 unit ≈ 1 metre, feet at the origin (so a shared camera works).
+- **Bases:** `tabletopweb/public/models/avatars/base-{M|F}.glb` — one shared body per sex,
+  Y-up, ~1 unit ≈ 1 metre, feet at the origin, a rig, a single `Skin` material, and the socket
+  empties listed above.
+- **Parts:** `tabletopweb/public/models/avatars/parts/{kind}/{id}.glb` (e.g.
+  `parts/horns/tiefling-curved.glb`). Each part is authored around its socket origin and uses
+  `Skin`/`Hair` material names so the runtime tint applies.
+- **Registration** in `tabletopweb/src/lib/avatars.js`: `AVATAR_BASES`, `AVATAR_PARTS` and
+  `RACE_PRESETS` (per-race `scale` + `{ kind, id, socket }` parts). `resolveAvatar()` composes
+  them; anything unregistered is simply absent. `RACE_PRESETS.parts` stays empty until the part
+  GLBs exist, so a missing file can never trip the swatch fallback.
+- **Format:** glTF-binary (`.glb`); the committed bases are ~0.9 MB each. Use
+  `tools/avatar-gen/optimize.sh` (glTF-Transform) if a part grows large.
+- **Tinting:** the renderer recolours materials whose **name contains `Skin` or `Hair`**
+  (case-insensitive) to the chosen hues. Name materials accordingly.
+- **WebGL fallback:** with no WebGL (or a load failure) the UI shows the 2D tint swatch.
 
-## The hard part
+## The chosen pipeline — MakeHuman (CC0) via MPFB2, scripted
 
-No single free pack ships **nine D&D-specific fantasy races**. The realistic paths are:
+MakeHuman's **bundled assets are CC0 1.0** (base mesh, proxies, targets, textures) since
+September 2020, and **exports are CC0** — commercial use, no attribution. Only the MakeHuman
+*application source* is AGPL, and we ship neither it nor a service based on it.
 
-1. **One modular humanoid base per sex, differentiated by tint + scale/accessory** — cheapest
-   and consistent; the v2 decision ("no parametric body builder") still allows picking a
-   distinct *curated mesh* per race where one exists.
-2. **Curate loose CC0 single models** (dwarf/elf/orc/…) from Sketchfab / Poly Pizza and
-   normalise them to the naming + orientation above.
+| Tool | Role | License |
+|---|---|---|
+| Blender ≥ 4.2 (LTS 4.5) | host + glTF export | GPL (app, not shipped) |
+| **MPFB2** (MakeHuman Plugin For Blender) | builds the human, fits the rig | GPL-3 (addon, not shipped) |
+| MakeHuman system assets (`makehuman_system_assets_cc0.zip`) | skins/eyes/teeth | **CC0 1.0** |
+| Generated `base-*.glb` | our output | **CC0 1.0** |
 
-Either way the set is hand-assembled; the code does not care which, only that the files land
-with the right names.
+The pipeline lives in [`tools/avatar-gen/`](../tools/avatar-gen/):
 
----
+```sh
+tools/avatar-gen/fetch-tools.sh     # Blender LTS + MPFB2 + CC0 assets into .cache/ (gitignored)
+tools/avatar-gen/generate.sh        # headless: base-{M,F}.glb into public/models/avatars/
+tools/avatar-gen/optimize.sh        # optional glTF-Transform pass
+```
 
-## KayKit — Character Pack: Adventurers (Kay Lousberg)
+`generate_base.py` (run by `generate.sh`) creates the body from MPFB's bundled CC0 base mesh,
+fits the `game_engine` skeleton, bakes the macro-detail shape keys, strips helper geometry,
+applies the flat `Skin` material and adds the socket empties, then exports GLB. It is headless
+and reproducible — no GUI step.
 
-- **Type:** direct **source** of stylised low-poly **fantasy characters**.
-- **What it offers:** 4–5 rigged + animated adventurers (knight, rogue, mage, barbarian, …),
-  75 animations, 25+ accessories; single 1024×1024 gradient-atlas texture (downsampleable).
-  Also **Skeletons / Goblins / Halloween** packs by the same author.
-- **Format:** `.FBX` + `.glTF`; GitHub mirror
-  (https://github.com/KayKit-Game-Assets/KayKit-Character-Pack-Adventures-1.0).
-- **License:** **CC0 1.0** ("free for personal and commercial use, no attribution required";
-  please don't resell unmodified copies). Public-domain, safe to bundle.
-- **Verdict:** the **best fantasy base**. Tint the atlas materials (rename to `Skin`/`Hair`) or
-  use as-is; map the closest hero mesh per race where the pack allows.
+## Race-feature + hair parts (next increment)
 
-## Quaternius — Universal Base Characters / RPG Character Pack
+Authored **ourselves** in Blender (clean CC0 ownership, consistent style) as simple meshes built
+around each socket origin, exported to `parts/{kind}/{id}.glb`. Planned mapping (SRD races):
 
-- **Type:** direct **source** of modular low-poly humans.
-- **What it offers:** **Universal Base Characters** — separate **male/female** base meshes with
-  modular clothing; **Ultimate Modular Characters** for a wider wardrobe; **RPG Character Pack**
-  (6 fantasy characters, rigged + animated); **Universal Animation Library** for retargeting.
-- **Format:** glTF / FBX / OBJ (some `.blend`).
-- **License:** **CC0** ("free to use in personal, educational and commercial projects").
-- **Verdict:** **primary base-mesh source** — the male/female bases give clean per-sex bodies to
-  tint and later equip. Pairs well with KayKit accessories.
+| Race | ear | horn | tusk | tail | notes |
+|---|---|---|---|---|---|
+| elf | long pointed | — | — | — | |
+| half-elf | slight point | — | — | — | |
+| half-orc | round | — | yes | — | |
+| dragonborn | round | yes | — | yes | scaled up ~1.05 |
+| tiefling | long pointed | yes | — | yes | |
+| dwarf / gnome / halfling | round | — | — | — | scaled down (0.75–0.8) |
+| human | round | — | — | — | baseline |
 
-## Kenney — Character assets (with Kay Lousberg)
+## Superseded sources (kept for reference / non-MakeHuman fallback)
 
-- **Type:** direct **source** of very low-poly characters (`Character A–R`, `Male/Female A–F`).
-- **What it offers:** node-rigged / skinned stylised figures with baked animations; tiny
-  (a few hundred–few thousand verts), great for weak devices.
-- **Format:** GLB.
-- **License:** **CC0 1.0**.
-- **Verdict:** a good **fallback/lod** tier; less fantasy-specific than KayKit, simpler geometry.
-
-## Poly Pizza — https://poly.pizza
-
-- **Type:** **search index** aggregating CC0 / CC-BY models (incl. many Google Poly + Quaternius
-  uploads), downloadable as GLB.
-- **License:** per-model (filter to **CC0** only).
-- **Verdict:** the **discovery layer** for filling specific race gaps (a dwarf, a dragonborn, …).
-
-## Sketchfab — https://sketchfab.com (CC0 filter)
-
-- **Type:** **broad marketplace** of single models; filter `Downloadable` + `CC0`.
-- **License:** per-model; only CC0 is usable here.
-- **Verdict:** best for **race-specific one-offs** (elf/dwarf/orc/half-orc/dragonborn) that are
-  missing from the curated packs; normalise scale + orientation by hand.
-
----
-
-## Cross-cutting takeaways
+Before the modular decision, per-race poses were sourced from loose low-poly packs. These remain
+useful for **parts or a stylised base** if the MakeHuman look is ever swapped out:
 
 | Source | Kind | License | Use for us |
 |---|---|---|---|
-| KayKit Adventurers | Low-poly fantasy characters | **CC0** | **Primary** fantasy base mesh |
-| Quaternius Universal Base | Modular male/female humans | **CC0** | Per-sex base to tint/equip |
-| Kenney Characters | Very low-poly figues | **CC0** | Fallback / LOD tier |
-| Poly Pizza | CC0/CC-BY search index | per-model (CC0) | Discovery for race gaps |
-| Sketchfab | Model marketplace | per-model (CC0) | Race-specific one-offs |
+| KayKit Adventurers | Low-poly fantasy characters | **CC0** | Stylised base / accessories |
+| Quaternius Universal Base | Modular male/female humans | **CC0** | Per-sex base alternative |
+| Kenney Characters | Very low-poly figures | **CC0** | Fallback / LOD tier |
+| Poly Pizza (https://poly.pizza) | CC0/CC-BY search index | per-model (CC0) | Discovery for race gaps |
+| Sketchfab (CC0 filter) | Model marketplace | per-model (CC0) | Race-specific one-offs |
 
-**Recommendation:** build the 18 models from **Quaternius Universal Base** (per sex) **+ KayKit
-Adventurers** accessories, filling race gaps from **Poly Pizza / Sketchfab (CC0)**; normalise to
-`{race}-{M|F}.glb`, Y-up with feet at origin, and name the skin/hair materials so the tint
-sliders apply. **Downloads stay a manual step — nothing is committed unless we choose to bundle
-a vetted set.** The app renders the 2D swatch until a model is registered.
+**Recommendation:** keep the **MakeHuman + MPFB2 scripted** pipeline as the base-body source and
+**self-author** the race/hair parts around the sockets, normalising to the naming + orientation
+above. No hosted/AI avatar service is compatible with the self-hosted + offline + CC0
+constraint. Generated bases are committed (≈1.8 MB total); downloads/toolchain stay out of git.

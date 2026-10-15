@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test'
 import { E2E_CHARACTER, mockCharacter, mockLoginSuccess, mockMe } from './support/api.js'
 
 test.describe('character sheet avatar', () => {
-  test('shows the tinted fallback avatar until a 3D model is curated', async ({ page }) => {
+  test('renders the 3D avatar for a character with a base body', async ({ page }) => {
     await mockLoginSuccess(page)
     await mockMe(page)
     await mockCharacter(page)
@@ -19,9 +19,8 @@ test.describe('character sheet avatar', () => {
 
     const avatar = page.getByTestId('character-avatar')
     await expect(avatar).toBeVisible()
-    await expect(avatar).toHaveCSS('background-color', 'rgb(107, 199, 107)')
-    // No curated GLB is registered yet, so the lightweight 2D swatch renders and
-    // no WebGL canvas is mounted.
-    await expect(page.locator('canvas')).toHaveCount(0)
+    // The shared CC0 base body is committed, so a WebGL canvas mounts for the
+    // character's sex (the 2D tint swatch is only the WebGL-unavailable fallback).
+    await expect(avatar.locator('canvas')).toHaveCount(1)
   })
 })

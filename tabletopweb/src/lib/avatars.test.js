@@ -1,13 +1,15 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
+  AVATAR_BASES,
   AVATAR_MODEL_BASE,
-  AVATAR_MODELS,
+  attachToSocket,
   applyAvatarTints,
-  avatarModelKey,
-  avatarModelUrl,
+  avatarPartUrl,
   avatarSexCode,
   hueCss,
-  resolveAvatarModel,
+  RACE_PRESETS,
+  resolveAvatar,
+  supportsWebGL,
 } from './avatars'
 
 describe('avatarSexCode', () => {
@@ -23,45 +25,80 @@ describe('avatarSexCode', () => {
   })
 })
 
-describe('avatarModelKey', () => {
-  it('joins race index and sex code', () => {
-    expect(avatarModelKey('dwarf', 'MALE')).toBe('dwarf-M')
-    expect(avatarModelKey('tiefling', 'FEMALE')).toBe('tiefling-F')
+describe('avatarPartUrl', () => {
+  it('builds the conventional part path', () => {
+    expect(avatarPartUrl('horns', 'curved')).toBe(`${AVATAR_MODEL_BASE}/parts/horns/curved.glb`)
   })
 
-  it('returns null when race or sex is missing', () => {
-    expect(avatarModelKey(null, 'MALE')).toBeNull()
-    expect(avatarModelKey('dwarf', null)).toBeNull()
-  })
-})
-
-describe('avatarModelUrl', () => {
-  it('builds the conventional asset path', () => {
-    expect(avatarModelUrl('dwarf', 'MALE')).toBe(`${AVATAR_MODEL_BASE}/dwarf-M.glb`)
-  })
-
-  it('returns null without a key', () => {
-    expect(avatarModelUrl(null, null)).toBeNull()
+  it('returns null when a half is missing', () => {
+    expect(avatarPartUrl('', 'curved')).toBeNull()
+    expect(avatarPartUrl('horns', null)).toBeNull()
   })
 })
 
-describe('resolveAvatarModel', () => {
+describe('resolveAvatar', () => {
   afterEach(() => {
-    delete AVATAR_MODELS['dwarf-M']
+    delete RACE_PRESETS.elf.parts
   })
 
-  it('returns null while no asset is curated', () => {
-    expect(resolveAvatarModel('dwarf', 'MALE')).toBeNull()
+  it('returns the sex base and race scale', () => {
+    expect(resolveAvatar('dwarf', 'MALE')).toEqual({
+      base: AVATAR_BASES.M,
+      parts: [],
+      scale: 0.8,
+    })
+    expect(resolveAvatar('human', 'FEMALE').base).toBe(AVATAR_BASES.F)
   })
 
-  it('returns the registered URL', () => {
-    AVATAR_MODELS['dwarf-M'] = `${AVATAR_MODEL_BASE}/dwarf-M.glb`
-    expect(resolveAvatarModel('dwarf', 'MALE')).toBe(`${AVATAR_MODEL_BASE}/dwarf-M.glb`)
+  it('falls back to the default preset for an unknown race', () => {
+    expect(resolveAvatar('goblin', 'MALE')).toEqual({
+      base: AVATAR_BASES.M,
+      parts: [],
+      scale: 1,
+    })
   })
 
-  it('returns null when the race/sex half is missing', () => {
-    expect(resolveAvatarModel('', 'MALE')).toBeNull()
-    expect(resolveAvatarModel('dwarf', '')).toBeNull()
+  it('resolves preset parts to socket+url entries', () => {
+    RACE_PRESETS.elf.parts = [{ kind: 'ears', id: 'long', socket: 'socket_ears' }]
+    expect(resolveAvatar('elf', 'MALE').parts).toEqual([
+      { socket: 'socket_ears', url: `${AVATAR_MODEL_BASE}/parts/ears/long.glb` },
+    ])
+  })
+
+  it('drops parts missing a socket or asset id', () => {
+    RACE_PRESETS.elf.parts = [
+      { kind: 'ears', id: 'long', socket: '' },
+      { kind: '', id: 'long', socket: 'socket_ears' },
+    ]
+    expect(resolveAvatar('elf', 'MALE').parts).toEqual([])
+  })
+
+  it('returns null without a usable sex', () => {
+    expect(resolveAvatar('dwarf', '')).toBeNull()
+    expect(resolveAvatar('dwarf', null)).toBeNull()
+  })
+})
+
+describe('supportsWebGL', () => {
+  it('reports a boolean capability flag', () => {
+    expect(typeof supportsWebGL()).toBe('boolean')
+  })
+})
+
+describe('attachToSocket', () => {
+  it('parents the part at the named socket', () => {
+    const part = { name: 'part' }
+    const socket = { add: vi.fn() }
+    const root = { getObjectByName: vi.fn((name) => (name === 'socket_ears' ? socket : null)) }
+
+    expect(attachToSocket(root, 'socket_ears', part)).toBe(true)
+    expect(socket.add).toHaveBeenCalledWith(part)
+  })
+
+  it('returns false when the socket is absent or inputs are invalid', () => {
+    expect(attachToSocket({ getObjectByName: () => null }, 'socket_ears', {})).toBe(false)
+    expect(attachToSocket(null, 'socket_ears', {})).toBe(false)
+    expect(attachToSocket({ getObjectByName: () => ({ add: vi.fn() }) }, 's', null)).toBe(false)
   })
 })
 
