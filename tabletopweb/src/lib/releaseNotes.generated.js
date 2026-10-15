@@ -3,9 +3,14 @@
 
 export const RELEASE_NOTES = [
   {
-    "version": "1.4.0",
+    "version": "1.5.0",
     "date": null,
-    "notes": "Current `develop` (`1.4.0-SNAPSHOT`)."
+    "notes": "Current `develop` (`1.5.0-SNAPSHOT`)."
+  },
+  {
+    "version": "1.4.0",
+    "date": "2026-10-15",
+    "notes": "The modular avatar (R51, v2 Slice 2c): one shared, scripted CC0 base body per sex with named sockets (data chain #112, base assets/compositor #113), race-feature parts — dragonborn/tiefling horns, half-orc tusks, dragonborn/tiefling tails (#115) — and player-chosen hair parts (short/ponytail/long) with a wizard hair-style picker (#118); the character's chosen appearance now renders as a client-side cached portrait snapshot (#116) and on the battle-map token of the linked player (#117). Plus readable dark-backdrop headings + button/ card motion (#109, #110) and a lockfile-ignore fix so app lockfiles stay uploadable (#111)."
   },
   {
     "version": "1.3.0",
