@@ -71,3 +71,32 @@ test.describe('battle map terrain tiles', () => {
     await expect(page.locator('[data-testid="tile-4-1"]')).toBeVisible()
   })
 })
+
+test.describe('battle map blocking objects', () => {
+  test('renders object sprites and refuses movement onto a blocked square', async ({ page }) => {
+    await mockLoginSuccess(page)
+    await mockMe(page)
+    await mockSession(page)
+    await mockBattleMap(page, {
+      ...E2E_MAP,
+      initiativeIndex: 0,
+      objects: [
+        { id: 21, objectIndex: 0, x: 2, y: 1, w: 1, h: 1, rotation: 0, blocksMovement: true },
+      ],
+    })
+    await mockMapCatalog(page)
+
+    await page.goto('/login')
+    await page.locator('#identifier').fill('aria')
+    await page.locator('#password').fill('Password1!')
+    await page.getByRole('button', { name: 'Log in' }).click()
+    await expect(page.getByRole('heading', { name: /Welcome, Aria/ })).toBeVisible()
+
+    await page.goto('/sessions/1')
+    await expect(page.locator('[data-testid="object-21"]')).toBeVisible()
+
+    await page.getByRole('button', { name: /Token Aria/ }).click()
+    await expect(page.locator('button[aria-label="Move to square 2, 0"]')).toBeVisible()
+    await expect(page.locator('button[aria-label="Move to square 2, 1"]')).toHaveCount(0)
+  })
+})

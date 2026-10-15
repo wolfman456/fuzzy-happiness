@@ -274,6 +274,50 @@ class BattleMapJourneyIT extends FunctionalTestBase {
         assertThat(get(session.id(), gmJwt).get("tiles").size()).isZero();
     }
 
+    @Test
+    void mapBuilderObjectJourney() throws Exception {
+        String gmJwt = registerVerifyLogin("b6gm");
+        String playerJwt = registerVerifyLogin("b6pip");
+        SessionHandle session = createSession(gmJwt, "Crypt Vault");
+        joinSession(playerJwt, session.inviteCode());
+
+        Api.requireStatus(Api.post(baseUrl() + "/api/sessions/" + session.id() + "/map", gmJwt,
+                Api.body(Map.of("name", "Crypt Vault"))), 201, "create map");
+
+        JsonNode catalog = Api.json(Api.get(baseUrl() + "/api/sessions/" + session.id()
+                + "/map/catalog", gmJwt).body());
+        assertThat(catalog.get("objects").size()).isGreaterThan(0);
+        assertThat(catalog.at("/objects/0/index").asInt()).isZero();
+        assertThat(catalog.at("/objects/0/width").asInt()).isGreaterThan(0);
+        assertThat(catalog.at("/objects/0/blocksMovement").asBoolean()).isTrue();
+
+        JsonNode placed = Api.json(Api.post(baseUrl() + "/api/sessions/" + session.id() + "/map/objects", gmJwt,
+                Api.body(Map.of("objectIndex", 0, "x", 5, "y", 5))).body());
+        assertThat(placed.get("objects").size()).isEqualTo(1);
+        assertThat(placed.at("/objects/0/x").asInt()).isEqualTo(5);
+        assertThat(placed.at("/objects/0/blocksMovement").asBoolean()).isTrue();
+        long objectId = placed.at("/objects/0/id").asLong();
+
+        long playerTokenId = tokenIdByName(session.id(), gmJwt, "b6pip");
+        Api.Response blockedMove = Api.post(baseUrl() + "/api/sessions/" + session.id()
+                + "/map/tokens/" + playerTokenId + "/move", playerJwt, Api.body(Map.of("x", 5, "y", 5)));
+        assertThat(blockedMove.status()).isEqualTo(400);
+        assertThat(Api.json(blockedMove.body()).at("/message").asText()).contains("blocked");
+
+        Api.requireStatus(Api.post(baseUrl() + "/api/sessions/" + session.id() + "/map/objects", playerJwt,
+                Api.body(Map.of("objectIndex", 0, "x", 1, "y", 1))), 403, "player add object");
+
+        JsonNode moved = Api.json(Api.patch(baseUrl() + "/api/sessions/" + session.id()
+                + "/map/objects/" + objectId, gmJwt,
+                Api.body(Map.of("x", 6, "y", 6, "blocksMovement", false))).body());
+        assertThat(moved.at("/objects/0/x").asInt()).isEqualTo(6);
+        assertThat(moved.at("/objects/0/blocksMovement").asBoolean()).isFalse();
+
+        Api.requireStatus(Api.delete(baseUrl() + "/api/sessions/" + session.id()
+                + "/map/objects/" + objectId, gmJwt), 200, "remove object");
+        assertThat(get(session.id(), gmJwt).get("objects").size()).isZero();
+    }
+
     private JsonNode get(long sessionId, String jwt) {
         Api.Response response = Api.get(baseUrl() + "/api/sessions/" + sessionId + "/map", jwt);
         return Api.json(response.body());

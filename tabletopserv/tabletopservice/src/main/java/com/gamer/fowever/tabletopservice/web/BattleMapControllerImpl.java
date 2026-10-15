@@ -2,11 +2,13 @@ package com.gamer.fowever.tabletopservice.web;
 
 import com.gamer.fowever.tabletopapi.BattleMapApi;
 import com.gamer.fowever.tabletopservice.domain.User;
+import com.gamer.fowever.tabletopapi.dto.AddObjectRequest;
 import com.gamer.fowever.tabletopapi.dto.AddTokenRequest;
 import com.gamer.fowever.tabletopapi.dto.BattleMapDto;
 import com.gamer.fowever.tabletopapi.dto.CreateMapRequest;
 import com.gamer.fowever.tabletopapi.dto.InitiativeRequest;
 import com.gamer.fowever.tabletopapi.dto.MapCatalogDto;
+import com.gamer.fowever.tabletopapi.dto.UpdateObjectRequest;
 import com.gamer.fowever.tabletopapi.dto.MoveTokenRequest;
 import com.gamer.fowever.tabletopapi.dto.PaintTilesRequest;
 import com.gamer.fowever.tabletopapi.dto.TurnCommandRequest;
@@ -52,6 +54,28 @@ public class BattleMapControllerImpl implements BattleMapApi {
                                    @Valid @RequestBody PaintTilesRequest request,
                                    Authentication authentication) {
         return battleMapService.paintTiles(currentUser(authentication), sessionId, request);
+    }
+
+    @PostMapping("/objects")
+    public BattleMapDto addObject(@PathVariable Long sessionId,
+                                  @Valid @RequestBody AddObjectRequest request,
+                                  Authentication authentication) {
+        return battleMapService.addObject(currentUser(authentication), sessionId, request);
+    }
+
+    @PatchMapping("/objects/{objectId}")
+    public BattleMapDto updateObject(@PathVariable Long sessionId,
+                                     @PathVariable Long objectId,
+                                     @Valid @RequestBody UpdateObjectRequest request,
+                                     Authentication authentication) {
+        return battleMapService.updateObject(currentUser(authentication), sessionId, objectId, request);
+    }
+
+    @DeleteMapping("/objects/{objectId}")
+    public BattleMapDto removeObject(@PathVariable Long sessionId,
+                                     @PathVariable Long objectId,
+                                     Authentication authentication) {
+        return battleMapService.removeObject(currentUser(authentication), sessionId, objectId);
     }
 
     @PostMapping

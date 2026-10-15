@@ -175,6 +175,7 @@ export const E2E_MAP = {
   initiativeIndex: -1,
   initiative: [],
   tiles: [],
+  objects: [],
   tokens: [
     {
       id: 11,
@@ -206,6 +207,10 @@ export const E2E_TILE_CATALOG = {
   tiles: [
     { index: 0, name: 'Stone Floor', color: '#9ca3af' },
     { index: 7, name: 'Water', color: '#60a5fa' },
+  ],
+  objects: [
+    { index: 0, name: 'Wall', color: '#6b7280', width: 1, height: 1, blocksMovement: true },
+    { index: 6, name: 'Rug', color: '#b91c1c', width: 2, height: 2, blocksMovement: false },
   ],
 }
 

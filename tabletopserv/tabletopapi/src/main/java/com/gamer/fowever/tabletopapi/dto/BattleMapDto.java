@@ -13,5 +13,6 @@ public record BattleMapDto(
         int initiativeIndex,
         List<InitiativeEntryDto> initiative,
         List<MapTokenDto> tokens,
-        List<MapTileDto> tiles) {
+        List<MapTileDto> tiles,
+        List<MapObjectDto> objects) {
 }

@@ -3,11 +3,13 @@ package com.gamer.fowever.tabletopservice.support;
 import com.gamer.fowever.tabletopapi.dto.BattleMapDto;
 import com.gamer.fowever.tabletopapi.dto.GameSummary;
 import com.gamer.fowever.tabletopapi.dto.InitiativeEntryDto;
+import com.gamer.fowever.tabletopapi.dto.MapObjectDto;
 import com.gamer.fowever.tabletopapi.dto.MapTileDto;
 import com.gamer.fowever.tabletopapi.dto.MapTokenDto;
 import com.gamer.fowever.tabletopapi.dto.ParticipantSummary;
 import com.gamer.fowever.tabletopapi.dto.UserSummary;
 import com.gamer.fowever.tabletopservice.domain.BattleMap;
+import com.gamer.fowever.tabletopservice.domain.BattleMapObject;
 import com.gamer.fowever.tabletopservice.domain.BattleMapTile;
 import com.gamer.fowever.tabletopservice.domain.Game;
 import com.gamer.fowever.tabletopservice.domain.InitiativeEntry;
@@ -81,8 +83,25 @@ public final class Dtos {
         return tiles.stream().map(Dtos::mapTile).toList();
     }
 
+    public static MapObjectDto mapObject(BattleMapObject object) {
+        return new MapObjectDto(
+                object.getId(),
+                object.getObjectIndex(),
+                object.getPosX(),
+                object.getPosY(),
+                object.getWidth(),
+                object.getHeight(),
+                object.getRotation(),
+                object.isBlocksMovement());
+    }
+
+    public static List<MapObjectDto> mapObjects(List<BattleMapObject> objects) {
+        return objects.stream().map(Dtos::mapObject).toList();
+    }
+
     public static BattleMapDto battleMap(BattleMap map, List<MapToken> tokens, List<InitiativeEntry> initiative,
-                                         Map<Long, TokenAvatar> avatarsByUserId, List<BattleMapTile> tiles) {
+                                         Map<Long, TokenAvatar> avatarsByUserId, List<BattleMapTile> tiles,
+                                         List<BattleMapObject> objects) {
         return new BattleMapDto(
                 map.getId(),
                 map.getSession().getId(),
@@ -94,6 +113,7 @@ public final class Dtos {
                 map.getInitiativeIndex(),
                 initiativeEntries(initiative),
                 mapTokens(tokens, avatarsByUserId),
-                mapTiles(tiles));
+                mapTiles(tiles),
+                mapObjects(objects));
     }
 }

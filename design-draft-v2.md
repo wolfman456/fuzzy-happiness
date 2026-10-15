@@ -260,7 +260,13 @@ The **major v2 focus** ("map creation"). A GM builds the encounter space, not ju
 
 > **Status:** 🔨 **in progress** — `feature/map-builder`, R53, developed as three shippable
 > increments (3a→3c) so schema/API land before the editor UX. **3a implemented** (V4 migration,
-> `MapCatalog`, catalog + tile-paint endpoints, read-only client tile layer); 3b/3c pending.
+> `MapCatalog`, catalog + tile-paint endpoints, read-only client tile layer); **3b implemented**
+> (V5 migration, object catalog defs, `POST|PATCH|DELETE …/map/objects[/{id}]`, client object
+> layer + path-aware BFS `reachableSquares`, blocking objects gate `addToken`/`placeToken`/
+> `moveToken`); **3c implemented** — dedicated `/sessions/:id/map/edit` GM editor route
+> (`MapEditorPage.jsx`): palette sidebar, tile paint/erase/eyedropper, object place/move/rotate/
+> delete (object *footprint resize* deferred — the API keeps `w`/`h` fixed for an object's
+> lifetime); play view unchanged, reached via an "Edit map" link in `SessionPage`.
 > Tracking requirement: `Wants.md` R53; broader deferred vision stays R32 (movement through
 > terrain), R33 (terrain authoring), R34 (save/share), R36 (map library).
 
@@ -280,9 +286,13 @@ The **major v2 focus** ("map creation"). A GM builds the encounter space, not ju
   reachable-move overlay; `blocksMovement` objects become hard legal gates in server
   move-validation **and** the frontend `reachableSquares` becomes a path-aware BFS (walls block
   pathing); impassable-square blackout rides the same tables.
-- **3c — GM map-editor route.** Dedicated full-screen editor route (decided §2, *not*
-  edit-in-panel): palette sidebar, tile paint / erase / eyedropper, object
-  place / move / resize / rotate; play view unchanged. Persistence via the Slice 0 tables.
+- **3c — GM map-editor route (implemented).** Dedicated full-screen editor route `/sessions/:id/map/edit`
+  (`MapEditorPage.jsx`, decided §2, *not* edit-in-panel): palette sidebar, tile
+  paint / erase / eyedropper, object place / move / rotate / delete; play view unchanged
+  (reached via an "Edit map" link shown to the GM in `SessionPage`). Object *footprint resize*
+  is deferred — the 3b API fixes `w`/`h` for an object's lifetime, so the editor ships
+  move/rotate/delete instead. Persistence via the Slice 0 tables (all edits reuse the 3a/3b
+  endpoints and repaint from the returned full-map DTO).
 
 - **Server:**
   - `MapCatalog` component (tile palette + object defs: `{index, name}` + dims +
@@ -294,8 +304,9 @@ The **major v2 focus** ("map creation"). A GM builds the encounter space, not ju
 - **Client** (`BattleMapPanel.jsx`):
   - Bottom tile layer (per-cell divs / sprite images) + object sprites above tokens, below
     reachable-move overlay.
-  - **Map editor mode** (GM): palette sidebar, tile paint / erase / eyedropper, object
-    place / move / resize / rotate. Play view unchanged.
+  - **Map editor** (GM) is a *separate full-screen route* (`MapEditorPage.jsx`, 3c): palette
+    sidebar, tile paint / erase / eyedropper, object place / move / rotate / delete. Play
+    view unchanged.
 - **Behavior default (decided 2026-09-14):** tiles are visual; `blocksMovement` objects are
   hard legal gates excluded by server move-validation **and** path-blocking frontend
   `reachableSquares` (BFS); decorative/impeding objects (rivers, rubble) shoot-over but slow

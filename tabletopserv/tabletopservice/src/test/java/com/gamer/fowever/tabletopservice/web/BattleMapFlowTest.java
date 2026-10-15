@@ -365,6 +365,68 @@ class BattleMapFlowTest {
                 .andExpect(status().isForbidden());
     }
 
+    @Test
+    void objectPlacementFlow() throws Exception {
+        String gmJwt = registerAndLogin("cedric");
+        String playerJwt = registerAndLogin("olive");
+        SessionHandle session = createSession(gmJwt, "Courtyard");
+        joinSession(playerJwt, session.inviteCode());
+        mvc.perform(post("/api/sessions/" + session.id() + "/map")
+                        .header("Authorization", "Bearer " + gmJwt)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Courtyard\"}"))
+                .andExpect(status().isCreated());
+
+        mvc.perform(get("/api/sessions/" + session.id() + "/map/catalog")
+                        .header("Authorization", "Bearer " + gmJwt))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.objects[0].index").value(0))
+                .andExpect(jsonPath("$.objects[0].width").value(1))
+                .andExpect(jsonPath("$.objects[0].blocksMovement").value(true));
+
+        String added = mvc.perform(post("/api/sessions/" + session.id() + "/map/objects")
+                        .header("Authorization", "Bearer " + gmJwt)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"objectIndex\":0,\"x\":5,\"y\":5}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.objects.length()").value(1))
+                .andExpect(jsonPath("$.objects[0].x").value(5))
+                .andExpect(jsonPath("$.objects[0].blocksMovement").value(true))
+                .andReturn().getResponse().getContentAsString();
+        long objectId = ((Number) JsonPath.read(added, "$.objects[0].id")).longValue();
+
+        long playerTokenId = tokenIdByName(gmJwt, session.id(), "olive");
+        mvc.perform(post("/api/sessions/" + session.id() + "/map/tokens/" + playerTokenId + "/move")
+                        .header("Authorization", "Bearer " + playerJwt)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"x\":5,\"y\":5}"))
+                .andExpect(status().isBadRequest());
+
+        mvc.perform(patch("/api/sessions/" + session.id() + "/map/objects/" + objectId)
+                        .header("Authorization", "Bearer " + gmJwt)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"blocksMovement\":false,\"x\":6,\"y\":6}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.objects[0].x").value(6))
+                .andExpect(jsonPath("$.objects[0].blocksMovement").value(false));
+
+        mvc.perform(post("/api/sessions/" + session.id() + "/map/objects")
+                        .header("Authorization", "Bearer " + playerJwt)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"objectIndex\":0,\"x\":1,\"y\":1}"))
+                .andExpect(status().isForbidden());
+
+        mvc.perform(delete("/api/sessions/" + session.id() + "/map/objects/" + objectId)
+                        .header("Authorization", "Bearer " + gmJwt))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.objects.length()").value(0));
+
+        mvc.perform(get("/api/sessions/" + session.id() + "/map")
+                        .header("Authorization", "Bearer " + gmJwt))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.objects.length()").value(0));
+    }
+
     private String mapBody(String jwt, long sessionId) throws Exception {
         return mvc.perform(get("/api/sessions/" + sessionId + "/map")
                         .header("Authorization", "Bearer " + jwt))
