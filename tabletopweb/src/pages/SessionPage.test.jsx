@@ -12,6 +12,7 @@ const realtime = {
 
 const battleMapMock = vi.hoisted(() => ({
   getMap: vi.fn(),
+  getMapCatalog: vi.fn(),
   createMap: vi.fn(),
   rollDice: vi.fn(),
 }))
@@ -82,6 +83,8 @@ describe('SessionPage', () => {
   beforeEach(() => {
     battleMapMock.getMap.mockReset()
     battleMapMock.getMap.mockRejectedValue({ status: 404, message: 'Battle map not found' })
+    battleMapMock.getMapCatalog.mockReset()
+    battleMapMock.getMapCatalog.mockResolvedValue({ tiles: [] })
     battleMapMock.createMap.mockReset()
     battleMapMock.createMap.mockResolvedValue({ id: 1, sessionId: 7, name: 'Grumm’s map', width: 24, height: 18, squareFeet: 10, currentTurnTokenId: null, tokens: [] })
     battleMapMock.rollDice.mockReset()
@@ -389,6 +392,33 @@ describe('SessionPage', () => {
 
     expect(await screen.findByRole('button', { name: /Token Goblin/ })).toBeInTheDocument()
     expect(screen.getByText('No messages yet.')).toBeInTheDocument()
+  })
+
+  it('offers the GM a link to the full-screen map editor when a map exists', async () => {
+    api.mockResolvedValue(snapshot)
+    battleMapMock.getMap.mockResolvedValue({
+      id: 1, sessionId: 7, name: 'Hall', width: 4, height: 3, squareFeet: 10, currentTurnTokenId: null, tokens: [],
+    })
+    renderSession()
+
+    const link = await screen.findByRole('link', { name: 'Edit map' })
+    expect(link).toHaveAttribute('href', '/sessions/7/map/edit')
+  })
+
+  it('hides the map editor link from players', async () => {
+    api.mockResolvedValue({
+      ...snapshot,
+      participants: [
+        { user: { id: 1, username: 'ginger', displayName: 'Ginger' }, role: 'PLAYER', joinedAt: '2026-01-01T10:00:00' },
+      ],
+    })
+    battleMapMock.getMap.mockResolvedValue({
+      id: 1, sessionId: 7, name: 'Hall', width: 4, height: 3, squareFeet: 10, currentTurnTokenId: null, tokens: [],
+    })
+    renderSession()
+
+    await screen.findByRole('heading', { name: /Hall/ })
+    expect(screen.queryByRole('link', { name: 'Edit map' })).not.toBeInTheDocument()
   })
 
   it('hydrates the map from snapshot recentEvents and hides TABLE rows from the feed', async () => {

@@ -5,6 +5,7 @@ import { avatarSnapshotKey, clearAvatarSnapshots, setAvatarSnapshot } from '../l
 
 const battleMapMock = vi.hoisted(() => ({
   addToken: vi.fn(),
+  getMapCatalog: vi.fn(),
   moveToken: vi.fn(),
   nextInitiative: vi.fn(),
   placeToken: vi.fn(),
@@ -32,6 +33,7 @@ function makeMap(overrides = {}) {
     currentTurnTokenId: null,
     initiativeIndex: -1,
     initiative: [],
+    tiles: [],
     tokens: [
       { id: 11, name: 'Aria Sol', category: 'PLAYER', color: '#3b82f6', speedFeet: 30, posX: 1, posY: 1, movedFeet: 0, linkedParticipantId: null, linkedUserId: 1 },
       { id: 12, name: 'Goblin', category: 'MONSTER_NPC', color: '#ef4444', speedFeet: 30, posX: 5, posY: 5, movedFeet: 0, linkedParticipantId: null, linkedUserId: null },
@@ -70,6 +72,16 @@ beforeEach(() => {
   battleMapMock.rerollInitiative.mockResolvedValue(makeMap())
   battleMapMock.removeInitiativeEntry.mockResolvedValue(makeMap({ initiative: [] }))
   battleMapMock.setInitiative.mockResolvedValue(makeMap())
+  battleMapMock.getMapCatalog.mockResolvedValue({
+    tiles: [
+      { index: 0, name: 'Stone Floor', color: '#9ca3af' },
+      { index: 7, name: 'Water', color: '#60a5fa' },
+    ],
+    objects: [
+      { index: 0, name: 'Wall', color: '#57534e', width: 1, height: 1, blocksMovement: true },
+      { index: 6, name: 'Rug', color: '#b91c1c', width: 2, height: 2, blocksMovement: false },
+    ],
+  })
 })
 
 describe('BattleMapPanel', () => {
@@ -466,5 +478,84 @@ describe('BattleMapPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Next turn' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Initiative order is empty')
+  })
+
+  it('paints tiles using the catalog colours', async () => {
+    renderPanel({
+      map: makeMap({
+        tiles: [
+          { x: 2, y: 3, tileIndex: 0 },
+          { x: 4, y: 1, tileIndex: 7 },
+        ],
+      }),
+    })
+
+    const stone = await screen.findByTestId('tile-2-3')
+    expect(stone).toHaveStyle({ backgroundColor: '#9ca3af' })
+    expect(screen.getByTestId('tile-4-1')).toHaveStyle({ backgroundColor: '#60a5fa' })
+  })
+
+  it('skips tiles whose index is not in the catalog', async () => {
+    renderPanel({ map: makeMap({ tiles: [{ x: 1, y: 1, tileIndex: 99 }] }) })
+
+    await screen.findByTestId('battle-grid')
+    await waitFor(() => expect(screen.queryByTestId('tile-1-1')).not.toBeInTheDocument())
+  })
+
+  it('renders object sprites using the catalog colours', async () => {
+    renderPanel({
+      map: makeMap({
+        objects: [
+          { id: 21, objectIndex: 0, x: 3, y: 4, w: 1, h: 1, rotation: 0, blocksMovement: true },
+          { id: 22, objectIndex: 6, x: 6, y: 6, w: 2, h: 2, rotation: 0, blocksMovement: false },
+        ],
+      }),
+    })
+
+    const wall = await screen.findByTestId('object-21')
+    expect(wall).toHaveStyle({ backgroundColor: '#57534e' })
+    const rug = screen.getByTestId('object-22')
+    expect(rug).toHaveStyle({ backgroundColor: '#b91c1c' })
+    expect(rug).toHaveStyle({ width: '72px', height: '72px' })
+  })
+
+  it('skips object sprites whose index is not in the catalog', async () => {
+    renderPanel({ map: makeMap({ objects: [{ id: 21, objectIndex: 99, x: 1, y: 1, w: 1, h: 1, rotation: 0, blocksMovement: true }] }) })
+
+    await screen.findByTestId('battle-grid')
+    await waitFor(() => expect(screen.queryByTestId('object-21')).not.toBeInTheDocument())
+  })
+
+  it('does not offer a move onto a square blocked by an object', async () => {
+    renderPanel({
+      isGm: false,
+      map: makeMap({
+        initiativeIndex: 0,
+        objects: [
+          { id: 21, objectIndex: 0, x: 2, y: 1, w: 1, h: 1, rotation: 0, blocksMovement: true },
+        ],
+      }),
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /Token Aria Sol/ }))
+
+    expect(screen.getByRole('button', { name: 'Move to square 2, 0' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Move to square 2, 1' })).not.toBeInTheDocument()
+  })
+
+  it('does not offer a placement onto a square blocked by an object', async () => {
+    renderPanel({
+      isGm: true,
+      map: makeMap({
+        objects: [
+          { id: 21, objectIndex: 0, x: 4, y: 4, w: 1, h: 1, rotation: 0, blocksMovement: true },
+        ],
+      }),
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /Token Goblin/ }))
+
+    expect(screen.queryByRole('button', { name: 'Place to square 4, 4' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Place to square 4, 3' })).toBeInTheDocument()
   })
 })

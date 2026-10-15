@@ -1,13 +1,15 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   RACE_SPEEDS,
   TOKEN_COLORS,
+  blockedSquares,
   reachableSquares,
   remainingFeet,
   squaresFor,
 } from '../lib/mapGeometry'
 import {
   addToken,
+  getMapCatalog,
   moveToken,
   placeToken,
   removeToken,
@@ -40,6 +42,39 @@ export default function BattleMapPanel({ sessionId, map, user, isGm, disabled, o
   const [hoverPos, setHoverPos] = useState(null)
   const [resizeOpen, setResizeOpen] = useState(false)
   const [resizeDims, setResizeDims] = useState({ width: map.width, height: map.height })
+  const [catalog, setCatalog] = useState({ tiles: [], objects: [] })
+
+  useEffect(() => {
+    let cancelled = false
+    getMapCatalog(sessionId)
+      .then((data) => {
+        if (!cancelled) {
+          setCatalog({ tiles: data?.tiles ?? [], objects: data?.objects ?? [] })
+        }
+      })
+      .catch(() => {
+        // The palette only colours tiles/objects; a failed fetch leaves the
+        // grid unpainted rather than blocking the map.
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [sessionId])
+
+  const tileColors = useMemo(() => {
+    const colors = new Map()
+    catalog.tiles.forEach((tile) => colors.set(tile.index, tile.color))
+    return colors
+  }, [catalog])
+
+  const objectColors = useMemo(() => {
+    const colors = new Map()
+    catalog.objects.forEach((object) => colors.set(object.index, object.color))
+    return colors
+  }, [catalog])
+
+  const paintedTiles = map.tiles ?? []
+  const mapObjects = map.objects ?? []
 
   const selectedToken = useMemo(
     () => map.tokens.find((token) => token.id === selectedId) ?? null,
@@ -51,13 +86,17 @@ export default function BattleMapPanel({ sessionId, map, user, isGm, disabled, o
 
   const setupPhase = map.initiativeIndex === -1
 
+  const blocked = useMemo(() => blockedSquares(map), [map])
+
   const reachable = useMemo(() => {
     if (setupPhase) return []
     if (!selectedToken) return []
     if (disabled) return []
     if (!isGm && selectedToken.linkedUserId !== user?.id) return []
-    return reachableSquares(selectedToken, map)
-  }, [selectedToken, map, disabled, isGm, user?.id, setupPhase])
+    return reachableSquares(selectedToken, map, blocked).filter(
+      (square) => square.x !== selectedToken.posX || square.y !== selectedToken.posY,
+    )
+  }, [selectedToken, map, blocked, disabled, isGm, user?.id, setupPhase])
 
   const placeable = useMemo(() => {
     if (!setupPhase || !selectedToken || disabled) return []
@@ -70,11 +109,13 @@ export default function BattleMapPanel({ sessionId, map, user, isGm, disabled, o
     const squares = []
     for (let x = 0; x < map.width; x += 1) {
       for (let y = 0; y < map.height; y += 1) {
-        if (!occupied.has(`${x},${y}`)) squares.push({ x, y })
+        if (occupied.has(`${x},${y}`)) continue
+        if (blocked.has(`${x},${y}`)) continue
+        squares.push({ x, y })
       }
     }
     return squares
-  }, [setupPhase, selectedToken, map, disabled, isGm, user?.id])
+  }, [setupPhase, selectedToken, map, blocked, disabled, isGm, user?.id])
 
   const gridWidth = map.width * SQUARE_PX
   const gridHeight = map.height * SQUARE_PX
@@ -397,6 +438,64 @@ export default function BattleMapPanel({ sessionId, map, user, isGm, disabled, o
           }}
           onMouseLeave={() => setHoverPos(null)}
         >
+          {paintedTiles.map((tile) => {
+            const color = tileColors.get(tile.tileIndex)
+            if (!color) return null
+            if (tile.x < 0 || tile.y < 0 || tile.x >= map.width || tile.y >= map.height) {
+              return null
+            }
+            return (
+              <div
+                key={`${tile.x},${tile.y}`}
+                data-testid={`tile-${tile.x}-${tile.y}`}
+                aria-hidden="true"
+                className="pointer-events-none absolute"
+                style={{
+                  left: `${tile.x * SQUARE_PX}px`,
+                  top: `${tile.y * SQUARE_PX}px`,
+                  width: `${SQUARE_PX}px`,
+                  height: `${SQUARE_PX}px`,
+                  backgroundColor: color,
+                  boxShadow: 'inset 0 0 0 1px rgba(0, 0, 0, 0.12)',
+                }}
+              />
+            )
+          })}
+          {mapObjects.map((object) => {
+            const color = objectColors.get(object.objectIndex)
+            if (!color) return null
+            if (
+              object.x < 0 ||
+              object.y < 0 ||
+              object.x >= map.width ||
+              object.y >= map.height
+            ) {
+              return null
+            }
+            return (
+              <div
+                key={`object-${object.id}`}
+                data-testid={`object-${object.id}`}
+                aria-hidden="true"
+                className="pointer-events-none absolute flex items-center justify-center"
+                style={{
+                  left: `${object.x * SQUARE_PX}px`,
+                  top: `${object.y * SQUARE_PX}px`,
+                  width: `${object.w * SQUARE_PX}px`,
+                  height: `${object.h * SQUARE_PX}px`,
+                  backgroundColor: color,
+                  opacity: 0.85,
+                  borderRadius: '3px',
+                  boxShadow: 'inset 0 0 0 1px rgba(0, 0, 0, 0.35)',
+                  zIndex: 20,
+                }}
+              >
+                <span className="text-[8px] font-bold uppercase tracking-wide text-white/80">
+                  {object.blocksMovement ? '■' : '·'}
+                </span>
+              </div>
+            )
+          })}
           {Array.from({ length: map.width }, (_, x) => (
             <span
               key={`col-${x}`}
@@ -431,6 +530,7 @@ export default function BattleMapPanel({ sessionId, map, user, isGm, disabled, o
                 top: `${y * SQUARE_PX}px`,
                 width: `${SQUARE_PX}px`,
                 height: `${SQUARE_PX}px`,
+                zIndex: 30,
               }}
               className="absolute rounded border border-emerald-500 bg-emerald-300/40 hover:bg-emerald-400/60"
               aria-label={`Move to square ${x}, ${y}`}
@@ -450,6 +550,7 @@ export default function BattleMapPanel({ sessionId, map, user, isGm, disabled, o
                 top: `${y * SQUARE_PX}px`,
                 width: `${SQUARE_PX}px`,
                 height: `${SQUARE_PX}px`,
+                zIndex: 30,
               }}
               className="absolute rounded border border-amber-500 bg-amber-300/40 hover:bg-amber-400/60"
               aria-label={`Place to square ${x}, ${y}`}
@@ -694,6 +795,7 @@ function TokenDisc({ token, selected, interactive, showFeet, squarePx, onClick }
         height: `${squarePx - 4}px`,
         backgroundColor: token.color,
         fontSize: '0.7rem',
+        zIndex: 10,
       }}
     >
       {snapshot ? (

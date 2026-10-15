@@ -7,6 +7,8 @@ import com.gamer.fowever.tabletopapi.EventType;
 import com.gamer.fowever.tabletopapi.Role;
 import com.gamer.fowever.tabletopapi.TokenCategory;
 import com.gamer.fowever.tabletopservice.domain.BattleMap;
+import com.gamer.fowever.tabletopservice.domain.BattleMapObject;
+import com.gamer.fowever.tabletopservice.domain.BattleMapTile;
 import com.gamer.fowever.tabletopservice.domain.Dnd5eCharacter;
 import com.gamer.fowever.tabletopservice.domain.GameSession;
 import com.gamer.fowever.tabletopservice.domain.InitiativeEntry;
@@ -14,6 +16,7 @@ import com.gamer.fowever.tabletopservice.domain.MapToken;
 import com.gamer.fowever.tabletopservice.domain.Participant;
 import com.gamer.fowever.tabletopservice.domain.SessionEvent;
 import com.gamer.fowever.tabletopservice.domain.User;
+import com.gamer.fowever.tabletopapi.dto.AddObjectRequest;
 import com.gamer.fowever.tabletopapi.dto.AddTokenRequest;
 import com.gamer.fowever.tabletopapi.dto.BattleMapDto;
 import com.gamer.fowever.tabletopapi.dto.CharacterAppearance;
@@ -21,14 +24,22 @@ import com.gamer.fowever.tabletopapi.dto.CreateMapRequest;
 import com.gamer.fowever.tabletopapi.dto.InitiativeEntryDto;
 import com.gamer.fowever.tabletopapi.dto.InitiativeEntryRequest;
 import com.gamer.fowever.tabletopapi.dto.InitiativeRequest;
+import com.gamer.fowever.tabletopapi.dto.MapCatalogDto;
+import com.gamer.fowever.tabletopapi.dto.MapObjectTypeDto;
+import com.gamer.fowever.tabletopapi.dto.MapTileDto;
+import com.gamer.fowever.tabletopapi.dto.MapTileTypeDto;
 import com.gamer.fowever.tabletopapi.dto.MapTokenDto;
 import com.gamer.fowever.tabletopapi.dto.MoveTokenRequest;
+import com.gamer.fowever.tabletopapi.dto.PaintTilesRequest;
 import com.gamer.fowever.tabletopapi.dto.SessionEventDto;
 import com.gamer.fowever.tabletopapi.dto.TurnAction;
 import com.gamer.fowever.tabletopapi.dto.TurnCommandRequest;
 import com.gamer.fowever.tabletopapi.dto.UpdateMapRequest;
+import com.gamer.fowever.tabletopapi.dto.UpdateObjectRequest;
 import com.gamer.fowever.tabletopapi.dto.UpdateTokenRequest;
+import com.gamer.fowever.tabletopservice.repository.BattleMapObjectRepository;
 import com.gamer.fowever.tabletopservice.repository.BattleMapRepository;
+import com.gamer.fowever.tabletopservice.repository.BattleMapTileRepository;
 import com.gamer.fowever.tabletopservice.repository.CharacterRepository;
 import com.gamer.fowever.tabletopservice.repository.GameSessionRepository;
 import com.gamer.fowever.tabletopservice.support.Dtos;
@@ -38,13 +49,16 @@ import com.gamer.fowever.tabletopservice.repository.MapTokenRepository;
 import com.gamer.fowever.tabletopservice.repository.ParticipantRepository;
 import com.gamer.fowever.tabletopservice.repository.SessionEventRepository;
 import com.gamer.fowever.tabletopservice.repository.UserRepository;
+import com.gamer.fowever.tabletopservice.service.map.MapCatalog;
 import com.gamer.fowever.tabletopapi.support.ApiException;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -73,6 +87,8 @@ public class BattleMapService {
 
     private final BattleMapRepository mapRepository;
     private final MapTokenRepository tokenRepository;
+    private final BattleMapTileRepository tileRepository;
+    private final BattleMapObjectRepository objectRepository;
     private final InitiativeEntryRepository initiativeRepository;
     private final ParticipantRepository participantRepository;
     private final CharacterRepository characterRepository;
@@ -81,9 +97,12 @@ public class BattleMapService {
     private final SessionEventRepository eventRepository;
     private final SimpMessagingTemplate messagingTemplate;
     private final ObjectMapper objectMapper;
+    private final MapCatalog mapCatalog;
 
     public BattleMapService(BattleMapRepository mapRepository,
                             MapTokenRepository tokenRepository,
+                            BattleMapTileRepository tileRepository,
+                            BattleMapObjectRepository objectRepository,
                             InitiativeEntryRepository initiativeRepository,
                             ParticipantRepository participantRepository,
                             CharacterRepository characterRepository,
@@ -91,9 +110,12 @@ public class BattleMapService {
                             UserRepository userRepository,
                             SessionEventRepository eventRepository,
                             SimpMessagingTemplate messagingTemplate,
-                            ObjectMapper objectMapper) {
+                            ObjectMapper objectMapper,
+                            MapCatalog mapCatalog) {
         this.mapRepository = mapRepository;
         this.tokenRepository = tokenRepository;
+        this.tileRepository = tileRepository;
+        this.objectRepository = objectRepository;
         this.initiativeRepository = initiativeRepository;
         this.participantRepository = participantRepository;
         this.characterRepository = characterRepository;
@@ -102,12 +124,110 @@ public class BattleMapService {
         this.eventRepository = eventRepository;
         this.messagingTemplate = messagingTemplate;
         this.objectMapper = objectMapper;
+        this.mapCatalog = mapCatalog;
     }
 
     @Transactional(readOnly = true)
     public BattleMapDto getMap(Long sessionId) {
         managedSession(sessionId);
         return toDto(managedMap(sessionId));
+    }
+
+    @Transactional(readOnly = true)
+    public MapCatalogDto getCatalog(Long sessionId) {
+        managedSession(sessionId);
+        List<MapTileTypeDto> tiles = mapCatalog.tiles().stream()
+                .map(tile -> new MapTileTypeDto(tile.index(), tile.name(), tile.color()))
+                .toList();
+        List<MapObjectTypeDto> objects = mapCatalog.objects().stream()
+                .map(object -> new MapObjectTypeDto(object.index(), object.name(), object.color(),
+                        object.width(), object.height(), object.blocksMovement()))
+                .toList();
+        return new MapCatalogDto(tiles, objects);
+    }
+
+    @Transactional
+    public BattleMapDto paintTiles(User actor, Long sessionId, PaintTilesRequest request) {
+        GameSession session = managedSession(sessionId);
+        requireGm(actor, session);
+        BattleMap map = managedMap(sessionId);
+
+        List<MapTileDto> tiles = request.tiles();
+        if (tiles.isEmpty()) {
+            return toDto(map);
+        }
+        Map<String, BattleMapTile> existing = tileRepository.findByMapId(map.getId()).stream()
+                .collect(Collectors.toMap(tile -> cellKey(tile.getPosX(), tile.getPosY()), tile -> tile));
+        for (MapTileDto tile : tiles) {
+            requireInBounds(map, tile.x(), tile.y());
+            String key = cellKey(tile.x(), tile.y());
+            if (tile.tileIndex() == null) {
+                BattleMapTile erased = existing.remove(key);
+                if (erased != null) {
+                    tileRepository.delete(erased);
+                }
+                continue;
+            }
+            if (!mapCatalog.hasTile(tile.tileIndex())) {
+                throw ApiException.badRequest("Unknown tile index: " + tile.tileIndex());
+            }
+            BattleMapTile present = existing.get(key);
+            if (present == null) {
+                existing.put(key, new BattleMapTile(map, tile.x(), tile.y(), tile.tileIndex()));
+            } else {
+                present.setTileIndex(tile.tileIndex());
+            }
+        }
+        tileRepository.saveAll(existing.values());
+        return broadcastAndPersist(map);
+    }
+
+    @Transactional
+    public BattleMapDto addObject(User actor, Long sessionId, AddObjectRequest request) {
+        GameSession session = managedSession(sessionId);
+        requireGm(actor, session);
+        BattleMap map = managedMap(sessionId);
+
+        MapCatalog.ObjectType type = mapCatalog.object(request.objectIndex())
+                .orElseThrow(() -> ApiException.badRequest("Unknown object index: " + request.objectIndex()));
+        int rotation = normalizeRotation(request.rotation());
+        boolean blocksMovement = request.blocksMovement() != null ? request.blocksMovement() : type.blocksMovement();
+        requireFootprintInBounds(map, request.x(), request.y(), type.width(), type.height());
+
+        objectRepository.save(new BattleMapObject(map, request.objectIndex(), request.x(), request.y(),
+                type.width(), type.height(), rotation, blocksMovement));
+        return broadcastAndPersist(map);
+    }
+
+    @Transactional
+    public BattleMapDto updateObject(User actor, Long sessionId, Long objectId, UpdateObjectRequest request) {
+        GameSession session = managedSession(sessionId);
+        requireGm(actor, session);
+        BattleMap map = managedMap(sessionId);
+        BattleMapObject object = managedObject(objectId, map.getId());
+
+        int x = request.x() != null ? request.x() : object.getPosX();
+        int y = request.y() != null ? request.y() : object.getPosY();
+        requireFootprintInBounds(map, x, y, object.getWidth(), object.getHeight());
+        object.setPosX(x);
+        object.setPosY(y);
+        if (request.rotation() != null) {
+            object.setRotation(normalizeRotation(request.rotation()));
+        }
+        if (request.blocksMovement() != null) {
+            object.setBlocksMovement(request.blocksMovement());
+        }
+        objectRepository.save(object);
+        return broadcastAndPersist(map);
+    }
+
+    @Transactional
+    public BattleMapDto removeObject(User actor, Long sessionId, Long objectId) {
+        GameSession session = managedSession(sessionId);
+        requireGm(actor, session);
+        BattleMap map = managedMap(sessionId);
+        objectRepository.delete(managedObject(objectId, map.getId()));
+        return broadcastAndPersist(map);
     }
 
     @Transactional
@@ -192,6 +312,17 @@ public class BattleMapService {
                 tokenRepository.save(token);
             }
         });
+        tileRepository.findByMapId(map.getId()).forEach(tile -> {
+            if (tile.getPosX() >= map.getWidth() || tile.getPosY() >= map.getHeight()) {
+                tileRepository.delete(tile);
+            }
+        });
+        objectRepository.findByMapIdOrderByIdAsc(map.getId()).forEach(object -> {
+            if (object.getPosX() + object.getWidth() > map.getWidth()
+                    || object.getPosY() + object.getHeight() > map.getHeight()) {
+                objectRepository.delete(object);
+            }
+        });
         return broadcastAndPersist(map);
     }
 
@@ -204,6 +335,7 @@ public class BattleMapService {
         int x = request.x() != null ? request.x() : 0;
         int y = request.y() != null ? request.y() : 0;
         requireInBounds(map, x, y);
+        requireOpenSquare(map, x, y);
         int speedFeet = request.speedFeet() != null ? request.speedFeet() : DEFAULT_SPEED_FEET;
         validateSpeed(speedFeet);
         TokenCategory category = request.category() != null ? request.category() : TokenCategory.MONSTER_NPC;
@@ -284,6 +416,15 @@ public class BattleMapService {
                     + " ft exceeds the " + remainingFeet + " ft remaining this turn");
         }
 
+        Set<String> blocked = blockedSquares(map);
+        if (blocked.contains(cellKey(request.x(), request.y()))) {
+            throw ApiException.badRequest("Square is blocked by an object (" + request.x() + ", " + request.y() + ")");
+        }
+        if (!pathReachable(map, token.getPosX(), token.getPosY(), request.x(), request.y(),
+                remainingFeet / map.getSquareFeet(), blocked)) {
+            throw ApiException.badRequest("No clear path to (" + request.x() + ", " + request.y() + ")");
+        }
+
         token.setPosX(request.x());
         token.setPosY(request.y());
         token.setMovedFeet(token.getMovedFeet() + requiredFeet);
@@ -299,6 +440,7 @@ public class BattleMapService {
         BattleMap map = managedMap(sessionId);
         MapToken token = managedToken(tokenId, map.getId());
         requireInBounds(map, request.x(), request.y());
+        requireOpenSquare(map, request.x(), request.y());
 
         if (map.getInitiativeIndex() != INITIATIVE_NOT_STARTED) {
             throw ApiException.badRequest("The map is in combat — use move instead");
@@ -495,6 +637,107 @@ public class BattleMapService {
         }
     }
 
+    private void requireFootprintInBounds(BattleMap map, int x, int y, int width, int height) {
+        if (x < 0 || y < 0 || x + width > map.getWidth() || y + height > map.getHeight()) {
+            throw ApiException.badRequest("Object footprint is outside the map ("
+                    + x + ", " + y + " + " + width + "×" + height + ")");
+        }
+    }
+
+    private static int normalizeRotation(Integer rotation) {
+        if (rotation == null) {
+            return 0;
+        }
+        return Math.floorMod(rotation, 360) / 90 * 90;
+    }
+
+    private void requireOpenSquare(BattleMap map, int x, int y) {
+        if (blockedSquares(map).contains(cellKey(x, y))) {
+            throw ApiException.badRequest("Square is blocked by an object (" + x + ", " + y + ")");
+        }
+    }
+
+    /**
+     * Expands every movement-blocking object into the set of squares its
+     * axis-aligned footprint covers (clamped to the map). Objects never block
+     * off-map squares.
+     */
+    private Set<String> blockedSquares(BattleMap map) {
+        Set<String> blocked = new HashSet<>();
+        for (BattleMapObject object : objectRepository.findByMapIdOrderByIdAsc(map.getId())) {
+            if (!object.isBlocksMovement()) {
+                continue;
+            }
+            for (int x = object.getPosX(); x < object.getPosX() + object.getWidth(); x++) {
+                for (int y = object.getPosY(); y < object.getPosY() + object.getHeight(); y++) {
+                    if (x >= 0 && y >= 0 && x < map.getWidth() && y < map.getHeight()) {
+                        blocked.add(cellKey(x, y));
+                    }
+                }
+            }
+        }
+        return blocked;
+    }
+
+    /**
+     * Breadth-first search over the 8 surrounding squares (each step costs one
+     * square), refusing to enter blocked or off-map squares. A diagonal step is
+     * only allowed when at least one of its two orthogonal neighbours is open,
+     * so a token cannot cut through a solid corner.
+     */
+    private boolean pathReachable(BattleMap map, int fromX, int fromY, int toX, int toY,
+                                  int maxSteps, Set<String> blocked) {
+        if (maxSteps < 0) {
+            return false;
+        }
+        if (fromX == toX && fromY == toY) {
+            return true;
+        }
+        boolean[][] visited = new boolean[map.getWidth()][map.getHeight()];
+        visited[fromX][fromY] = true;
+        List<int[]> frontier = new ArrayList<>();
+        frontier.add(new int[] {fromX, fromY});
+        int depth = 0;
+        while (!frontier.isEmpty() && depth < maxSteps) {
+            List<int[]> next = new ArrayList<>();
+            for (int[] cell : frontier) {
+                for (int dx = -1; dx <= 1; dx++) {
+                    for (int dy = -1; dy <= 1; dy++) {
+                        if (dx == 0 && dy == 0) {
+                            continue;
+                        }
+                        int x = cell[0] + dx;
+                        int y = cell[1] + dy;
+                        if (x < 0 || y < 0 || x >= map.getWidth() || y >= map.getHeight()) {
+                            continue;
+                        }
+                        if (visited[x][y] || blocked.contains(cellKey(x, y))) {
+                            continue;
+                        }
+                        if (dx != 0 && dy != 0
+                                && blocked.contains(cellKey(cell[0] + dx, cell[1]))
+                                && blocked.contains(cellKey(cell[0], cell[1] + dy))) {
+                            continue;
+                        }
+                        if (x == toX && y == toY) {
+                            return true;
+                        }
+                        visited[x][y] = true;
+                        next.add(new int[] {x, y});
+                    }
+                }
+            }
+            frontier = next;
+            depth++;
+        }
+        return false;
+    }
+
+    private BattleMapObject managedObject(Long objectId, Long mapId) {
+        return objectRepository.findByIdAndMapId(objectId, mapId)
+                .orElseThrow(() -> ApiException.notFound("Map object not found: " + objectId));
+    }
+
     private BattleMapDto broadcastAndPersist(BattleMap map) {
         BattleMapDto dto = toDto(map);
         SessionEvent event = new SessionEvent(map.getSession(), EventType.TABLE, serialize(dto));
@@ -506,7 +749,13 @@ public class BattleMapService {
 
     private BattleMapDto toDto(BattleMap map) {
         List<MapToken> tokens = tokenRepository.findByMapIdOrderByIdAsc(map.getId());
-        return Dtos.battleMap(map, tokens, orderedInitiative(map.getId()), resolveAvatars(tokens));
+        return Dtos.battleMap(map, tokens, orderedInitiative(map.getId()), resolveAvatars(tokens),
+                tileRepository.findByMapIdOrderByPosYAscPosXAsc(map.getId()),
+                objectRepository.findByMapIdOrderByIdAsc(map.getId()));
+    }
+
+    private static String cellKey(int x, int y) {
+        return x + "," + y;
     }
 
     /**

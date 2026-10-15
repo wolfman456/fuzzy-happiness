@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   RACE_SPEEDS,
+  blockedSquares,
   costInFeet,
   distanceInSquares,
   reachableSquares,
@@ -69,6 +70,82 @@ describe('reachableSquares', () => {
   it('returns an empty set when the budget is spent', () => {
     const token = { posX: 5, posY: 5, speedFeet: 30, movedFeet: 30 }
     expect(reachableSquares(token, map)).toEqual([])
+  })
+})
+
+describe('blockedSquares', () => {
+  it('expands every movement-blocking object into its footprint', () => {
+    const blocked = blockedSquares({
+      width: 10,
+      height: 10,
+      objects: [
+        { x: 1, y: 1, w: 2, h: 1, blocksMovement: true },
+        { x: 5, y: 5, w: 1, h: 1, blocksMovement: false },
+      ],
+    })
+    expect(blocked.has('1,1')).toBe(true)
+    expect(blocked.has('2,1')).toBe(true)
+    expect(blocked.has('5,5')).toBe(false)
+  })
+
+  it('clamps footprints to the map and tolerates no objects', () => {
+    expect(blockedSquares({ width: 3, height: 3 }).size).toBe(0)
+    const blocked = blockedSquares({
+      width: 3,
+      height: 3,
+      objects: [{ x: 2, y: 2, w: 5, h: 5, blocksMovement: true }],
+    })
+    expect(blocked.has('2,2')).toBe(true)
+    expect(blocked.has('3,3')).toBe(false)
+  })
+})
+
+describe('reachableSquares with blocking objects', () => {
+  it('excludes blocked squares but routes around them', () => {
+    const map = {
+      width: 10,
+      height: 10,
+      squareFeet: 10,
+      objects: [{ x: 2, y: 1, w: 1, h: 1, blocksMovement: true }],
+    }
+    const token = { posX: 1, posY: 1, speedFeet: 30, movedFeet: 0 }
+    const squares = reachableSquares(token, map)
+    expect(squares).not.toContainEqual({ x: 2, y: 1 })
+    expect(squares).toContainEqual({ x: 2, y: 0 })
+    expect(squares).toContainEqual({ x: 3, y: 1 })
+  })
+
+  it('cannot reach past a solid wall within the budget', () => {
+    const map = {
+      width: 6,
+      height: 3,
+      squareFeet: 10,
+      objects: [
+        { x: 1, y: 0, w: 1, h: 1, blocksMovement: true },
+        { x: 1, y: 1, w: 1, h: 1, blocksMovement: true },
+        { x: 1, y: 2, w: 1, h: 1, blocksMovement: true },
+      ],
+    }
+    const token = { posX: 0, posY: 1, speedFeet: 30, movedFeet: 0 }
+    const squares = reachableSquares(token, map)
+    expect(squares).toContainEqual({ x: 0, y: 1 })
+    expect(squares).not.toContainEqual({ x: 1, y: 1 })
+    expect(squares).not.toContainEqual({ x: 2, y: 1 })
+  })
+
+  it('refuses to cut through a blocked corner', () => {
+    const map = {
+      width: 6,
+      height: 6,
+      squareFeet: 10,
+      objects: [
+        { x: 1, y: 0, w: 1, h: 1, blocksMovement: true },
+        { x: 0, y: 1, w: 1, h: 1, blocksMovement: true },
+      ],
+    }
+    const token = { posX: 0, posY: 0, speedFeet: 30, movedFeet: 0 }
+    const squares = reachableSquares(token, map)
+    expect(squares).toEqual([{ x: 0, y: 0 }])
   })
 })
 
