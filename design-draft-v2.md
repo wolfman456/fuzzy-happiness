@@ -9,8 +9,9 @@ maintainer approves the slices; the living bug ledger stays in
 Slice 1 wizard UX, Slice 2a sex + appearance and Slice 2b 3D avatar preview landed (2026-10-13); the in-app release
 notes page (R52, §10) landed (`feature/release-notes-page`, PR #106, 2026-10-14); social OAuth
 login (R19, §11) landed (`feature/social-oauth-login`, 2026-10-14); Slice 2c re-planned as a
-**modular avatar** (`feature/v2-modular-avatar`, in progress 2026-10-14 — §5) with Slice 3
-planned.
+**modular avatar** (`feature/v2-modular-avatar`, in progress 2026-10-14 — §5: data chain, base
+assets/compositor, race-feature parts and the client-side portrait snapshot all landed) with
+Slice 3 planned.
 
 ---
 
@@ -169,8 +170,8 @@ blocked on the 3D-asset research and the in-session viewport:
 
 > **Status:** ✅ **2a landed** (`feature/v2-slice-2a-sex-appearance`, R49, PR #104, 2026-10-13);
 > ✅ **2b landed** (`feature/v2-slice-2b-3d-avatar-preview`, R50, PR #105, 2026-10-13);
-> **2c** 🔨 in progress (R51) — data chain, base assets/compositor and race-feature parts landed
-> 2026-10-14 (wizard creator, portrait and token next).
+> **2c** 🔨 in progress (R51) — data chain, base assets/compositor, race-feature parts and the
+> portrait snapshot landed 2026-10-14 (wizard creator and map token next).
 > 2a ships the full data chain (`Sex` enum, `CharacterAppearance` record, both DTOs, both
 > entities, `V2__character_appearance.sql`), a required-sex **Appearance** wizard step with 2D
 > tint swatches, and sex/tint display on `CharacterSheetPage`. 2b adds the code-split R3F stack +
@@ -230,8 +231,11 @@ blocked on the 3D-asset research and the in-session viewport:
       so ears need a base variant rather than an additive part).
   3. **Wizard creator** — the Appearance step gains a hair-style picker; race features
      auto-apply from the chosen race; skin/hair tints stay.
-  4. **Portrait** — a client-side, config-keyed **cached PNG snapshot** of the same scene renders
-     the sheet portrait (deterministic, no storage, no migration).
+  4. **Portrait** — ✅ **landed** (`feature/v2-avatar-portrait-snapshot`, 2026-10-14): every live
+     avatar canvas captures a PNG snapshot into an in-memory, config-keyed cache
+     (`lib/avatarSnapshot.js`); the sheet portrait renders the cached snapshot as a plain
+     `<img>` (falling back to the live canvas to fill a cache miss). Deterministic, no storage,
+     no migration.
   5. **Map token** — the 2D map token renders that cached thumbnail instead of the color disc
      (`MapTokenDto` carries `{raceIndex, sex, appearance}`).
   6. **(later) Morphs** — `bodyType`/`buildScale`/`faceShape` morph-target sliders.

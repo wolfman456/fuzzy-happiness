@@ -1,7 +1,12 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import CharacterSheetPage from './CharacterSheetPage'
+import {
+  avatarSnapshotKey,
+  clearAvatarSnapshots,
+  setAvatarSnapshot,
+} from '../lib/avatarSnapshot'
 
 vi.mock('../lib/characters', () => ({
   ABILITIES: ['strength', 'dexterity', 'constitution', 'intelligence', 'wisdom', 'charisma'],
@@ -12,6 +17,10 @@ vi.mock('../lib/characters', () => ({
 }))
 
 import { deleteCharacter, getCharacter } from '../lib/characters'
+
+afterEach(() => {
+  clearAvatarSnapshots()
+})
 
 const SHEET = {
   id: 7,
@@ -95,6 +104,20 @@ describe('CharacterSheetPage', () => {
 
     expect(await screen.findByRole('heading', { name: 'Tordek' })).toBeInTheDocument()
     expect(screen.getAllByText('None')).toHaveLength(4)
+  })
+
+  it('renders the cached PNG portrait when a snapshot exists', async () => {
+    setAvatarSnapshot(
+      avatarSnapshotKey(SHEET.raceIndex, SHEET.sex, SHEET.appearance),
+      'data:image/png;base64,SHEET',
+    )
+    getCharacter.mockResolvedValue(SHEET)
+    const { container } = renderSheet()
+
+    expect(await screen.findByRole('heading', { name: 'Tordek' })).toBeInTheDocument()
+    const img = container.querySelector('img[data-testid="character-avatar"]')
+    expect(img).toBeTruthy()
+    expect(img.getAttribute('src')).toBe('data:image/png;base64,SHEET')
   })
 
   it('shows an error when the character cannot be loaded', async () => {
