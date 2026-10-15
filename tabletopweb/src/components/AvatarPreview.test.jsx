@@ -1,11 +1,24 @@
-import { render, screen } from '@testing-library/react'
+import { useEffect } from 'react'
+import { render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import AvatarPreview, { AvatarErrorBoundary, AvatarSwatch } from './AvatarPreview'
 import { supportsWebGL } from '../lib/avatars'
+import {
+  avatarSnapshotKey,
+  clearAvatarSnapshots,
+  getAvatarSnapshot,
+  setAvatarSnapshot,
+} from '../lib/avatarSnapshot'
 
-vi.mock('./AvatarCanvas', () => ({
-  default: () => <div data-testid="avatar-canvas" />,
-}))
+vi.mock('./AvatarCanvas', () => {
+  function MockAvatarCanvas({ capture, onCapture }) {
+    useEffect(() => {
+      if (capture && onCapture) onCapture('data:image/png;base64,ZZZ')
+    }, [capture, onCapture])
+    return <div data-testid="avatar-canvas" />
+  }
+  return { default: MockAvatarCanvas }
+})
 
 vi.mock('../lib/avatars', async (importOriginal) => {
   const actual = await importOriginal()
@@ -14,6 +27,7 @@ vi.mock('../lib/avatars', async (importOriginal) => {
 
 afterEach(() => {
   supportsWebGL.mockReturnValue(true)
+  clearAvatarSnapshots()
 })
 
 describe('AvatarPreview', () => {
@@ -40,6 +54,46 @@ describe('AvatarPreview', () => {
     render(<AvatarPreview raceIndex="dwarf" sex="MALE" appearance={null} />)
     expect(screen.getByTestId('appearance-swatch')).toBeInTheDocument()
     expect(screen.queryByTestId('avatar-canvas')).not.toBeInTheDocument()
+  })
+})
+
+describe('AvatarPreview portrait snapshot', () => {
+  const appearance = { skinTone: 120, hairTone: 300 }
+  const key = avatarSnapshotKey('dwarf', 'FEMALE', appearance)
+
+  it('renders a cached snapshot as an image without mounting the canvas', () => {
+    setAvatarSnapshot(key, 'data:image/png;base64,CACHED')
+    const { container } = render(
+      <AvatarPreview
+        raceIndex="dwarf"
+        sex="FEMALE"
+        appearance={appearance}
+        portrait
+        testId="character-avatar"
+      />,
+    )
+
+    const img = container.querySelector('img[data-testid="character-avatar"]')
+    expect(img).toBeTruthy()
+    expect(img.getAttribute('src')).toBe('data:image/png;base64,CACHED')
+    expect(screen.queryByTestId('avatar-canvas')).not.toBeInTheDocument()
+  })
+
+  it('captures and caches a portrait on a cache miss', async () => {
+    const { container } = render(
+      <AvatarPreview
+        raceIndex="dwarf"
+        sex="FEMALE"
+        appearance={appearance}
+        portrait
+        testId="character-avatar"
+      />,
+    )
+
+    await waitFor(() =>
+      expect(container.querySelector('img[data-testid="character-avatar"]')).toBeTruthy(),
+    )
+    expect(getAvatarSnapshot(key)).toBe('data:image/png;base64,ZZZ')
   })
 })
 
