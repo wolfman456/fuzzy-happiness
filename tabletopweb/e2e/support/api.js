@@ -174,6 +174,7 @@ export const E2E_MAP = {
   currentTurnTokenId: null,
   initiativeIndex: -1,
   initiative: [],
+  tiles: [],
   tokens: [
     {
       id: 11,
@@ -199,4 +200,17 @@ export function mockSession(page, session = E2E_SESSION) {
 
 export function mockBattleMap(page, map = E2E_MAP) {
   return page.route(`**/api/sessions/${map.sessionId}/map`, (route) => route.fulfill(jsonResponse(200, map)))
+}
+
+export const E2E_TILE_CATALOG = {
+  tiles: [
+    { index: 0, name: 'Stone Floor', color: '#9ca3af' },
+    { index: 7, name: 'Water', color: '#60a5fa' },
+  ],
+}
+
+export function mockMapCatalog(page, catalog = E2E_TILE_CATALOG) {
+  return page.route('**/api/sessions/*/map/catalog', (route) =>
+    route.fulfill(jsonResponse(200, catalog)),
+  )
 }

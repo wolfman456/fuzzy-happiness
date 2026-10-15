@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   RACE_SPEEDS,
   TOKEN_COLORS,
@@ -8,6 +8,7 @@ import {
 } from '../lib/mapGeometry'
 import {
   addToken,
+  getMapCatalog,
   moveToken,
   placeToken,
   removeToken,
@@ -40,6 +41,30 @@ export default function BattleMapPanel({ sessionId, map, user, isGm, disabled, o
   const [hoverPos, setHoverPos] = useState(null)
   const [resizeOpen, setResizeOpen] = useState(false)
   const [resizeDims, setResizeDims] = useState({ width: map.width, height: map.height })
+  const [catalog, setCatalog] = useState([])
+
+  useEffect(() => {
+    let cancelled = false
+    getMapCatalog(sessionId)
+      .then((data) => {
+        if (!cancelled) setCatalog(data?.tiles ?? [])
+      })
+      .catch(() => {
+        // The palette only colours tiles; a failed fetch leaves the grid
+        // unpainted rather than blocking the map.
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [sessionId])
+
+  const tileColors = useMemo(() => {
+    const colors = new Map()
+    catalog.forEach((tile) => colors.set(tile.index, tile.color))
+    return colors
+  }, [catalog])
+
+  const paintedTiles = map.tiles ?? []
 
   const selectedToken = useMemo(
     () => map.tokens.find((token) => token.id === selectedId) ?? null,
@@ -397,6 +422,29 @@ export default function BattleMapPanel({ sessionId, map, user, isGm, disabled, o
           }}
           onMouseLeave={() => setHoverPos(null)}
         >
+          {paintedTiles.map((tile) => {
+            const color = tileColors.get(tile.tileIndex)
+            if (!color) return null
+            if (tile.x < 0 || tile.y < 0 || tile.x >= map.width || tile.y >= map.height) {
+              return null
+            }
+            return (
+              <div
+                key={`${tile.x},${tile.y}`}
+                data-testid={`tile-${tile.x}-${tile.y}`}
+                aria-hidden="true"
+                className="pointer-events-none absolute"
+                style={{
+                  left: `${tile.x * SQUARE_PX}px`,
+                  top: `${tile.y * SQUARE_PX}px`,
+                  width: `${SQUARE_PX}px`,
+                  height: `${SQUARE_PX}px`,
+                  backgroundColor: color,
+                  boxShadow: 'inset 0 0 0 1px rgba(0, 0, 0, 0.12)',
+                }}
+              />
+            )
+          })}
           {Array.from({ length: map.width }, (_, x) => (
             <span
               key={`col-${x}`}

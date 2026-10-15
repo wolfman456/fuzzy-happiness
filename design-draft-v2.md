@@ -259,24 +259,27 @@ blocked on the 3D-asset research and the in-session viewport:
 The **major v2 focus** ("map creation"). A GM builds the encounter space, not just tokens.
 
 > **Status:** 🔨 **in progress** — `feature/map-builder`, R53, developed as three shippable
-> increments (3a→3c) so schema/API land before the editor UX. Tracking requirement:
-> `Wants.md` R53; broader deferred vision stays R32 (movement through terrain), R33 (terrain
-> authoring), R34 (save/share), R36 (map library).
+> increments (3a→3c) so schema/API land before the editor UX. **3a implemented** (V4 migration,
+> `MapCatalog`, catalog + tile-paint endpoints, read-only client tile layer); 3b/3c pending.
+> Tracking requirement: `Wants.md` R53; broader deferred vision stays R32 (movement through
+> terrain), R33 (terrain authoring), R34 (save/share), R36 (map library).
 
 **Increment plan (2026-10-15):**
 
 - **3a — Schema + `MapCatalog` + tile paint (server-first, read-only client render).**
-  Forward migration `V3__battle_map_tiles_objects.sql` (never edit V1/V2) adding
-  `battle_map_tiles` (`map_id`+`x`+`y` PK, `tile_index`) and `battle_map_objects` (`id` PK,
-  `map_id`, `object_index`, `x`, `y`, `w`, `h`, `rotation`, `blocks_movement`); `MapCatalog`
-  (tile palette + object defs `{index,name,dims,blocksMovement}`, `ChargenCatalog` precedent);
-  `MapTileDto`/`MapObjectDto`/catalog DTOs in `tabletopapi`; `GET …/map/catalog` +
-  `PUT …/map/tiles` (bulk grid paint, GM-only `requireGm`); full-map STOMP `TABLE` replace-all;
-  client read-only tile layer in `BattleMapPanel.jsx` + API client.
-- **3b — Objects + movement gating.** `POST|PATCH|DELETE …/map/objects[/{id}]`; object sprite
-  layer above tokens, below the reachable-move overlay; `blocksMovement` objects become hard
-  legal gates in server move-validation **and** the frontend `reachableSquares` becomes a
-  path-aware BFS (walls block pathing); impassable-square blackout rides the same tables.
+  Forward migration `V4__battle_map_tiles.sql` (never edit V1–V3) adding `battle_map_tiles`
+  (surrogate `id` PK + unique `(map_id, pos_x, pos_y)`, `tile_index`); `MapCatalog` (tile palette
+  `{index,name,color}` — `ChargenCatalog` precedent, no rulebook text); `MapTileDto`/
+  `MapTileTypeDto`/`MapCatalogDto`/`PaintTilesRequest` in `tabletopapi`; `GET …/map/catalog` +
+  `PUT …/map/tiles` (bulk grid paint, GM-only `requireGm`; null `tileIndex` erases); `tiles`
+  added to `BattleMapDto`; full-map STOMP `TABLE` replace-all; client read-only tile layer in
+  `BattleMapPanel.jsx` + `battleMap.js` API client.
+- **3b — Objects + movement gating.** Migration `V5__battle_map_objects.sql` (`id` PK, `map_id`,
+  `object_index`, `x`, `y`, `w`, `h`, `rotation`, `blocks_movement`) + object catalog defs;
+  `POST|PATCH|DELETE …/map/objects[/{id}]`; object sprite layer above tokens, below the
+  reachable-move overlay; `blocksMovement` objects become hard legal gates in server
+  move-validation **and** the frontend `reachableSquares` becomes a path-aware BFS (walls block
+  pathing); impassable-square blackout rides the same tables.
 - **3c — GM map-editor route.** Dedicated full-screen editor route (decided §2, *not*
   edit-in-panel): palette sidebar, tile paint / erase / eyedropper, object
   place / move / resize / rotate; play view unchanged. Persistence via the Slice 0 tables.

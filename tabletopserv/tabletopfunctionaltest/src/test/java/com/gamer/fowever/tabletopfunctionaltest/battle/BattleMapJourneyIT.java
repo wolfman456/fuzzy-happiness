@@ -231,6 +231,49 @@ class BattleMapJourneyIT extends FunctionalTestBase {
         assertThat(gmToken.get("appearance").isNull()).isTrue();
     }
 
+    @Test
+    void mapBuilderTileJourney() throws Exception {
+        String gmJwt = registerVerifyLogin("b5gm");
+        String playerJwt = registerVerifyLogin("b5pip");
+        SessionHandle session = createSession(gmJwt, "Mosaic Hall");
+        joinSession(playerJwt, session.inviteCode());
+
+        Api.requireStatus(Api.post(baseUrl() + "/api/sessions/" + session.id() + "/map", gmJwt,
+                Api.body(Map.of("name", "Mosaic Hall"))), 201, "create map");
+
+        JsonNode catalog = Api.json(Api.get(baseUrl() + "/api/sessions/" + session.id()
+                + "/map/catalog", gmJwt).body());
+        assertThat(catalog.get("tiles").size()).isGreaterThan(0);
+        assertThat(catalog.at("/tiles/0/index").asInt()).isZero();
+        assertThat(catalog.at("/tiles/0/name").asText()).isNotBlank();
+        assertThat(catalog.at("/tiles/0/color").asText()).startsWith("#");
+
+        JsonNode painted = Api.json(Api.put(baseUrl() + "/api/sessions/" + session.id() + "/map/tiles", gmJwt,
+                Api.body(Map.of("tiles", List.of(
+                        Map.of("x", 1, "y", 1, "tileIndex", 0),
+                        Map.of("x", 2, "y", 1, "tileIndex", 7))))).body());
+        assertThat(painted.get("tiles").size()).isEqualTo(2);
+        assertThat(painted.at("/tiles/0/tileIndex").asInt()).isZero();
+        assertThat(painted.at("/tiles/1/tileIndex").asInt()).isEqualTo(7);
+
+        JsonNode erased = Api.json(Api.put(baseUrl() + "/api/sessions/" + session.id() + "/map/tiles", gmJwt,
+                Api.body(Map.of("tiles", List.of(Map.of("x", 1, "y", 1))))).body());
+        assertThat(erased.get("tiles").size()).isEqualTo(1);
+        assertThat(erased.at("/tiles/0/tileIndex").asInt()).isEqualTo(7);
+
+        Api.Response playerPaint = Api.put(baseUrl() + "/api/sessions/" + session.id() + "/map/tiles", playerJwt,
+                Api.body(Map.of("tiles", List.of(Map.of("x", 3, "y", 1, "tileIndex", 0)))));
+        assertThat(playerPaint.status()).isEqualTo(403);
+
+        Api.Response unknownTile = Api.put(baseUrl() + "/api/sessions/" + session.id() + "/map/tiles", gmJwt,
+                Api.body(Map.of("tiles", List.of(Map.of("x", 3, "y", 1, "tileIndex", 999)))));
+        assertThat(unknownTile.status()).isEqualTo(400);
+
+        Api.requireStatus(Api.patch(baseUrl() + "/api/sessions/" + session.id() + "/map", gmJwt,
+                Api.body(Map.of("width", 2, "height", 2))), 200, "shrink map");
+        assertThat(get(session.id(), gmJwt).get("tiles").size()).isZero();
+    }
+
     private JsonNode get(long sessionId, String jwt) {
         Api.Response response = Api.get(baseUrl() + "/api/sessions/" + sessionId + "/map", jwt);
         return Api.json(response.body());

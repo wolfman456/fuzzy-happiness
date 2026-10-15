@@ -4,6 +4,14 @@ export function getMap(sessionId) {
   return api(`/api/sessions/${sessionId}/map`)
 }
 
+export function getMapCatalog(sessionId) {
+  return api(`/api/sessions/${sessionId}/map/catalog`)
+}
+
+export function paintTiles(sessionId, body) {
+  return api(`/api/sessions/${sessionId}/map/tiles`, { method: 'PUT', body })
+}
+
 export function createMap(sessionId, body = {}) {
   return api(`/api/sessions/${sessionId}/map`, { method: 'POST', body })
 }

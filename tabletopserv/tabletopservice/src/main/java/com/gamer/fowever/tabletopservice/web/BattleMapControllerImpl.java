@@ -6,7 +6,9 @@ import com.gamer.fowever.tabletopapi.dto.AddTokenRequest;
 import com.gamer.fowever.tabletopapi.dto.BattleMapDto;
 import com.gamer.fowever.tabletopapi.dto.CreateMapRequest;
 import com.gamer.fowever.tabletopapi.dto.InitiativeRequest;
+import com.gamer.fowever.tabletopapi.dto.MapCatalogDto;
 import com.gamer.fowever.tabletopapi.dto.MoveTokenRequest;
+import com.gamer.fowever.tabletopapi.dto.PaintTilesRequest;
 import com.gamer.fowever.tabletopapi.dto.TurnCommandRequest;
 import com.gamer.fowever.tabletopapi.dto.UpdateMapRequest;
 import com.gamer.fowever.tabletopapi.dto.UpdateTokenRequest;
@@ -20,6 +22,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -37,6 +40,18 @@ public class BattleMapControllerImpl implements BattleMapApi {
     @GetMapping
     public BattleMapDto get(@PathVariable Long sessionId, Authentication authentication) {
         return battleMapService.getMap(sessionId);
+    }
+
+    @GetMapping("/catalog")
+    public MapCatalogDto catalog(@PathVariable Long sessionId, Authentication authentication) {
+        return battleMapService.getCatalog(sessionId);
+    }
+
+    @PutMapping("/tiles")
+    public BattleMapDto paintTiles(@PathVariable Long sessionId,
+                                   @Valid @RequestBody PaintTilesRequest request,
+                                   Authentication authentication) {
+        return battleMapService.paintTiles(currentUser(authentication), sessionId, request);
     }
 
     @PostMapping

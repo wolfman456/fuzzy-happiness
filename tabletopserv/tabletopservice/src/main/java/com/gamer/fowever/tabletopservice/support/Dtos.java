@@ -3,10 +3,12 @@ package com.gamer.fowever.tabletopservice.support;
 import com.gamer.fowever.tabletopapi.dto.BattleMapDto;
 import com.gamer.fowever.tabletopapi.dto.GameSummary;
 import com.gamer.fowever.tabletopapi.dto.InitiativeEntryDto;
+import com.gamer.fowever.tabletopapi.dto.MapTileDto;
 import com.gamer.fowever.tabletopapi.dto.MapTokenDto;
 import com.gamer.fowever.tabletopapi.dto.ParticipantSummary;
 import com.gamer.fowever.tabletopapi.dto.UserSummary;
 import com.gamer.fowever.tabletopservice.domain.BattleMap;
+import com.gamer.fowever.tabletopservice.domain.BattleMapTile;
 import com.gamer.fowever.tabletopservice.domain.Game;
 import com.gamer.fowever.tabletopservice.domain.InitiativeEntry;
 import com.gamer.fowever.tabletopservice.domain.MapToken;
@@ -71,8 +73,16 @@ public final class Dtos {
         return tokens.stream().map(token -> mapToken(token, avatarsByUserId)).toList();
     }
 
+    public static MapTileDto mapTile(BattleMapTile tile) {
+        return new MapTileDto(tile.getPosX(), tile.getPosY(), tile.getTileIndex());
+    }
+
+    public static List<MapTileDto> mapTiles(List<BattleMapTile> tiles) {
+        return tiles.stream().map(Dtos::mapTile).toList();
+    }
+
     public static BattleMapDto battleMap(BattleMap map, List<MapToken> tokens, List<InitiativeEntry> initiative,
-                                         Map<Long, TokenAvatar> avatarsByUserId) {
+                                         Map<Long, TokenAvatar> avatarsByUserId, List<BattleMapTile> tiles) {
         return new BattleMapDto(
                 map.getId(),
                 map.getSession().getId(),
@@ -83,6 +93,7 @@ public final class Dtos {
                 map.getCurrentTurnTokenId(),
                 map.getInitiativeIndex(),
                 initiativeEntries(initiative),
-                mapTokens(tokens, avatarsByUserId));
+                mapTokens(tokens, avatarsByUserId),
+                mapTiles(tiles));
     }
 }

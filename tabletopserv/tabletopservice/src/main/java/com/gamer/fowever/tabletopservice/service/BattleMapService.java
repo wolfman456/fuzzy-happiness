@@ -7,6 +7,7 @@ import com.gamer.fowever.tabletopapi.EventType;
 import com.gamer.fowever.tabletopapi.Role;
 import com.gamer.fowever.tabletopapi.TokenCategory;
 import com.gamer.fowever.tabletopservice.domain.BattleMap;
+import com.gamer.fowever.tabletopservice.domain.BattleMapTile;
 import com.gamer.fowever.tabletopservice.domain.Dnd5eCharacter;
 import com.gamer.fowever.tabletopservice.domain.GameSession;
 import com.gamer.fowever.tabletopservice.domain.InitiativeEntry;
@@ -21,14 +22,19 @@ import com.gamer.fowever.tabletopapi.dto.CreateMapRequest;
 import com.gamer.fowever.tabletopapi.dto.InitiativeEntryDto;
 import com.gamer.fowever.tabletopapi.dto.InitiativeEntryRequest;
 import com.gamer.fowever.tabletopapi.dto.InitiativeRequest;
+import com.gamer.fowever.tabletopapi.dto.MapCatalogDto;
+import com.gamer.fowever.tabletopapi.dto.MapTileDto;
+import com.gamer.fowever.tabletopapi.dto.MapTileTypeDto;
 import com.gamer.fowever.tabletopapi.dto.MapTokenDto;
 import com.gamer.fowever.tabletopapi.dto.MoveTokenRequest;
+import com.gamer.fowever.tabletopapi.dto.PaintTilesRequest;
 import com.gamer.fowever.tabletopapi.dto.SessionEventDto;
 import com.gamer.fowever.tabletopapi.dto.TurnAction;
 import com.gamer.fowever.tabletopapi.dto.TurnCommandRequest;
 import com.gamer.fowever.tabletopapi.dto.UpdateMapRequest;
 import com.gamer.fowever.tabletopapi.dto.UpdateTokenRequest;
 import com.gamer.fowever.tabletopservice.repository.BattleMapRepository;
+import com.gamer.fowever.tabletopservice.repository.BattleMapTileRepository;
 import com.gamer.fowever.tabletopservice.repository.CharacterRepository;
 import com.gamer.fowever.tabletopservice.repository.GameSessionRepository;
 import com.gamer.fowever.tabletopservice.support.Dtos;
@@ -38,6 +44,7 @@ import com.gamer.fowever.tabletopservice.repository.MapTokenRepository;
 import com.gamer.fowever.tabletopservice.repository.ParticipantRepository;
 import com.gamer.fowever.tabletopservice.repository.SessionEventRepository;
 import com.gamer.fowever.tabletopservice.repository.UserRepository;
+import com.gamer.fowever.tabletopservice.service.map.MapCatalog;
 import com.gamer.fowever.tabletopapi.support.ApiException;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
@@ -73,6 +80,7 @@ public class BattleMapService {
 
     private final BattleMapRepository mapRepository;
     private final MapTokenRepository tokenRepository;
+    private final BattleMapTileRepository tileRepository;
     private final InitiativeEntryRepository initiativeRepository;
     private final ParticipantRepository participantRepository;
     private final CharacterRepository characterRepository;
@@ -81,9 +89,11 @@ public class BattleMapService {
     private final SessionEventRepository eventRepository;
     private final SimpMessagingTemplate messagingTemplate;
     private final ObjectMapper objectMapper;
+    private final MapCatalog mapCatalog;
 
     public BattleMapService(BattleMapRepository mapRepository,
                             MapTokenRepository tokenRepository,
+                            BattleMapTileRepository tileRepository,
                             InitiativeEntryRepository initiativeRepository,
                             ParticipantRepository participantRepository,
                             CharacterRepository characterRepository,
@@ -91,9 +101,11 @@ public class BattleMapService {
                             UserRepository userRepository,
                             SessionEventRepository eventRepository,
                             SimpMessagingTemplate messagingTemplate,
-                            ObjectMapper objectMapper) {
+                            ObjectMapper objectMapper,
+                            MapCatalog mapCatalog) {
         this.mapRepository = mapRepository;
         this.tokenRepository = tokenRepository;
+        this.tileRepository = tileRepository;
         this.initiativeRepository = initiativeRepository;
         this.participantRepository = participantRepository;
         this.characterRepository = characterRepository;
@@ -102,12 +114,58 @@ public class BattleMapService {
         this.eventRepository = eventRepository;
         this.messagingTemplate = messagingTemplate;
         this.objectMapper = objectMapper;
+        this.mapCatalog = mapCatalog;
     }
 
     @Transactional(readOnly = true)
     public BattleMapDto getMap(Long sessionId) {
         managedSession(sessionId);
         return toDto(managedMap(sessionId));
+    }
+
+    @Transactional(readOnly = true)
+    public MapCatalogDto getCatalog(Long sessionId) {
+        managedSession(sessionId);
+        List<MapTileTypeDto> tiles = mapCatalog.tiles().stream()
+                .map(tile -> new MapTileTypeDto(tile.index(), tile.name(), tile.color()))
+                .toList();
+        return new MapCatalogDto(tiles);
+    }
+
+    @Transactional
+    public BattleMapDto paintTiles(User actor, Long sessionId, PaintTilesRequest request) {
+        GameSession session = managedSession(sessionId);
+        requireGm(actor, session);
+        BattleMap map = managedMap(sessionId);
+
+        List<MapTileDto> tiles = request.tiles();
+        if (tiles.isEmpty()) {
+            return toDto(map);
+        }
+        Map<String, BattleMapTile> existing = tileRepository.findByMapId(map.getId()).stream()
+                .collect(Collectors.toMap(tile -> cellKey(tile.getPosX(), tile.getPosY()), tile -> tile));
+        for (MapTileDto tile : tiles) {
+            requireInBounds(map, tile.x(), tile.y());
+            String key = cellKey(tile.x(), tile.y());
+            if (tile.tileIndex() == null) {
+                BattleMapTile erased = existing.remove(key);
+                if (erased != null) {
+                    tileRepository.delete(erased);
+                }
+                continue;
+            }
+            if (!mapCatalog.hasTile(tile.tileIndex())) {
+                throw ApiException.badRequest("Unknown tile index: " + tile.tileIndex());
+            }
+            BattleMapTile present = existing.get(key);
+            if (present == null) {
+                existing.put(key, new BattleMapTile(map, tile.x(), tile.y(), tile.tileIndex()));
+            } else {
+                present.setTileIndex(tile.tileIndex());
+            }
+        }
+        tileRepository.saveAll(existing.values());
+        return broadcastAndPersist(map);
     }
 
     @Transactional
@@ -190,6 +248,11 @@ public class BattleMapService {
             }
             if (dirty) {
                 tokenRepository.save(token);
+            }
+        });
+        tileRepository.findByMapId(map.getId()).forEach(tile -> {
+            if (tile.getPosX() >= map.getWidth() || tile.getPosY() >= map.getHeight()) {
+                tileRepository.delete(tile);
             }
         });
         return broadcastAndPersist(map);
@@ -506,7 +569,12 @@ public class BattleMapService {
 
     private BattleMapDto toDto(BattleMap map) {
         List<MapToken> tokens = tokenRepository.findByMapIdOrderByIdAsc(map.getId());
-        return Dtos.battleMap(map, tokens, orderedInitiative(map.getId()), resolveAvatars(tokens));
+        return Dtos.battleMap(map, tokens, orderedInitiative(map.getId()), resolveAvatars(tokens),
+                tileRepository.findByMapIdOrderByPosYAscPosXAsc(map.getId()));
+    }
+
+    private static String cellKey(int x, int y) {
+        return x + "," + y;
     }
 
     /**

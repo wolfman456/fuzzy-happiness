@@ -17,6 +17,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -318,6 +319,50 @@ class BattleMapFlowTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"Tiny\",\"width\":300,\"height\":18}"))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void tilePaintFlow() throws Exception {
+        String gmJwt = registerAndLogin("basil");
+        String playerJwt = registerAndLogin("nadia");
+        SessionHandle session = createSession(gmJwt, "Mosaic Hall");
+        joinSession(playerJwt, session.inviteCode());
+        mvc.perform(post("/api/sessions/" + session.id() + "/map")
+                        .header("Authorization", "Bearer " + gmJwt)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Mosaic Hall\"}"))
+                .andExpect(status().isCreated());
+
+        mvc.perform(get("/api/sessions/" + session.id() + "/map/catalog")
+                        .header("Authorization", "Bearer " + gmJwt))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.tiles[0].index").value(0))
+                .andExpect(jsonPath("$.tiles[0].name").isNotEmpty());
+
+        String painted = mvc.perform(put("/api/sessions/" + session.id() + "/map/tiles")
+                        .header("Authorization", "Bearer " + gmJwt)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"tiles\":[{\"x\":1,\"y\":1,\"tileIndex\":0},"
+                                + "{\"x\":2,\"y\":1,\"tileIndex\":7}]}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.tiles.length()").value(2))
+                .andReturn().getResponse().getContentAsString();
+        assertThat((List<Integer>) JsonPath.read(painted, "$.tiles[*].tileIndex"))
+                .containsExactly(0, 7);
+
+        mvc.perform(put("/api/sessions/" + session.id() + "/map/tiles")
+                        .header("Authorization", "Bearer " + gmJwt)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"tiles\":[{\"x\":1,\"y\":1}]}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.tiles.length()").value(1))
+                .andExpect(jsonPath("$.tiles[0].tileIndex").value(7));
+
+        mvc.perform(put("/api/sessions/" + session.id() + "/map/tiles")
+                        .header("Authorization", "Bearer " + playerJwt)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"tiles\":[{\"x\":3,\"y\":1,\"tileIndex\":0}]}"))
+                .andExpect(status().isForbidden());
     }
 
     private String mapBody(String jwt, long sessionId) throws Exception {

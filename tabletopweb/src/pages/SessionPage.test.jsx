@@ -12,6 +12,7 @@ const realtime = {
 
 const battleMapMock = vi.hoisted(() => ({
   getMap: vi.fn(),
+  getMapCatalog: vi.fn(),
   createMap: vi.fn(),
   rollDice: vi.fn(),
 }))
@@ -82,6 +83,8 @@ describe('SessionPage', () => {
   beforeEach(() => {
     battleMapMock.getMap.mockReset()
     battleMapMock.getMap.mockRejectedValue({ status: 404, message: 'Battle map not found' })
+    battleMapMock.getMapCatalog.mockReset()
+    battleMapMock.getMapCatalog.mockResolvedValue({ tiles: [] })
     battleMapMock.createMap.mockReset()
     battleMapMock.createMap.mockResolvedValue({ id: 1, sessionId: 7, name: 'Grumm’s map', width: 24, height: 18, squareFeet: 10, currentTurnTokenId: null, tokens: [] })
     battleMapMock.rollDice.mockReset()

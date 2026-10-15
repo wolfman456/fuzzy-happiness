@@ -41,6 +41,10 @@ public final class Api {
         return send("PATCH", url, bearerToken, jsonBody);
     }
 
+    public static Response put(String url, String bearerToken, String jsonBody) {
+        return send("PUT", url, bearerToken, jsonBody);
+    }
+
     public static Response delete(String url, String bearerToken) {
         return send("DELETE", url, bearerToken, null);
     }

@@ -5,6 +5,7 @@ import { avatarSnapshotKey, clearAvatarSnapshots, setAvatarSnapshot } from '../l
 
 const battleMapMock = vi.hoisted(() => ({
   addToken: vi.fn(),
+  getMapCatalog: vi.fn(),
   moveToken: vi.fn(),
   nextInitiative: vi.fn(),
   placeToken: vi.fn(),
@@ -32,6 +33,7 @@ function makeMap(overrides = {}) {
     currentTurnTokenId: null,
     initiativeIndex: -1,
     initiative: [],
+    tiles: [],
     tokens: [
       { id: 11, name: 'Aria Sol', category: 'PLAYER', color: '#3b82f6', speedFeet: 30, posX: 1, posY: 1, movedFeet: 0, linkedParticipantId: null, linkedUserId: 1 },
       { id: 12, name: 'Goblin', category: 'MONSTER_NPC', color: '#ef4444', speedFeet: 30, posX: 5, posY: 5, movedFeet: 0, linkedParticipantId: null, linkedUserId: null },
@@ -70,6 +72,12 @@ beforeEach(() => {
   battleMapMock.rerollInitiative.mockResolvedValue(makeMap())
   battleMapMock.removeInitiativeEntry.mockResolvedValue(makeMap({ initiative: [] }))
   battleMapMock.setInitiative.mockResolvedValue(makeMap())
+  battleMapMock.getMapCatalog.mockResolvedValue({
+    tiles: [
+      { index: 0, name: 'Stone Floor', color: '#9ca3af' },
+      { index: 7, name: 'Water', color: '#60a5fa' },
+    ],
+  })
 })
 
 describe('BattleMapPanel', () => {
@@ -466,5 +474,27 @@ describe('BattleMapPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Next turn' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Initiative order is empty')
+  })
+
+  it('paints tiles using the catalog colours', async () => {
+    renderPanel({
+      map: makeMap({
+        tiles: [
+          { x: 2, y: 3, tileIndex: 0 },
+          { x: 4, y: 1, tileIndex: 7 },
+        ],
+      }),
+    })
+
+    const stone = await screen.findByTestId('tile-2-3')
+    expect(stone).toHaveStyle({ backgroundColor: '#9ca3af' })
+    expect(screen.getByTestId('tile-4-1')).toHaveStyle({ backgroundColor: '#60a5fa' })
+  })
+
+  it('skips tiles whose index is not in the catalog', async () => {
+    renderPanel({ map: makeMap({ tiles: [{ x: 1, y: 1, tileIndex: 99 }] }) })
+
+    await screen.findByTestId('battle-grid')
+    await waitFor(() => expect(screen.queryByTestId('tile-1-1')).not.toBeInTheDocument())
   })
 })

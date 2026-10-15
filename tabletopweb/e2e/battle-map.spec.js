@@ -5,6 +5,7 @@ import {
   mockBattleMap,
   mockCharacter,
   mockLoginSuccess,
+  mockMapCatalog,
   mockMe,
   mockSession,
 } from './support/api.js'
@@ -16,6 +17,7 @@ test.describe('battle map token avatar', () => {
     await mockCharacter(page)
     await mockSession(page)
     await mockBattleMap(page)
+    await mockMapCatalog(page)
 
     await page.goto('/login')
     await page.locator('#identifier').fill('aria')
@@ -41,5 +43,31 @@ test.describe('battle map token avatar', () => {
     const tokenAvatar = page.locator(`img[data-testid="token-avatar-${E2E_MAP.tokens[0].id}"]`)
     await expect(tokenAvatar).toBeVisible()
     await expect(tokenAvatar).toHaveAttribute('src', /^data:image\/png/)
+  })
+})
+
+test.describe('battle map terrain tiles', () => {
+  test('paints catalog-coloured tiles on the grid', async ({ page }) => {
+    await mockLoginSuccess(page)
+    await mockMe(page)
+    await mockSession(page)
+    await mockBattleMap(page, {
+      ...E2E_MAP,
+      tiles: [
+        { x: 2, y: 3, tileIndex: 0 },
+        { x: 4, y: 1, tileIndex: 7 },
+      ],
+    })
+    await mockMapCatalog(page)
+
+    await page.goto('/login')
+    await page.locator('#identifier').fill('aria')
+    await page.locator('#password').fill('Password1!')
+    await page.getByRole('button', { name: 'Log in' }).click()
+    await expect(page.getByRole('heading', { name: /Welcome, Aria/ })).toBeVisible()
+
+    await page.goto('/sessions/1')
+    await expect(page.locator('[data-testid="tile-2-3"]')).toBeVisible()
+    await expect(page.locator('[data-testid="tile-4-1"]')).toBeVisible()
   })
 })
