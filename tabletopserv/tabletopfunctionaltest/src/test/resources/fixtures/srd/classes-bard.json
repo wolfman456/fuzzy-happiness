@@ -1,0 +1,40 @@
+{
+  "fixture": true,
+  "index": "bard",
+  "name": "Bard",
+  "hit_die": 8,
+  "subclass_level": 3,
+  "saving_throws": [
+    { "index": "dex", "name": "DEX" },
+    { "index": "cha", "name": "CHA" }
+  ],
+  "proficiency_choices": [
+    {
+      "choose": 3,
+      "type": "proficiencies",
+      "from": {
+        "option_set_type": "options_array",
+        "options": [
+          { "option_type": "reference", "item": { "index": "skill-performance", "name": "Skill: Performance" } },
+          { "option_type": "reference", "item": { "index": "skill-persuasion", "name": "Skill: Persuasion" } },
+          { "option_type": "reference", "item": { "index": "skill-deception", "name": "Skill: Deception" } }
+        ]
+      }
+    },
+    {
+      "choose": 3,
+      "type": "proficiencies",
+      "from": {
+        "option_set_type": "options_array",
+        "options": [
+          { "option_type": "reference", "item": { "index": "lute", "name": "Lute" } },
+          { "option_type": "reference", "item": { "index": "viol", "name": "Viol" } },
+          { "option_type": "reference", "item": { "index": "flute", "name": "Flute" } }
+        ]
+      }
+    }
+  ],
+  "subclasses": [
+    { "index": "lore", "name": "Lore" }
+  ]
+}

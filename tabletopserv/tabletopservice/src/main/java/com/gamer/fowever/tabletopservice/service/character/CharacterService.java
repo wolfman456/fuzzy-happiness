@@ -621,11 +621,14 @@ public class CharacterService {
         Collections.shuffle(classSkills, random);
         int take = Math.min(classCap, classSkills.size());
         List<String> picks = new ArrayList<>(classSkills.subList(0, take));
+        // The remaining two picks stand in for background proficiencies and must
+        // come from *outside* the class list, otherwise they would count against
+        // the class-skill cap and be rejected by validateSkills (#119).
         List<String> others = new ArrayList<>(normalizeSet(indexSet(skillsList)));
-        others.removeAll(picks);
+        others.removeAll(offered);
         Collections.shuffle(others, random);
-        int budget = classCap + 2;
-        for (int i = 0; i < others.size() && picks.size() < budget; i++) {
+        int backgroundPicks = Math.min(2, others.size());
+        for (int i = 0; i < backgroundPicks; i++) {
             picks.add(others.get(i));
         }
         return picks;
@@ -849,7 +852,9 @@ public class CharacterService {
         JsonNode choices = classRecord.get("proficiency_choices");
         if (choices != null && choices.isArray()) {
             for (JsonNode choice : choices) {
-                cap += choice.path("choose").asInt(0);
+                if (isSkillChoice(choice)) {
+                    cap += choice.path("choose").asInt(0);
+                }
             }
         }
         return Math.max(1, cap);
@@ -863,19 +868,34 @@ public class CharacterService {
         JsonNode choices = classRecord.get("proficiency_choices");
         if (choices != null && choices.isArray()) {
             for (JsonNode choice : choices) {
-                JsonNode from = choice.get("from");
-                if (from == null) {
-                    continue;
-                }
-                from.path("options").forEach(option -> {
+                choice.path("from").path("options").forEach(option -> {
                     String index = option.path("item").path("index").asText();
-                    if (!index.isBlank()) {
+                    if (isSkillReference(index)) {
                         offered.add(stripSkillPrefix(index));
                     }
                 });
             }
         }
         return offered;
+    }
+
+    /**
+     * A proficiency choice only counts toward the class skill budget when at
+     * least one of its options is a skill reference. Classes like the Bard mix a
+     * skill choice with a musical-instrument choice in {@code proficiency_choices};
+     * without this filter the instruments are mistaken for skills (bug #119).
+     */
+    private boolean isSkillChoice(JsonNode choice) {
+        for (JsonNode option : choice.path("from").path("options")) {
+            if (isSkillReference(option.path("item").path("index").asText())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean isSkillReference(String index) {
+        return index != null && index.startsWith("skill-");
     }
 
     private Set<String> indexSet(JsonNode list) {
