@@ -26,7 +26,7 @@ import {
 } from '../lib/srd'
 import { Alert, PageHeading } from '../components/ui'
 import AvatarPreview from '../components/AvatarPreview'
-import { hueCss } from '../lib/avatars'
+import { HAIR_STYLES, hairStyleLabel, hueCss } from '../lib/avatars'
 
 const STEPS = [
   'Basics',
@@ -66,7 +66,7 @@ const STEP_GUIDES = [
   {
     heading: 'Appearance',
     guidance:
-      "Choose your hero's sex and tune their skin and hair tint. Appearance is cosmetic — it never changes the rules.",
+      "Choose your hero's sex, hair style, and tune their skin and hair tint. Appearance is cosmetic — it never changes the rules.",
   },
   {
     heading: 'Class',
@@ -932,6 +932,32 @@ export default function CharacterWizardPage() {
                 </label>
               </div>
             </div>
+
+            <fieldset className="space-y-2">
+              <legend className="text-sm font-medium text-zinc-700">Hair style</legend>
+              <div className="flex flex-wrap gap-3">
+                {HAIR_STYLES.map((option) => (
+                  <label
+                    key={option.value || 'none'}
+                    className={`flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm ${
+                      (draft.appearance?.hairStyle ?? '') === option.value
+                        ? 'border-zinc-900 bg-zinc-900 text-white'
+                        : 'border-zinc-300 hover:bg-zinc-50'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="hairStyle"
+                      value={option.value}
+                      checked={(draft.appearance?.hairStyle ?? '') === option.value}
+                      onChange={() => updateAppearance('hairStyle', option.value)}
+                      className="accent-zinc-900"
+                    />
+                    {option.label}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
           </div>
         )}
 
@@ -1454,7 +1480,7 @@ function ReviewStep({ draft, result, compiledDraft, classSkills, hasSubclasses, 
           label="Appearance"
           value={`skin ${draft.appearance?.skinTone ?? DEFAULT_APPEARANCE.skinTone}° · hair ${
             draft.appearance?.hairTone ?? DEFAULT_APPEARANCE.hairTone
-          }°`}
+          }° · ${hairStyleLabel(draft.appearance?.hairStyle)}`}
         />
         <ReviewRow label="Class" value={draft.classIndex || '—'} />
         <ReviewRow

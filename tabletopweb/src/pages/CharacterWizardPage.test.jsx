@@ -836,6 +836,18 @@ describe('CharacterWizardPage', () => {
     expect(screen.getByText(/Hair tint \(300°\)/)).toBeInTheDocument()
   })
 
+  it('picks a hair style on the Appearance step', async () => {
+    setupSrd()
+    renderWizard()
+
+    await walkToAppearanceStep()
+
+    expect(screen.getByRole('radio', { name: 'None' })).toBeChecked()
+    fireEvent.click(screen.getByRole('radio', { name: 'Ponytail' }))
+    expect(screen.getByRole('radio', { name: 'Ponytail' })).toBeChecked()
+    expect(screen.getByRole('radio', { name: 'None' })).not.toBeChecked()
+  })
+
   it('reviews the chosen sex and appearance before creating', async () => {
     setupSrd()
     compileCharacter.mockResolvedValue({ valid: true, violations: [], sheet: VALID_SHEET })
@@ -845,6 +857,6 @@ describe('CharacterWizardPage', () => {
 
     expect(screen.getByText('Sex')).toBeInTheDocument()
     expect(screen.getByText('MALE')).toBeInTheDocument()
-    expect(screen.getByText(/skin 200° · hair 30°/)).toBeInTheDocument()
+    expect(screen.getByText(/skin 200° · hair 30° · None/)).toBeInTheDocument()
   })
 })

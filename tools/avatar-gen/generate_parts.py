@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
-"""Generate the race-feature avatar parts (design-draft-v2 §5, R51).
+"""Generate the avatar parts (design-draft-v2 §5, R51).
 
-Runs inside Blender (>= 4.2); driven by ``generate.sh``. Each part is authored
-*around its own origin, upright in Blender space* and exported to
+Runs inside Blender (>= 4.2); driven by ``generate_parts.sh``. Each part is
+authored *around its own origin, upright in Blender space* and exported to
 ``parts/{kind}/{id}.glb``; at runtime ``AvatarCanvas`` parents it to the matching
 ``socket_*`` empty (which sits, world-axis-aligned, at the anatomical anchor), so
 a part authored here appears in the right place without any per-part offsets.
 
-Scope: additive features only — horns, tusks and tails. Pointed ears (elf /
-half-elf / tiefling) are deliberately out of scope: MPFB's base body already
-bakes rounded ears into the skin mesh, so ears need a base variant rather than an
-additive part.
+Kinds: horns, tusks, tail (race features) and hair (player-chosen style). Pointed
+ears (elf / half-elf / tiefling) are deliberately out of scope: MPFB's base body
+already bakes rounded ears into the skin mesh, so ears need a base variant rather
+than an additive part.
 
-Usage (via generate.sh):
+Usage (via generate_parts.sh):
     blender --background --python generate_parts.py -- --out-dir <dir>
 """
 from __future__ import annotations
@@ -27,6 +27,7 @@ import bpy
 HORN = ("Horn", (0.22, 0.18, 0.15), 0.55)
 SCALE = ("Scale", (0.26, 0.22, 0.19), 0.5)
 SKIN = ("Skin", (0.82, 0.62, 0.50), 0.85)
+HAIR = ("Hair", (0.35, 0.22, 0.12), 0.75)
 
 
 def parse_args() -> argparse.Namespace:
@@ -158,12 +159,43 @@ def build_tail(dragonborn: bool) -> None:
     merge(objs, name, mat)
 
 
+def hair_cap(radius: float, location=(0, 0.0, 0.0)) -> bpy.types.Object:
+    """A simple ico-sphere skull cap that sits on the top/back of the head."""
+    bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=2, radius=radius, location=location)
+    return bpy.context.active_object
+
+
+def build_hair_short() -> None:
+    reset()
+    objs = [hair_cap(0.085, (0, 0.01, 0.01))]
+    merge(objs, "HairShort", material(*HAIR))
+
+
+def build_hair_ponytail() -> None:
+    reset()
+    objs = [hair_cap(0.09, (0, 0.0, 0.02))]
+    # A tapered tail that hangs down *behind* the head (Blender +Y is back).
+    objs.append(cone((0.0, 0.10, -0.05), (math.radians(200), 0.0, 0.0), 0.034, 0.014, 0.15, vertices=8))
+    merge(objs, "HairPonytail", material(*HAIR))
+
+
+def build_hair_long() -> None:
+    reset()
+    objs = [hair_cap(0.095, (0, 0.0, 0.02))]
+    # Long hair drapes down the back of the head (Blender +Y is back).
+    objs.append(cone((0.0, 0.05, -0.10), (math.radians(185), 0.0, 0.0), 0.06, 0.03, 0.26, vertices=10))
+    merge(objs, "HairLong", material(*HAIR))
+
+
 PARTS = {
     ("horns", "dragonborn"): lambda: build_horns(True),
     ("horns", "tiefling"): lambda: build_horns(False),
     ("tusks", "half-orc"): build_tusks,
     ("tail", "dragonborn"): lambda: build_tail(True),
     ("tail", "tiefling"): lambda: build_tail(False),
+    ("hair", "short"): build_hair_short,
+    ("hair", "ponytail"): build_hair_ponytail,
+    ("hair", "long"): build_hair_long,
 }
 
 
