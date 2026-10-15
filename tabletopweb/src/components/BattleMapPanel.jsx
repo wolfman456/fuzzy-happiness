@@ -18,7 +18,7 @@ import {
   updateToken,
 } from '../lib/battleMap'
 import InitiativeRail from './InitiativeRail'
-import { avatarSnapshotKey, getAvatarSnapshot } from '../lib/avatarSnapshot'
+import CharacterFace from './CharacterFace'
 
 const SQUARE_PX = 36
 
@@ -771,13 +771,11 @@ function TokenDisc({ token, selected, interactive, showFeet, squarePx, onClick }
       .slice(0, 2)
       .map((word) => word[0].toUpperCase())
       .join('') || '?'
-  // A player token whose linked character portrait has already been captured
-  // renders the cached snapshot instead of the colour disc (design-draft-v2 §5,
-  // item 5). Monster/NPC tokens and players without a cached snapshot keep the
-  // colour disc with initials.
-  const snapshot = token.raceIndex
-    ? getAvatarSnapshot(avatarSnapshotKey(token.raceIndex, token.sex, token.appearance))
-    : null
+  // A player token linked to a character renders that character's modular SVG
+  // face (design-draft-v2 §5); monster/NPC tokens and race-less tokens keep the
+  // colour disc with initials. The face is drawn client-side from the token's
+  // {raceIndex, sex, appearance}, so no WebGL or snapshot is needed.
+  const hasFace = Boolean(token.raceIndex)
   return (
     <button
       type="button"
@@ -798,15 +796,15 @@ function TokenDisc({ token, selected, interactive, showFeet, squarePx, onClick }
         zIndex: 10,
       }}
     >
-      {snapshot ? (
-        <span className="block h-full w-full overflow-hidden rounded-full">
-          <img
-            src={snapshot}
-            alt={`Avatar for ${token.name}`}
-            data-testid={`token-avatar-${token.id}`}
-            className="h-full w-full object-cover"
-          />
-        </span>
+      {hasFace ? (
+        <CharacterFace
+          raceIndex={token.raceIndex}
+          sex={token.sex}
+          appearance={token.appearance}
+          size={squarePx - 4}
+          testId={`token-face-${token.id}`}
+          bordered={false}
+        />
       ) : (
         initials
       )}

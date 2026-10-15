@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ABILITIES, abilityModifier, deleteCharacter, getCharacter } from '../lib/characters'
 import { Alert, LoadingState } from '../components/ui'
-import AvatarPreview from '../components/AvatarPreview'
+import CharacterFace from '../components/CharacterFace'
 
 const ABILITY_LABELS = {
   strength: 'Strength',
@@ -56,13 +56,12 @@ export default function CharacterSheetPage() {
       <div className="space-y-6">
         <header className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex items-start gap-4">
-            <AvatarPreview
+            <CharacterFace
               raceIndex={sheet.raceIndex}
               sex={sheet.sex}
               appearance={sheet.appearance}
               size={80}
               testId="character-avatar"
-              portrait
             />
             <div>
               <h1 className="font-display text-2xl font-semibold text-zinc-900">{sheet.name}</h1>

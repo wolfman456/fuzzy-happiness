@@ -1,7 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import BattleMapPanel from './BattleMapPanel'
-import { avatarSnapshotKey, clearAvatarSnapshots, setAvatarSnapshot } from '../lib/avatarSnapshot'
 
 const battleMapMock = vi.hoisted(() => ({
   addToken: vi.fn(),
@@ -60,7 +59,6 @@ function renderPanel(props = {}) {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  clearAvatarSnapshots()
   battleMapMock.moveToken.mockResolvedValue(makeMap())
   battleMapMock.placeToken.mockResolvedValue(makeMap())
   battleMapMock.turnCommand.mockResolvedValue(makeMap())
@@ -100,32 +98,30 @@ describe('BattleMapPanel', () => {
     expect(screen.getByText('Turn: Aria Sol')).toBeInTheDocument()
   })
 
-  it('renders the cached character portrait on a linked player token', () => {
-    const appearance = { skinTone: 120, hairTone: 300, hairStyle: 'ponytail' }
-    setAvatarSnapshot(avatarSnapshotKey('dwarf', 'MALE', appearance), 'data:image/png;base64,AAA')
+  it('renders a modular face on a token linked to a character', () => {
     renderPanel({
       map: makeMap({
         tokens: [
-          { id: 11, name: 'Aria Sol', category: 'PLAYER', color: '#3b82f6', speedFeet: 30, posX: 1, posY: 1, movedFeet: 0, linkedParticipantId: null, linkedUserId: 1, raceIndex: 'dwarf', sex: 'MALE', appearance },
+          { id: 11, name: 'Aria Sol', category: 'PLAYER', color: '#3b82f6', speedFeet: 30, posX: 1, posY: 1, movedFeet: 0, linkedParticipantId: null, linkedUserId: 1, raceIndex: 'dwarf', sex: 'MALE', appearance: { skinTone: 120, hairTone: 300, hairStyle: 'ponytail', eyeColor: 90 } },
         ],
       }),
     })
 
-    const avatar = screen.getByTestId('token-avatar-11')
-    expect(avatar).toHaveAttribute('src', 'data:image/png;base64,AAA')
-    expect(avatar).toHaveAttribute('alt', 'Avatar for Aria Sol')
+    const face = screen.getByTestId('token-face-11')
+    expect(face.querySelector('svg')).toBeTruthy()
+    expect(within(face).getByTestId('face-mouth')).toBeInTheDocument()
   })
 
-  it('keeps the colour disc when no snapshot is cached for the token avatar', () => {
+  it('keeps the colour disc with initials for a token with no linked character', () => {
     renderPanel({
       map: makeMap({
         tokens: [
-          { id: 11, name: 'Aria Sol', category: 'PLAYER', color: '#3b82f6', speedFeet: 30, posX: 1, posY: 1, movedFeet: 0, linkedParticipantId: null, linkedUserId: 1, raceIndex: 'dwarf', sex: 'MALE', appearance: { skinTone: 120, hairTone: 300, hairStyle: 'ponytail' } },
+          { id: 11, name: 'Aria Sol', category: 'PLAYER', color: '#3b82f6', speedFeet: 30, posX: 1, posY: 1, movedFeet: 0, linkedParticipantId: null, linkedUserId: 1, raceIndex: null, sex: null, appearance: null },
         ],
       }),
     })
 
-    expect(screen.queryByTestId('token-avatar-11')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('token-face-11')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Token Aria Sol/ })).toHaveTextContent('AS')
   })
 
