@@ -66,4 +66,26 @@ test.describe('character wizard labeling & race facts', () => {
     // A shared CC0 base body exists, so the preview mounts a WebGL canvas.
     await expect(swatch.locator('canvas')).toHaveCount(1)
   })
+
+  test('lets the player pick a hair style and loads the hair asset', async ({ page }) => {
+    await openWizard(page)
+
+    await page.getByLabel('Character name').fill('Tordek')
+    await page.getByLabel('Ability scores').selectOption('STANDARD_ARRAY')
+    await page.getByRole('button', { name: 'Next' }).click()
+    await page.getByRole('button', { name: 'Use the standard array (as written)' }).click()
+    await page.getByRole('button', { name: 'Next' }).click()
+    await page.getByRole('button', { name: 'Dwarf' }).click()
+    await page.getByRole('button', { name: 'Next' }).click()
+
+    await expect(page.getByRole('heading', { name: 'Appearance' })).toBeVisible()
+    await page.getByRole('radio', { name: 'Female' }).check()
+    await expect(page.getByRole('radio', { name: 'None' })).toBeChecked()
+
+    const hairRequest = page.waitForRequest(/\/models\/avatars\/parts\/hair\/ponytail\.glb/)
+    await page.getByRole('radio', { name: 'Ponytail' }).check()
+    await expect(page.getByRole('radio', { name: 'Ponytail' })).toBeChecked()
+    // The chosen style attaches at socket_hair, so the GLB is fetched by the canvas.
+    await hairRequest
+  })
 })
