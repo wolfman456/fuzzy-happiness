@@ -1,6 +1,7 @@
 package com.gamer.fowever.tabletopservice.service;
 
 import com.gamer.fowever.tabletopservice.domain.BattleMap;
+import com.gamer.fowever.tabletopservice.domain.BattleMapObject;
 import com.gamer.fowever.tabletopapi.EventType;
 import com.gamer.fowever.tabletopservice.domain.Dnd5eCharacter;
 import com.gamer.fowever.tabletopservice.domain.Game;
@@ -14,6 +15,7 @@ import com.gamer.fowever.tabletopapi.SessionStatus;
 import com.gamer.fowever.tabletopapi.Sex;
 import com.gamer.fowever.tabletopapi.TokenCategory;
 import com.gamer.fowever.tabletopservice.domain.User;
+import com.gamer.fowever.tabletopapi.dto.AddObjectRequest;
 import com.gamer.fowever.tabletopapi.dto.AddTokenRequest;
 import com.gamer.fowever.tabletopapi.dto.BattleMapDto;
 import com.gamer.fowever.tabletopapi.dto.CharacterAppearance;
@@ -21,13 +23,19 @@ import com.gamer.fowever.tabletopapi.dto.CreateMapRequest;
 import com.gamer.fowever.tabletopapi.dto.InitiativeEntryDto;
 import com.gamer.fowever.tabletopapi.dto.InitiativeEntryRequest;
 import com.gamer.fowever.tabletopapi.dto.InitiativeRequest;
+import com.gamer.fowever.tabletopapi.dto.MapCatalogDto;
+import com.gamer.fowever.tabletopapi.dto.MapObjectDto;
+import com.gamer.fowever.tabletopapi.dto.MapTileDto;
 import com.gamer.fowever.tabletopapi.dto.MapTokenDto;
 import com.gamer.fowever.tabletopapi.dto.MoveTokenRequest;
+import com.gamer.fowever.tabletopapi.dto.PaintTilesRequest;
 import com.gamer.fowever.tabletopapi.dto.SessionEventDto;
 import com.gamer.fowever.tabletopapi.dto.TurnAction;
 import com.gamer.fowever.tabletopapi.dto.TurnCommandRequest;
 import com.gamer.fowever.tabletopapi.dto.UpdateMapRequest;
+import com.gamer.fowever.tabletopapi.dto.UpdateObjectRequest;
 import com.gamer.fowever.tabletopapi.dto.UpdateTokenRequest;
+import com.gamer.fowever.tabletopservice.repository.BattleMapObjectRepository;
 import com.gamer.fowever.tabletopservice.repository.BattleMapRepository;
 import com.gamer.fowever.tabletopservice.repository.CharacterRepository;
 import com.gamer.fowever.tabletopservice.repository.GameSessionRepository;
@@ -55,6 +63,8 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyIterable;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -73,6 +83,10 @@ class BattleMapServiceTest {
     @Mock
     private MapTokenRepository tokenRepository;
     @Mock
+    private com.gamer.fowever.tabletopservice.repository.BattleMapTileRepository tileRepository;
+    @Mock
+    private BattleMapObjectRepository objectRepository;
+    @Mock
     private InitiativeEntryRepository initiativeRepository;
     @Mock
     private ParticipantRepository participantRepository;
@@ -86,11 +100,15 @@ class BattleMapServiceTest {
     private SessionEventRepository eventRepository;
     @Mock
     private SimpMessagingTemplate messagingTemplate;
+    @Mock
+    private com.gamer.fowever.tabletopservice.service.map.MapCatalog mapCatalog;
 
     private final JsonMapper objectMapper = JsonMapper.builder().build();
 
     private final List<Participant> savedParticipants = new ArrayList<>();
     private final List<MapToken> savedTokens = new ArrayList<>();
+    private final List<com.gamer.fowever.tabletopservice.domain.BattleMapTile> savedTiles = new ArrayList<>();
+    private final List<BattleMapObject> savedObjects = new ArrayList<>();
     private final List<SessionEvent> savedEvents = new ArrayList<>();
     private final List<InitiativeEntry> savedInitiative = new ArrayList<>();
     private BattleMap savedMap;
@@ -99,11 +117,13 @@ class BattleMapServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new BattleMapService(mapRepository, tokenRepository, initiativeRepository,
-                participantRepository, characterRepository, sessionRepository, userRepository, eventRepository,
-                messagingTemplate, objectMapper);
+        service = new BattleMapService(mapRepository, tokenRepository, tileRepository, objectRepository,
+                initiativeRepository, participantRepository, characterRepository, sessionRepository,
+                userRepository, eventRepository, messagingTemplate, objectMapper, mapCatalog);
         savedParticipants.clear();
         savedTokens.clear();
+        savedTiles.clear();
+        savedObjects.clear();
         savedEvents.clear();
         savedInitiative.clear();
         savedMap = null;
@@ -163,6 +183,50 @@ class BattleMapServiceTest {
             savedTokens.remove(invocation.getArgument(0));
             return null;
         }).when(tokenRepository).delete(any(MapToken.class));
+        when(tileRepository.saveAll(anyIterable())).thenAnswer(invocation -> {
+            java.util.List<com.gamer.fowever.tabletopservice.domain.BattleMapTile> tiles =
+                    new ArrayList<>();
+            ((Iterable<com.gamer.fowever.tabletopservice.domain.BattleMapTile>) invocation.getArgument(0))
+                    .forEach(tiles::add);
+            for (com.gamer.fowever.tabletopservice.domain.BattleMapTile tile : tiles) {
+                if (tile.getId() == null) {
+                    tile.setId((long) (savedTiles.size() + 1));
+                }
+                if (!savedTiles.contains(tile)) {
+                    savedTiles.add(tile);
+                }
+            }
+            return tiles;
+        });
+        when(tileRepository.findByMapId(anyLong()))
+                .thenAnswer(invocation -> new ArrayList<>(savedTiles));
+        when(tileRepository.findByMapIdOrderByPosYAscPosXAsc(anyLong()))
+                .thenAnswer(invocation -> new ArrayList<>(savedTiles));
+        org.mockito.Mockito.doAnswer(invocation -> {
+            savedTiles.remove(invocation.getArgument(0));
+            return null;
+        }).when(tileRepository).delete(any(com.gamer.fowever.tabletopservice.domain.BattleMapTile.class));
+        when(objectRepository.save(any(BattleMapObject.class))).thenAnswer(invocation -> {
+            BattleMapObject object = invocation.getArgument(0);
+            if (object.getId() == null) {
+                object.setId((long) (savedObjects.size() + 1));
+            }
+            if (!savedObjects.contains(object)) {
+                savedObjects.add(object);
+            }
+            return object;
+        });
+        when(objectRepository.findByMapIdOrderByIdAsc(anyLong()))
+                .thenAnswer(invocation -> new ArrayList<>(savedObjects));
+        when(objectRepository.findByIdAndMapId(anyLong(), anyLong()))
+                .thenAnswer(invocation -> savedObjects.stream()
+                        .filter(object -> object.getId().equals(invocation.getArgument(0)))
+                        .findFirst());
+        org.mockito.Mockito.doAnswer(invocation -> {
+            savedObjects.remove(invocation.getArgument(0));
+            return null;
+        }).when(objectRepository).delete(any(BattleMapObject.class));
+        when(mapCatalog.hasTile(anyInt())).thenReturn(true);
         when(participantRepository.findBySessionIdAndUserId(eq(SESSION_ID), anyLong()))
                 .thenAnswer(invocation -> savedParticipants.stream()
                         .filter(p -> p.getUser().getId().equals(invocation.getArgument(1)))
@@ -1085,6 +1149,156 @@ class BattleMapServiceTest {
     }
 
     @Test
+    void getCatalogExposesPalette() {
+        User gm = user(1L, "aria");
+        GameSession session = session(gm);
+        coreStubs(gm, session);
+        when(mapCatalog.tiles()).thenReturn(List.of(
+                new com.gamer.fowever.tabletopservice.service.map.MapCatalog.TileType(0, "Stone Floor", "#9ca3af"),
+                new com.gamer.fowever.tabletopservice.service.map.MapCatalog.TileType(1, "Grass", "#4ade80")));
+
+        MapCatalogDto catalog = service.getCatalog(SESSION_ID);
+
+        assertThat(catalog.tiles()).hasSize(2);
+        assertThat(catalog.tiles().get(0).index()).isZero();
+        assertThat(catalog.tiles().get(0).name()).isEqualTo("Stone Floor");
+        assertThat(catalog.tiles().get(0).color()).isEqualTo("#9ca3af");
+        assertThat(catalog.tiles().get(1).name()).isEqualTo("Grass");
+    }
+
+    @Test
+    void getCatalogThrowsWhenSessionMissing() {
+        when(sessionRepository.findById(SESSION_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.getCatalog(SESSION_ID))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("Session not found");
+    }
+
+    @Test
+    void paintTilesStoresPaintedSquares() {
+        User gm = user(1L, "aria");
+        GameSession session = session(gm);
+        coreStubs(gm, session);
+        withGm(gm, session);
+        storedMap(session);
+
+        BattleMapDto dto = service.paintTiles(gm, SESSION_ID, new PaintTilesRequest(List.of(
+                new MapTileDto(2, 3, 0), new MapTileDto(4, 5, 7))));
+
+        assertThat(dto.tiles()).hasSize(2);
+        assertThat(dto.tiles()).extracting(MapTileDto::x).containsExactly(2, 4);
+        assertThat(dto.tiles()).extracting(MapTileDto::tileIndex).containsExactly(0, 7);
+    }
+
+    @Test
+    void paintTilesOverwritesExistingSquare() {
+        User gm = user(1L, "aria");
+        GameSession session = session(gm);
+        coreStubs(gm, session);
+        withGm(gm, session);
+        storedMap(session);
+
+        service.paintTiles(gm, SESSION_ID, new PaintTilesRequest(List.of(new MapTileDto(0, 0, 0))));
+        BattleMapDto dto = service.paintTiles(gm, SESSION_ID,
+                new PaintTilesRequest(List.of(new MapTileDto(0, 0, 5))));
+
+        assertThat(dto.tiles()).hasSize(1);
+        assertThat(dto.tiles().get(0).tileIndex()).isEqualTo(5);
+    }
+
+    @Test
+    void paintTilesWithNullIndexErasesSquare() {
+        User gm = user(1L, "aria");
+        GameSession session = session(gm);
+        coreStubs(gm, session);
+        withGm(gm, session);
+        storedMap(session);
+
+        service.paintTiles(gm, SESSION_ID, new PaintTilesRequest(List.of(new MapTileDto(0, 0, 0))));
+        BattleMapDto dto = service.paintTiles(gm, SESSION_ID,
+                new PaintTilesRequest(java.util.Arrays.asList(new MapTileDto(0, 0, null))));
+
+        assertThat(dto.tiles()).isEmpty();
+    }
+
+    @Test
+    void paintTilesRejectsUnknownTileIndex() {
+        User gm = user(1L, "aria");
+        GameSession session = session(gm);
+        coreStubs(gm, session);
+        withGm(gm, session);
+        storedMap(session);
+        when(mapCatalog.hasTile(99)).thenReturn(false);
+
+        assertThatThrownBy(() -> service.paintTiles(gm, SESSION_ID,
+                new PaintTilesRequest(List.of(new MapTileDto(0, 0, 99)))))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("Unknown tile index");
+    }
+
+    @Test
+    void paintTilesRejectsOutOfBoundsSquare() {
+        User gm = user(1L, "aria");
+        GameSession session = session(gm);
+        coreStubs(gm, session);
+        withGm(gm, session);
+        storedMap(session);
+
+        assertThatThrownBy(() -> service.paintTiles(gm, SESSION_ID,
+                new PaintTilesRequest(List.of(new MapTileDto(99, 0, 0)))))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("outside the map");
+    }
+
+    @Test
+    void paintTilesRequiresGm() {
+        User gm = user(1L, "aria");
+        User player = user(2L, "ivo");
+        GameSession session = session(gm);
+        coreStubs(player, session);
+        withGm(gm, session);
+        withPlayer(player, session);
+        storedMap(session);
+
+        assertThatThrownBy(() -> service.paintTiles(player, SESSION_ID,
+                new PaintTilesRequest(List.of(new MapTileDto(0, 0, 0)))))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("Only the GM");
+    }
+
+    @Test
+    void paintTilesWithEmptyBatchIsNoOp() {
+        User gm = user(1L, "aria");
+        GameSession session = session(gm);
+        coreStubs(gm, session);
+        withGm(gm, session);
+        storedMap(session);
+
+        BattleMapDto dto = service.paintTiles(gm, SESSION_ID, new PaintTilesRequest(List.of()));
+
+        assertThat(dto.tiles()).isEmpty();
+        verify(eventRepository, never()).save(any(SessionEvent.class));
+    }
+
+    @Test
+    void resizingMapPrunesOutOfBoundsTiles() {
+        User gm = user(1L, "aria");
+        GameSession session = session(gm);
+        coreStubs(gm, session);
+        withGm(gm, session);
+        storedMap(session);
+
+        service.paintTiles(gm, SESSION_ID, new PaintTilesRequest(List.of(
+                new MapTileDto(5, 5, 0), new MapTileDto(2, 2, 1))));
+        BattleMapDto dto = service.updateMap(gm, SESSION_ID, new UpdateMapRequest(null, 3, 3));
+
+        assertThat(dto.tiles()).hasSize(1);
+        assertThat(dto.tiles().get(0).x()).isEqualTo(2);
+        assertThat(dto.tiles().get(0).y()).isEqualTo(2);
+    }
+
+    @Test
     void initiativeEntryMustBelongToTheMap() {
         User gm = user(1L, "aria");
         GameSession session = session(gm);
@@ -1095,5 +1309,242 @@ class BattleMapServiceTest {
         assertThatThrownBy(() -> service.rerollInitiative(gm, SESSION_ID, 999L))
                 .isInstanceOf(ApiException.class)
                 .hasMessageContaining("Initiative entry not found");
+    }
+
+    private void stubObjectType(int index, String name, int width, int height, boolean blocksMovement) {
+        when(mapCatalog.object(index)).thenReturn(java.util.Optional.of(
+                new com.gamer.fowever.tabletopservice.service.map.MapCatalog.ObjectType(
+                        index, name, "#6b7280", width, height, blocksMovement)));
+        when(mapCatalog.hasObject(index)).thenReturn(true);
+    }
+
+    @Test
+    void getCatalogExposesObjectDefs() {
+        User gm = user(1L, "aria");
+        GameSession session = session(gm);
+        coreStubs(gm, session);
+        when(mapCatalog.objects()).thenReturn(List.of(
+                new com.gamer.fowever.tabletopservice.service.map.MapCatalog.ObjectType(
+                        0, "Wall", "#6b7280", 1, 1, true)));
+
+        MapCatalogDto catalog = service.getCatalog(SESSION_ID);
+
+        assertThat(catalog.objects()).hasSize(1);
+        assertThat(catalog.objects().get(0).name()).isEqualTo("Wall");
+        assertThat(catalog.objects().get(0).blocksMovement()).isTrue();
+    }
+
+    @Test
+    void addObjectStoresCatalogFootprintAndDefaultBlocking() {
+        User gm = user(1L, "aria");
+        GameSession session = session(gm);
+        coreStubs(gm, session);
+        withGm(gm, session);
+        storedMap(session);
+        stubObjectType(4, "Table", 2, 2, true);
+
+        BattleMapDto dto = service.addObject(gm, SESSION_ID, new AddObjectRequest(4, 3, 5, null, null));
+
+        assertThat(dto.objects()).hasSize(1);
+        MapObjectDto object = dto.objects().get(0);
+        assertThat(object.objectIndex()).isEqualTo(4);
+        assertThat(object.x()).isEqualTo(3);
+        assertThat(object.y()).isEqualTo(5);
+        assertThat(object.w()).isEqualTo(2);
+        assertThat(object.h()).isEqualTo(2);
+        assertThat(object.rotation()).isZero();
+        assertThat(object.blocksMovement()).isTrue();
+    }
+
+    @Test
+    void addObjectHonorsBlocksMovementOverride() {
+        User gm = user(1L, "aria");
+        GameSession session = session(gm);
+        coreStubs(gm, session);
+        withGm(gm, session);
+        storedMap(session);
+        stubObjectType(0, "Wall", 1, 1, true);
+
+        BattleMapDto dto = service.addObject(gm, SESSION_ID, new AddObjectRequest(0, 0, 0, 90, false));
+
+        assertThat(dto.objects().get(0).blocksMovement()).isFalse();
+        assertThat(dto.objects().get(0).rotation()).isEqualTo(90);
+    }
+
+    @Test
+    void addObjectRejectsUnknownObjectIndex() {
+        User gm = user(1L, "aria");
+        GameSession session = session(gm);
+        coreStubs(gm, session);
+        withGm(gm, session);
+        storedMap(session);
+        when(mapCatalog.object(99)).thenReturn(java.util.Optional.empty());
+
+        assertThatThrownBy(() -> service.addObject(gm, SESSION_ID, new AddObjectRequest(99, 0, 0, null, null)))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("Unknown object index");
+    }
+
+    @Test
+    void addObjectRejectsFootprintOutOfBounds() {
+        User gm = user(1L, "aria");
+        GameSession session = session(gm);
+        coreStubs(gm, session);
+        withGm(gm, session);
+        storedMap(session);
+        stubObjectType(4, "Table", 2, 2, true);
+
+        assertThatThrownBy(() -> service.addObject(gm, SESSION_ID, new AddObjectRequest(4, 23, 17, null, null)))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("footprint is outside the map");
+    }
+
+    @Test
+    void addObjectRequiresGm() {
+        User gm = user(1L, "aria");
+        User player = user(2L, "ivo");
+        GameSession session = session(gm);
+        coreStubs(player, session);
+        withGm(gm, session);
+        withPlayer(player, session);
+        storedMap(session);
+
+        assertThatThrownBy(() -> service.addObject(player, SESSION_ID, new AddObjectRequest(0, 0, 0, null, null)))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("Only the GM");
+    }
+
+    @Test
+    void updateObjectMovesRotatesAndTogglesBlocking() {
+        User gm = user(1L, "aria");
+        GameSession session = session(gm);
+        coreStubs(gm, session);
+        withGm(gm, session);
+        storedMap(session);
+        stubObjectType(0, "Wall", 1, 1, true);
+        BattleMapDto created = service.addObject(gm, SESSION_ID, new AddObjectRequest(0, 0, 0, null, null));
+        Long objectId = created.objects().get(0).id();
+
+        BattleMapDto dto = service.updateObject(gm, SESSION_ID, objectId,
+                new UpdateObjectRequest(5, 6, 180, false));
+
+        MapObjectDto object = dto.objects().get(0);
+        assertThat(object.x()).isEqualTo(5);
+        assertThat(object.y()).isEqualTo(6);
+        assertThat(object.rotation()).isEqualTo(180);
+        assertThat(object.blocksMovement()).isFalse();
+    }
+
+    @Test
+    void updateObjectRejectsFootprintOutOfBounds() {
+        User gm = user(1L, "aria");
+        GameSession session = session(gm);
+        coreStubs(gm, session);
+        withGm(gm, session);
+        storedMap(session);
+        stubObjectType(4, "Table", 2, 2, true);
+        BattleMapDto created = service.addObject(gm, SESSION_ID, new AddObjectRequest(4, 0, 0, null, null));
+        Long objectId = created.objects().get(0).id();
+
+        assertThatThrownBy(() -> service.updateObject(gm, SESSION_ID, objectId,
+                new UpdateObjectRequest(30, 0, null, null)))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("footprint is outside the map");
+    }
+
+    @Test
+    void removeObjectDeletesIt() {
+        User gm = user(1L, "aria");
+        GameSession session = session(gm);
+        coreStubs(gm, session);
+        withGm(gm, session);
+        storedMap(session);
+        stubObjectType(0, "Wall", 1, 1, true);
+        BattleMapDto created = service.addObject(gm, SESSION_ID, new AddObjectRequest(0, 1, 1, null, null));
+
+        BattleMapDto dto = service.removeObject(gm, SESSION_ID, created.objects().get(0).id());
+
+        assertThat(dto.objects()).isEmpty();
+    }
+
+    @Test
+    void resizingMapPrunesOutOfBoundsObjects() {
+        User gm = user(1L, "aria");
+        GameSession session = session(gm);
+        coreStubs(gm, session);
+        withGm(gm, session);
+        storedMap(session);
+        stubObjectType(0, "Wall", 1, 1, true);
+        service.addObject(gm, SESSION_ID, new AddObjectRequest(0, 5, 5, null, null));
+        service.addObject(gm, SESSION_ID, new AddObjectRequest(0, 2, 2, null, null));
+
+        BattleMapDto dto = service.updateMap(gm, SESSION_ID, new UpdateMapRequest(null, 3, 3));
+
+        assertThat(dto.objects()).hasSize(1);
+        assertThat(dto.objects().get(0).x()).isEqualTo(2);
+    }
+
+    @Test
+    void moveTokenRejectsBlockedDestination() {
+        User gm = user(1L, "aria");
+        GameSession session = session(gm);
+        coreStubs(gm, session);
+        withGm(gm, session);
+        storedMap(session);
+        storedToken("Aria", TokenCategory.PLAYER, "#3b82f6", 30, 0, 0, null, 1L);
+        stubObjectType(0, "Wall", 1, 1, true);
+        service.addObject(gm, SESSION_ID, new AddObjectRequest(0, 3, 0, null, null));
+
+        assertThatThrownBy(() -> service.moveToken(gm, SESSION_ID, 1L, new MoveTokenRequest(3, 0)))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("blocked by an object");
+    }
+
+    @Test
+    void moveTokenRejectsPathBlockedByWall() {
+        User gm = user(1L, "aria");
+        GameSession session = session(gm);
+        coreStubs(gm, session);
+        withGm(gm, session);
+        storedMap(session);
+        storedToken("Aria", TokenCategory.PLAYER, "#3b82f6", 30, 0, 0, null, 1L);
+        stubObjectType(0, "Wall", 1, 18, true);
+        service.addObject(gm, SESSION_ID, new AddObjectRequest(0, 1, 0, null, null));
+
+        assertThatThrownBy(() -> service.moveToken(gm, SESSION_ID, 1L, new MoveTokenRequest(2, 0)))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("No clear path");
+    }
+
+    @Test
+    void placeTokenRejectsBlockedSquare() {
+        User gm = user(1L, "aria");
+        GameSession session = session(gm);
+        coreStubs(gm, session);
+        withGm(gm, session);
+        storedMap(session);
+        storedToken("Aria", TokenCategory.PLAYER, "#3b82f6", 30, 0, 0, null, 1L);
+        stubObjectType(0, "Wall", 1, 1, true);
+        service.addObject(gm, SESSION_ID, new AddObjectRequest(0, 4, 4, null, null));
+
+        assertThatThrownBy(() -> service.placeToken(gm, SESSION_ID, 1L, new MoveTokenRequest(4, 4)))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("blocked by an object");
+    }
+
+    @Test
+    void addTokenRejectsBlockedSquare() {
+        User gm = user(1L, "aria");
+        GameSession session = session(gm);
+        coreStubs(gm, session);
+        withGm(gm, session);
+        storedMap(session);
+        stubObjectType(0, "Wall", 1, 1, true);
+        service.addObject(gm, SESSION_ID, new AddObjectRequest(0, 2, 2, null, null));
+
+        assertThatThrownBy(() -> service.addToken(gm, SESSION_ID,
+                new AddTokenRequest("Goblin", TokenCategory.MONSTER_NPC, "#ef4444", 30, 2, 2)))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("blocked by an object");
     }
 }

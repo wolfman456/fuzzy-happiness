@@ -1,12 +1,16 @@
 package com.gamer.fowever.tabletopapi;
 
+import com.gamer.fowever.tabletopapi.dto.AddObjectRequest;
 import com.gamer.fowever.tabletopapi.dto.AddTokenRequest;
 import com.gamer.fowever.tabletopapi.dto.BattleMapDto;
 import com.gamer.fowever.tabletopapi.dto.CreateMapRequest;
 import com.gamer.fowever.tabletopapi.dto.InitiativeRequest;
+import com.gamer.fowever.tabletopapi.dto.MapCatalogDto;
 import com.gamer.fowever.tabletopapi.dto.MoveTokenRequest;
+import com.gamer.fowever.tabletopapi.dto.PaintTilesRequest;
 import com.gamer.fowever.tabletopapi.dto.TurnCommandRequest;
 import com.gamer.fowever.tabletopapi.dto.UpdateMapRequest;
+import com.gamer.fowever.tabletopapi.dto.UpdateObjectRequest;
 import com.gamer.fowever.tabletopapi.dto.UpdateTokenRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
@@ -16,6 +20,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 
@@ -24,6 +29,30 @@ public interface BattleMapApi {
 
     @GetMapping
     BattleMapDto get(@PathVariable Long sessionId, Authentication authentication);
+
+    @GetMapping("/catalog")
+    MapCatalogDto catalog(@PathVariable Long sessionId, Authentication authentication);
+
+    @PutMapping("/tiles")
+    BattleMapDto paintTiles(@PathVariable Long sessionId,
+                            @Valid @RequestBody PaintTilesRequest request,
+                            Authentication authentication);
+
+    @PostMapping("/objects")
+    BattleMapDto addObject(@PathVariable Long sessionId,
+                           @Valid @RequestBody AddObjectRequest request,
+                           Authentication authentication);
+
+    @PatchMapping("/objects/{objectId}")
+    BattleMapDto updateObject(@PathVariable Long sessionId,
+                              @PathVariable Long objectId,
+                              @Valid @RequestBody UpdateObjectRequest request,
+                              Authentication authentication);
+
+    @DeleteMapping("/objects/{objectId}")
+    BattleMapDto removeObject(@PathVariable Long sessionId,
+                              @PathVariable Long objectId,
+                              Authentication authentication);
 
     @PostMapping
     ResponseEntity<BattleMapDto> create(@PathVariable Long sessionId,

@@ -7,6 +7,7 @@ import LobbyPage from './pages/LobbyPage'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import SessionPage from './pages/SessionPage'
+import MapEditorPage from './pages/MapEditorPage'
 import VerifyPage from './pages/VerifyPage'
 import CharactersPage from './pages/CharactersPage'
 import CharacterWizardPage from './pages/CharacterWizardPage'
@@ -29,6 +30,7 @@ export default function App() {
               <Route path="/" element={<Dashboard />} />
               <Route path="/sessions" element={<LobbyPage />} />
               <Route path="/sessions/:id" element={<SessionPage />} />
+              <Route path="/sessions/:id/map/edit" element={<MapEditorPage />} />
               <Route path="/characters" element={<CharactersPage />} />
               <Route path="/characters/new" element={<CharacterWizardPage />} />
               <Route path="/characters/:id" element={<CharacterSheetPage />} />

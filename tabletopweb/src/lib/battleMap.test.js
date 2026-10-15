@@ -4,18 +4,23 @@ vi.mock('./api', () => ({ api: vi.fn() }))
 
 import { api } from './api'
 import {
+  addObject,
   addToken,
   createMap,
   getMap,
+  getMapCatalog,
   moveToken,
   nextInitiative,
+  paintTiles,
   removeInitiativeEntry,
+  removeObject,
   removeToken,
   rerollInitiative,
   rollDice,
   setInitiative,
   turnCommand,
   updateMap,
+  updateObject,
   updateToken,
 } from './battleMap'
 
@@ -27,6 +32,40 @@ describe('battleMap API helpers', () => {
   it('getMap fetches the session map', () => {
     getMap(7)
     expect(api).toHaveBeenCalledWith('/api/sessions/7/map')
+  })
+
+  it('getMapCatalog fetches the tile and object palette', () => {
+    getMapCatalog(7)
+    expect(api).toHaveBeenCalledWith('/api/sessions/7/map/catalog')
+  })
+
+  it('paintTiles PUTs a tile batch', () => {
+    paintTiles(7, { tiles: [{ x: 1, y: 1, tileIndex: 0 }] })
+    expect(api).toHaveBeenCalledWith('/api/sessions/7/map/tiles', {
+      method: 'PUT',
+      body: { tiles: [{ x: 1, y: 1, tileIndex: 0 }] },
+    })
+  })
+
+  it('addObject POSTs an object', () => {
+    addObject(7, { objectIndex: 0, x: 2, y: 2 })
+    expect(api).toHaveBeenCalledWith('/api/sessions/7/map/objects', {
+      method: 'POST',
+      body: { objectIndex: 0, x: 2, y: 2 },
+    })
+  })
+
+  it('updateObject PATCHes an object', () => {
+    updateObject(7, 9, { x: 3, y: 3, blocksMovement: false })
+    expect(api).toHaveBeenCalledWith('/api/sessions/7/map/objects/9', {
+      method: 'PATCH',
+      body: { x: 3, y: 3, blocksMovement: false },
+    })
+  })
+
+  it('removeObject DELETEs an object', () => {
+    removeObject(7, 9)
+    expect(api).toHaveBeenCalledWith('/api/sessions/7/map/objects/9', { method: 'DELETE' })
   })
 
   it('createMap POSTs a map', () => {

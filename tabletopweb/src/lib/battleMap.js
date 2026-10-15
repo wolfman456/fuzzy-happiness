@@ -4,6 +4,31 @@ export function getMap(sessionId) {
   return api(`/api/sessions/${sessionId}/map`)
 }
 
+export function getMapCatalog(sessionId) {
+  return api(`/api/sessions/${sessionId}/map/catalog`)
+}
+
+export function paintTiles(sessionId, body) {
+  return api(`/api/sessions/${sessionId}/map/tiles`, { method: 'PUT', body })
+}
+
+export function addObject(sessionId, body) {
+  return api(`/api/sessions/${sessionId}/map/objects`, { method: 'POST', body })
+}
+
+export function updateObject(sessionId, objectId, body) {
+  return api(`/api/sessions/${sessionId}/map/objects/${objectId}`, {
+    method: 'PATCH',
+    body,
+  })
+}
+
+export function removeObject(sessionId, objectId) {
+  return api(`/api/sessions/${sessionId}/map/objects/${objectId}`, {
+    method: 'DELETE',
+  })
+}
+
 export function createMap(sessionId, body = {}) {
   return api(`/api/sessions/${sessionId}/map`, { method: 'POST', body })
 }

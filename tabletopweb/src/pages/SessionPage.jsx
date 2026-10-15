@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api, leaveSession } from '../lib/api'
 import { createRealtimeClient } from '../lib/stomp'
 import { useAuth } from '../auth/useAuth'
@@ -257,7 +257,17 @@ export default function SessionPage() {
       )}
 
       <section className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-semibold">Battle map</h2>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold">Battle map</h2>
+          {me?.role === 'GM' && mapState === 'ready' && !isClosed && (
+            <Link
+              to={`/sessions/${id}/map/edit`}
+              className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-50"
+            >
+              Edit map
+            </Link>
+          )}
+        </div>
         <div className="mt-3">
           {mapState === 'loading' && <LoadingState message="Loading battle map…" />}
           {mapState === 'none' &&
