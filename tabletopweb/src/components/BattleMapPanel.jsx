@@ -16,6 +16,7 @@ import {
   updateToken,
 } from '../lib/battleMap'
 import InitiativeRail from './InitiativeRail'
+import { avatarSnapshotKey, getAvatarSnapshot } from '../lib/avatarSnapshot'
 
 const SQUARE_PX = 36
 
@@ -669,6 +670,13 @@ function TokenDisc({ token, selected, interactive, showFeet, squarePx, onClick }
       .slice(0, 2)
       .map((word) => word[0].toUpperCase())
       .join('') || '?'
+  // A player token whose linked character portrait has already been captured
+  // renders the cached snapshot instead of the colour disc (design-draft-v2 §5,
+  // item 5). Monster/NPC tokens and players without a cached snapshot keep the
+  // colour disc with initials.
+  const snapshot = token.raceIndex
+    ? getAvatarSnapshot(avatarSnapshotKey(token.raceIndex, token.sex, token.appearance))
+    : null
   return (
     <button
       type="button"
@@ -688,7 +696,18 @@ function TokenDisc({ token, selected, interactive, showFeet, squarePx, onClick }
         fontSize: '0.7rem',
       }}
     >
-      {initials}
+      {snapshot ? (
+        <span className="block h-full w-full overflow-hidden rounded-full">
+          <img
+            src={snapshot}
+            alt={`Avatar for ${token.name}`}
+            data-testid={`token-avatar-${token.id}`}
+            className="h-full w-full object-cover"
+          />
+        </span>
+      ) : (
+        initials
+      )}
       {showFeet && (
         <span
           data-testid={`feet-${token.id}`}
