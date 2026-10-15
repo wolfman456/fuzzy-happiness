@@ -2,10 +2,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   AVATAR_BASES,
   AVATAR_MODEL_BASE,
+  AVATAR_PARTS,
   attachToSocket,
   applyAvatarTints,
   avatarPartUrl,
   avatarSexCode,
+  hasAvatarPart,
   hueCss,
   RACE_PRESETS,
   resolveAvatar,
@@ -38,7 +40,7 @@ describe('avatarPartUrl', () => {
 
 describe('resolveAvatar', () => {
   afterEach(() => {
-    delete RACE_PRESETS.elf.parts
+    RACE_PRESETS.elf.parts = []
   })
 
   it('returns the sex base and race scale', () => {
@@ -58,24 +60,50 @@ describe('resolveAvatar', () => {
     })
   })
 
-  it('resolves preset parts to socket+url entries', () => {
-    RACE_PRESETS.elf.parts = [{ kind: 'ears', id: 'long', socket: 'socket_ears' }]
+  it('resolves registered preset parts to socket+url entries', () => {
+    RACE_PRESETS.elf.parts = [{ kind: 'horns', id: 'tiefling', socket: 'socket_horns' }]
     expect(resolveAvatar('elf', 'MALE').parts).toEqual([
-      { socket: 'socket_ears', url: `${AVATAR_MODEL_BASE}/parts/ears/long.glb` },
+      { socket: 'socket_horns', url: `${AVATAR_MODEL_BASE}/parts/horns/tiefling.glb` },
     ])
   })
 
-  it('drops parts missing a socket or asset id', () => {
+  it('drops parts that are missing a socket, an id or a registry entry', () => {
     RACE_PRESETS.elf.parts = [
       { kind: 'ears', id: 'long', socket: '' },
       { kind: '', id: 'long', socket: 'socket_ears' },
+      { kind: 'ears', id: 'long', socket: 'socket_ears' },
+      { kind: 'horns', id: 'klingon', socket: 'socket_horns' },
     ]
     expect(resolveAvatar('elf', 'MALE').parts).toEqual([])
+  })
+
+  it('attaches the authored race-feature parts', () => {
+    expect(resolveAvatar('dragonborn', 'MALE').parts).toEqual([
+      { socket: 'socket_horns', url: `${AVATAR_MODEL_BASE}/parts/horns/dragonborn.glb` },
+      { socket: 'socket_tail', url: `${AVATAR_MODEL_BASE}/parts/tail/dragonborn.glb` },
+    ])
+    expect(resolveAvatar('half-orc', 'FEMALE').parts).toEqual([
+      { socket: 'socket_tusks', url: `${AVATAR_MODEL_BASE}/parts/tusks/half-orc.glb` },
+    ])
+    expect(resolveAvatar('tiefling', 'MALE').parts).toHaveLength(2)
   })
 
   it('returns null without a usable sex', () => {
     expect(resolveAvatar('dwarf', '')).toBeNull()
     expect(resolveAvatar('dwarf', null)).toBeNull()
+  })
+})
+
+describe('hasAvatarPart', () => {
+  it('reports only registered kind/id pairs', () => {
+    expect(hasAvatarPart('horns', 'tiefling')).toBe(true)
+    expect(hasAvatarPart('horns', 'klingon')).toBe(false)
+    expect(hasAvatarPart('ears', 'long')).toBe(false)
+    expect(hasAvatarPart('unknown', 'x')).toBe(false)
+  })
+
+  it('lists each registered kind', () => {
+    expect(Object.keys(AVATAR_PARTS)).toEqual(['ears', 'horns', 'tusks', 'tail'])
   })
 })
 

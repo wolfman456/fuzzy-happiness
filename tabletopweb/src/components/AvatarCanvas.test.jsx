@@ -9,7 +9,7 @@ const { scene, colorSet, socketAdd } = vi.hoisted(() => {
   const scene = {
     clone: () => scene,
     traverse: (fn) => fn({ isMesh: true, material: { name: 'Skin', color: { set: colorSet } } }),
-    getObjectByName: (name) => (name === 'socket_ears' ? socket : null),
+    getObjectByName: (name) => (name === 'socket_horns' ? socket : null),
   }
   return { scene, colorSet, socketAdd }
 })
@@ -40,7 +40,7 @@ describe('AvatarCanvas', () => {
       <AvatarCanvas
         avatar={{
           ...BASE,
-          parts: [{ socket: 'socket_ears', url: '/models/avatars/parts/ears/long.glb' }],
+          parts: [{ socket: 'socket_horns', url: '/models/avatars/parts/horns/tiefling.glb' }],
         }}
         appearance={null}
       />,
