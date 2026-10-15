@@ -146,6 +146,29 @@ class CharacterJourneyIT extends FunctionalTestBase {
     }
 
     @Test
+    void generateStaysLegalForClassesWithMixedProficiencyChoices() throws Exception {
+        // Regression for #119: the bard's proficiency_choices mix skills with
+        // musical instruments. Before the fix, generate sampled the instruments
+        // as skills and compile rejected the sheet. Every seeded quick-build must
+        // now be valid, and the mixed-choice class must actually be exercised.
+        String jwt = registerVerifyLogin("char3c");
+
+        List<String> classIndexes = new java.util.ArrayList<>();
+        for (int seed = 1; seed <= 20; seed++) {
+            JsonNode body = Api.json(Api.post(baseUrl() + "/api/characters/generate", jwt,
+                    Api.body(Map.of("name", "Automaton", "scoreSource", "STANDARD_ARRAY",
+                            "startingLevel", 1, "seed", seed))).body());
+
+            assertThat(body.get("valid").asBoolean()).as("seed " + seed + ": " + body).isTrue();
+            assertThat(body.get("violations")).isEmpty();
+            classIndexes.add(body.get("sheet").get("classIndex").asText());
+            assertThat(body.get("sheet").get("skillPicks")).allMatch(pick ->
+                    !Set.of("lute", "viol", "flute").contains(pick.asText()));
+        }
+        assertThat(classIndexes).contains("bard", "cleric");
+    }
+
+    @Test
     void catalogExposesTheCuratedPhbBackgroundsAndSubclasses() throws Exception {
         String jwt = registerVerifyLogin("char3b");
 

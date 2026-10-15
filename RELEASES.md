@@ -52,3 +52,4 @@ number everywhere.
   character's chosen appearance now renders as a client-side cached portrait snapshot (#116) and on
   the battle-map token of the linked player (#117). Plus readable dark-backdrop headings + button/
   card motion (#109, #110) and a lockfile-ignore fix so app lockfiles stay uploadable (#111).
+- **v1.5.0 — (next release).** Current `develop` (`1.5.0-SNAPSHOT`).

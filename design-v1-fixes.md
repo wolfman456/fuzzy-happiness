@@ -95,6 +95,12 @@ filed, plus an investigation-only "not a bug".
 | #86 | GM battle map: no way to **black out impassable squares** (walls/mountains) — tokens can be placed/moved anywhere in bounds (design-draft-v2 §6) | medium | P3 | ⏭ deferred | planned vs Slice-0 Flyway; filed feature issue |
 | #88 | Bard **College of Dance** missing from the subclass catalog — it is a 2024 PHB subclass; the catalog is pinned to 2014 rules | — | — | ✅ not-a-bug | recorded; needs 2024 ruleset (future) |
 
+## 2026-10-15 alpha pass (random character quick-build)
+
+| # | Issue | Severity | Priority | Status | Resolution |
+|---|-------|----------|----------|--------|------------|
+| #119 | **"Create Random Character" (quick-build) fails to save** for classes whose `proficiency_choices` mix skills with other proficiencies: `offeredClassSkills` merges every option `item.index` (only stripping the `skill-` prefix), so a Bard's musical-instrument choice (`drum`, `dulcimer`, …) is treated as a class skill. The build then emits instrument indices and `validateSkills` rejects it (`'drum' is not a known SRD skill`, `no more than N skill proficiencies from the class list`) (design-v1 §8) | medium | P3 | ✅ fixed | `fix/119-class-proficiency-skills`: `offeredClassSkills`/`classChoiceCap` filter to `skill-*` options only; `randomSkills` fillers now exclude the class list so they cannot breach the class cap (surfaced by the functional seed sweep) |
+
 ## Changelog
 
 - **2026-09-12 — verification disabled until prod SMTP is configured (#45).** `AuthService.register`

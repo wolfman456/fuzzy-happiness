@@ -88,6 +88,17 @@ class CharacterServiceTest {
             + "\"spellcasting\":{\"cantrips_known\":3,\"spell_slots_level_1\":2}}]";
     private static final String WIZARD_SPELLS = "{\"count\":2,\"results\":["
             + "{\"index\":\"fire-bolt\",\"level\":0},{\"index\":\"magic-missile\",\"level\":1}]}";
+    // Bard mixes a skill proficiency choice with a musical-instrument choice in
+    // the same proficiency_choices list (bug #119): only the skill options may
+    // feed the class-skill offer/ cap.
+    private static final String BARD = "{\"index\":\"bard\",\"name\":\"Bard\",\"hit_die\":8,"
+            + "\"subclass_level\":3,\"saving_throws\":[{\"index\":\"dex\"},{\"index\":\"cha\"}],"
+            + "\"proficiency_choices\":["
+            + "{\"choose\":2,\"from\":{\"options\":[{\"item\":{\"index\":\"skill-medicine\"}},"
+            + "{\"item\":{\"index\":\"skill-religion\"}}]}},"
+            + "{\"choose\":3,\"from\":{\"options\":[{\"item\":{\"index\":\"lute\"}},"
+            + "{\"item\":{\"index\":\"viol\"}},{\"item\":{\"index\":\"flute\"}}]}}],"
+            + "\"subclasses\":[{\"index\":\"lore\"}]}";
 
     @Mock
     private SrdClient srd;
@@ -715,6 +726,32 @@ class CharacterServiceTest {
 
         assertThat(result.valid()).isTrue();
         assertThat(result.sheet().subclassIndex()).isIn(new ChargenCatalog().subclassesFor("cleric"));
+    }
+
+    @Test
+    void generateIgnoresNonSkillProficiencyChoices() {
+        // Regression for #119: a class whose proficiency_choices mix skills with
+        // musical instruments must random-generate a legal sheet that never picks
+        // an instrument as a skill.
+        when(srd.list("races", Map.of())).thenReturn(objectMapper.readTree(RACES));
+        when(srd.list("classes", Map.of())).thenReturn(objectMapper.readTree("{\"results\":[{\"index\":\"bard\"}]}"));
+        when(srd.list("backgrounds", Map.of())).thenReturn(objectMapper.readTree(BACKGROUNDS));
+        when(srd.list("skills", Map.of())).thenReturn(objectMapper.readTree(SKILLS));
+        when(srd.list("equipment", Map.of())).thenReturn(objectMapper.readTree(EQUIPMENT));
+        when(srd.detail("races", "dwarf")).thenReturn(objectMapper.readTree(DWARF));
+        when(srd.detail("classes", "bard")).thenReturn(objectMapper.readTree(BARD));
+        when(srd.detail("backgrounds", "acolyte")).thenReturn(objectMapper.readTree(
+                "{\"index\":\"acolyte\",\"name\":\"Acolyte\",\"starting_equipment\":[]}"));
+        stubEquipmentDetails();
+
+        CompileResult result = service.generate(user(5L),
+                new GenerateCharacterRequest("Maestro", ScoreSource.STANDARD_ARRAY, 1, 11));
+
+        assertThat(result.valid()).isTrue();
+        CharacterSheetDto sheet = result.sheet();
+        assertThat(sheet.classIndex()).isEqualTo("bard");
+        assertThat(sheet.classSkills()).containsExactly("medicine", "religion");
+        assertThat(sheet.skillPicks()).isSubsetOf("medicine", "religion");
     }
 
     private String clericLevelsUpTo(int topLevel) {

@@ -1,7 +1,8 @@
 {
   "fixture": true,
-  "count": 1,
+  "count": 2,
   "results": [
+    { "index": "bard", "name": "Bard", "url": "/api/2014/classes/bard" },
     { "index": "cleric", "name": "Cleric", "url": "/api/2014/classes/cleric" }
   ]
 }
