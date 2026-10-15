@@ -20,13 +20,31 @@ export const AVATAR_BASES = {
  * by `resolveAvatar` so a missing file can never trip the avatar error boundary.
  *
  * Additive features only for now — pointed ears need a base variant and are not
- * yet authored, so `ears` stays empty.
+ * yet authored, so `ears` stays empty. `hair` is player-chosen (not race-fixed)
+ * and resolved from `appearance.hairStyle` in `resolveAvatar`.
  */
 export const AVATAR_PARTS = {
   ears: [],
   horns: ['dragonborn', 'tiefling'],
   tusks: ['half-orc'],
   tail: ['dragonborn', 'tiefling'],
+  hair: ['short', 'ponytail', 'long'],
+}
+
+/**
+ * The wizard's hair-style choices. An empty value (bald / no hair) is legal and
+ * simply attaches no hair part.
+ */
+export const HAIR_STYLES = [
+  { value: '', label: 'None' },
+  { value: 'short', label: 'Short' },
+  { value: 'ponytail', label: 'Ponytail' },
+  { value: 'long', label: 'Long' },
+]
+
+/** Human-readable label for a stored `hairStyle` slug (unknown styles read as None). */
+export function hairStyleLabel(style) {
+  return HAIR_STYLES.find((option) => option.value === (style ?? ''))?.label ?? 'None'
 }
 
 /**
@@ -82,8 +100,10 @@ export function avatarPartUrl(kind, id) {
  * Resolves everything `AvatarCanvas` needs for a race×sex, or null when no base
  * body exists for the sex (the UI then shows the 2D tint swatch). Parts are
  * resolved to `{ socket, url }` entries; missing registry entries are dropped.
+ * A registered `appearance.hairStyle` appends the matching hair part at
+ * `socket_hair` after the race-feature parts.
  */
-export function resolveAvatar(raceIndex, sex) {
+export function resolveAvatar(raceIndex, sex, appearance) {
   const code = avatarSexCode(sex)
   const base = code ? AVATAR_BASES[code] ?? null : null
   if (!base) return null
@@ -94,6 +114,10 @@ export function resolveAvatar(raceIndex, sex) {
       socket: part.socket,
       url: avatarPartUrl(part.kind, part.id),
     }))
+  const hairStyle = appearance?.hairStyle
+  if (hasAvatarPart('hair', hairStyle)) {
+    parts.push({ socket: 'socket_hair', url: avatarPartUrl('hair', hairStyle) })
+  }
   return { base, parts, scale: preset.scale ?? 1 }
 }
 

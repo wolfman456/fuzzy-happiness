@@ -91,7 +91,7 @@ export default function AvatarPreview({
   className = '',
   portrait = false,
 }) {
-  const avatar = resolveAvatar(raceIndex, sex)
+  const avatar = resolveAvatar(raceIndex, sex, appearance)
   const key = avatarSnapshotKey(raceIndex, sex, appearance)
   const [snapshot, setSnapshot] = useState(() => (portrait ? getAvatarSnapshot(key) : null))
   const [snapshotKey, setSnapshotKey] = useState(key)

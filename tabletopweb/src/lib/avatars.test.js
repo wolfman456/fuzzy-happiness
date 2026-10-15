@@ -7,6 +7,8 @@ import {
   applyAvatarTints,
   avatarPartUrl,
   avatarSexCode,
+  HAIR_STYLES,
+  hairStyleLabel,
   hasAvatarPart,
   hueCss,
   RACE_PRESETS,
@@ -92,6 +94,27 @@ describe('resolveAvatar', () => {
     expect(resolveAvatar('dwarf', '')).toBeNull()
     expect(resolveAvatar('dwarf', null)).toBeNull()
   })
+
+  it('appends a registered hair style from the appearance', () => {
+    expect(resolveAvatar('human', 'MALE', { hairStyle: 'ponytail' }).parts).toEqual([
+      { socket: 'socket_hair', url: `${AVATAR_MODEL_BASE}/parts/hair/ponytail.glb` },
+    ])
+  })
+
+  it('appends hair after the race-feature parts', () => {
+    expect(resolveAvatar('dragonborn', 'MALE', { hairStyle: 'long' }).parts).toEqual([
+      { socket: 'socket_horns', url: `${AVATAR_MODEL_BASE}/parts/horns/dragonborn.glb` },
+      { socket: 'socket_tail', url: `${AVATAR_MODEL_BASE}/parts/tail/dragonborn.glb` },
+      { socket: 'socket_hair', url: `${AVATAR_MODEL_BASE}/parts/hair/long.glb` },
+    ])
+  })
+
+  it('attaches no hair part for none/blank/unknown styles', () => {
+    expect(resolveAvatar('human', 'MALE', { hairStyle: '' }).parts).toEqual([])
+    expect(resolveAvatar('human', 'MALE', { hairStyle: 'mohawk' }).parts).toEqual([])
+    expect(resolveAvatar('human', 'MALE', {}).parts).toEqual([])
+    expect(resolveAvatar('human', 'MALE').parts).toEqual([])
+  })
 })
 
 describe('hasAvatarPart', () => {
@@ -99,11 +122,28 @@ describe('hasAvatarPart', () => {
     expect(hasAvatarPart('horns', 'tiefling')).toBe(true)
     expect(hasAvatarPart('horns', 'klingon')).toBe(false)
     expect(hasAvatarPart('ears', 'long')).toBe(false)
+    expect(hasAvatarPart('hair', 'ponytail')).toBe(true)
     expect(hasAvatarPart('unknown', 'x')).toBe(false)
   })
 
   it('lists each registered kind', () => {
-    expect(Object.keys(AVATAR_PARTS)).toEqual(['ears', 'horns', 'tusks', 'tail'])
+    expect(Object.keys(AVATAR_PARTS)).toEqual(['ears', 'horns', 'tusks', 'tail', 'hair'])
+  })
+})
+
+describe('hairStyleLabel', () => {
+  it('maps slugs to labels and unknown/blank to None', () => {
+    expect(hairStyleLabel('ponytail')).toBe('Ponytail')
+    expect(hairStyleLabel('long')).toBe('Long')
+    expect(hairStyleLabel('')).toBe('None')
+    expect(hairStyleLabel(undefined)).toBe('None')
+    expect(hairStyleLabel('mohawk')).toBe('None')
+  })
+
+  it('exposes every built hair style as a registry part', () => {
+    HAIR_STYLES.filter((option) => option.value).forEach((option) => {
+      expect(AVATAR_PARTS.hair).toContain(option.value)
+    })
   })
 })
 

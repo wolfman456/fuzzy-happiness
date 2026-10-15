@@ -15,14 +15,16 @@ committed toolchain.
   anatomical anchors (top of head, mouth height, pelvis),
 - Y-up, ~1 unit ≈ 1 metre, feet at the origin (matches `AvatarCanvas`'s camera).
 
-`tabletopweb/public/models/avatars/parts/{kind}/{id}.glb` — additive race features (each authored
-around its own origin, so it lands exactly on its socket):
+`tabletopweb/public/models/avatars/parts/{kind}/{id}.glb` — additive features (each authored
+around its own origin, so it lands exactly on its socket). Race features are fixed by the race
+preset; `hair` is player-chosen from `appearance.hairStyle`:
 
-| kind | ids |
-|---|---|
-| `horns` | `dragonborn`, `tiefling` |
-| `tusks` | `half-orc` |
-| `tail` | `dragonborn`, `tiefling` |
+| kind | ids | tint |
+|---|---|---|
+| `horns` | `dragonborn`, `tiefling` | fixed |
+| `tusks` | `half-orc` | skin |
+| `tail` | `dragonborn`, `tiefling` | fixed |
+| `hair` | `short`, `ponytail`, `long` | `Hair` (tinted from `hairTone`) |
 
 ## Licence (all CC0)
 
@@ -54,15 +56,16 @@ files, and commit them together with any script change.
 | `generate.sh` | Isolated Blender config + `generate_base.py` |
 | `generate_base.py` | Headless Blender script (build → rig → bake → material → sockets → export) |
 | `generate_parts.sh` | Isolated Blender config + `generate_parts.py` |
-| `generate_parts.py` | Headless Blender script for the race-feature parts |
+| `generate_parts.py` | Headless Blender script for the race-feature and hair parts |
 | `optimize.sh` | Optional glTF-Transform pass (texture resize/quantize) via `npx` |
 
 ## Conventions for parts
 
 Parts live in `tabletopweb/public/models/avatars/parts/{kind}/{id}.glb`, are authored around the
-matching `socket_*` origin, and use `Skin` (tintable) or a fixed material such as `Horn`/`Scale`.
-A part must be registered in `AVATAR_PARTS` before a `RACE_PRESETS` entry may reference it
-(`tabletopweb/src/lib/avatars.js`). Pointed ears are deferred: the MPFB base bakes rounded ears
+matching `socket_*` origin, and use `Skin`/`Hair` (tintable) or a fixed material such as
+`Horn`/`Scale`. A part must be registered in `AVATAR_PARTS` before a `RACE_PRESETS` entry may
+reference it (race features) or `resolveAvatar` will attach it from `appearance.hairStyle` (hair);
+see `tabletopweb/src/lib/avatars.js`. Pointed ears are deferred: the MPFB base bakes rounded ears
 into the skin mesh, so they need a base variant, not an additive part.
 
 ## Options
