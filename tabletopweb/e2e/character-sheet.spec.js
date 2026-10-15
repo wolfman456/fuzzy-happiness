@@ -19,8 +19,9 @@ test.describe('character sheet avatar', () => {
 
     const avatar = page.getByTestId('character-avatar')
     await expect(avatar).toBeVisible()
-    // The shared CC0 base body is committed, so a WebGL canvas mounts for the
-    // character's sex (the 2D tint swatch is only the WebGL-unavailable fallback).
-    await expect(avatar.locator('canvas')).toHaveCount(1)
+    // The sheet portrait is a client-side PNG snapshot captured from the avatar
+    // scene (design-draft-v2 §5): the live WebGL canvas mounts on the first
+    // render, then is swapped for the cached <img>.
+    await expect(page.locator('img[data-testid="character-avatar"]')).toBeVisible({ timeout: 20000 })
   })
 })

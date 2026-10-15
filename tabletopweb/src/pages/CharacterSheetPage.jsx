@@ -62,6 +62,7 @@ export default function CharacterSheetPage() {
               appearance={sheet.appearance}
               size={80}
               testId="character-avatar"
+              portrait
             />
             <div>
               <h1 className="font-display text-2xl font-semibold text-zinc-900">{sheet.name}</h1>

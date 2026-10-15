@@ -275,6 +275,12 @@ backend tests, jacoco gate met. Frontend: `src/lib/monsters.js` (CR/role/edition
    Sockets are now **world-axis-aligned** at anatomical anchors, so each part is authored around its
    own origin. Pointed ears are deferred (the MPFB base bakes rounded ears into the skin mesh, so
    they need a base variant rather than an additive part).
+- **Slice 2c (part) — client-side portrait snapshot** — `feature/v2-avatar-portrait-snapshot`
+   (design-draft-v2 §5). Every live avatar canvas captures a PNG data-URL snapshot into an
+   in-memory, **config-keyed** cache (`lib/avatarSnapshot.js`, keyed by race × sex × tints ×
+   hair-style); the character-sheet portrait renders the cached snapshot as a plain `<img>` (no
+   WebGL) and mounts the live canvas only to fill a cache miss. Deterministic, no backend storage,
+   no Flyway migration. 310 frontend unit + 15 Playwright green, oxlint + build clean.
 - **In-app release notes page (R52)** — `feature/release-notes-page` (design-draft-v2 §10). A
   signed-in `/releases` page (nav drawer + route) lists every update, newest first, and links to
   the project's GitHub issue tracker. The data is **bundled from `RELEASES.md`**:
@@ -298,8 +304,8 @@ backend tests, jacoco gate met. Frontend: `src/lib/monsters.js` (CR/role/edition
   Vitest and Playwright tests; real provider logins aren't exercised in CI (no creds).
 
 Next: the avatar creator's wizard integration (hair-style picker + auto race features), then the
-portrait snapshot and the map token (Slice 2c), and the rest of the game table (multi-map, fog of
-war, turn timers, conditions). The out-of-MVP list lives in [Wants.md](Wants.md).
+map token (Slice 2c), and the rest of the game table (multi-map, fog of war, turn timers,
+conditions). The out-of-MVP list lives in [Wants.md](Wants.md).
 
 ## Deployment (Railway)
 
