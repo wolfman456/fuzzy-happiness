@@ -1,13 +1,17 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
+  AVATAR_BASES,
   AVATAR_MODEL_BASE,
-  AVATAR_MODELS,
+  AVATAR_PARTS,
+  attachToSocket,
   applyAvatarTints,
-  avatarModelKey,
-  avatarModelUrl,
+  avatarPartUrl,
   avatarSexCode,
+  hasAvatarPart,
   hueCss,
-  resolveAvatarModel,
+  RACE_PRESETS,
+  resolveAvatar,
+  supportsWebGL,
 } from './avatars'
 
 describe('avatarSexCode', () => {
@@ -23,45 +27,106 @@ describe('avatarSexCode', () => {
   })
 })
 
-describe('avatarModelKey', () => {
-  it('joins race index and sex code', () => {
-    expect(avatarModelKey('dwarf', 'MALE')).toBe('dwarf-M')
-    expect(avatarModelKey('tiefling', 'FEMALE')).toBe('tiefling-F')
+describe('avatarPartUrl', () => {
+  it('builds the conventional part path', () => {
+    expect(avatarPartUrl('horns', 'curved')).toBe(`${AVATAR_MODEL_BASE}/parts/horns/curved.glb`)
   })
 
-  it('returns null when race or sex is missing', () => {
-    expect(avatarModelKey(null, 'MALE')).toBeNull()
-    expect(avatarModelKey('dwarf', null)).toBeNull()
-  })
-})
-
-describe('avatarModelUrl', () => {
-  it('builds the conventional asset path', () => {
-    expect(avatarModelUrl('dwarf', 'MALE')).toBe(`${AVATAR_MODEL_BASE}/dwarf-M.glb`)
-  })
-
-  it('returns null without a key', () => {
-    expect(avatarModelUrl(null, null)).toBeNull()
+  it('returns null when a half is missing', () => {
+    expect(avatarPartUrl('', 'curved')).toBeNull()
+    expect(avatarPartUrl('horns', null)).toBeNull()
   })
 })
 
-describe('resolveAvatarModel', () => {
+describe('resolveAvatar', () => {
   afterEach(() => {
-    delete AVATAR_MODELS['dwarf-M']
+    RACE_PRESETS.elf.parts = []
   })
 
-  it('returns null while no asset is curated', () => {
-    expect(resolveAvatarModel('dwarf', 'MALE')).toBeNull()
+  it('returns the sex base and race scale', () => {
+    expect(resolveAvatar('dwarf', 'MALE')).toEqual({
+      base: AVATAR_BASES.M,
+      parts: [],
+      scale: 0.8,
+    })
+    expect(resolveAvatar('human', 'FEMALE').base).toBe(AVATAR_BASES.F)
   })
 
-  it('returns the registered URL', () => {
-    AVATAR_MODELS['dwarf-M'] = `${AVATAR_MODEL_BASE}/dwarf-M.glb`
-    expect(resolveAvatarModel('dwarf', 'MALE')).toBe(`${AVATAR_MODEL_BASE}/dwarf-M.glb`)
+  it('falls back to the default preset for an unknown race', () => {
+    expect(resolveAvatar('goblin', 'MALE')).toEqual({
+      base: AVATAR_BASES.M,
+      parts: [],
+      scale: 1,
+    })
   })
 
-  it('returns null when the race/sex half is missing', () => {
-    expect(resolveAvatarModel('', 'MALE')).toBeNull()
-    expect(resolveAvatarModel('dwarf', '')).toBeNull()
+  it('resolves registered preset parts to socket+url entries', () => {
+    RACE_PRESETS.elf.parts = [{ kind: 'horns', id: 'tiefling', socket: 'socket_horns' }]
+    expect(resolveAvatar('elf', 'MALE').parts).toEqual([
+      { socket: 'socket_horns', url: `${AVATAR_MODEL_BASE}/parts/horns/tiefling.glb` },
+    ])
+  })
+
+  it('drops parts that are missing a socket, an id or a registry entry', () => {
+    RACE_PRESETS.elf.parts = [
+      { kind: 'ears', id: 'long', socket: '' },
+      { kind: '', id: 'long', socket: 'socket_ears' },
+      { kind: 'ears', id: 'long', socket: 'socket_ears' },
+      { kind: 'horns', id: 'klingon', socket: 'socket_horns' },
+    ]
+    expect(resolveAvatar('elf', 'MALE').parts).toEqual([])
+  })
+
+  it('attaches the authored race-feature parts', () => {
+    expect(resolveAvatar('dragonborn', 'MALE').parts).toEqual([
+      { socket: 'socket_horns', url: `${AVATAR_MODEL_BASE}/parts/horns/dragonborn.glb` },
+      { socket: 'socket_tail', url: `${AVATAR_MODEL_BASE}/parts/tail/dragonborn.glb` },
+    ])
+    expect(resolveAvatar('half-orc', 'FEMALE').parts).toEqual([
+      { socket: 'socket_tusks', url: `${AVATAR_MODEL_BASE}/parts/tusks/half-orc.glb` },
+    ])
+    expect(resolveAvatar('tiefling', 'MALE').parts).toHaveLength(2)
+  })
+
+  it('returns null without a usable sex', () => {
+    expect(resolveAvatar('dwarf', '')).toBeNull()
+    expect(resolveAvatar('dwarf', null)).toBeNull()
+  })
+})
+
+describe('hasAvatarPart', () => {
+  it('reports only registered kind/id pairs', () => {
+    expect(hasAvatarPart('horns', 'tiefling')).toBe(true)
+    expect(hasAvatarPart('horns', 'klingon')).toBe(false)
+    expect(hasAvatarPart('ears', 'long')).toBe(false)
+    expect(hasAvatarPart('unknown', 'x')).toBe(false)
+  })
+
+  it('lists each registered kind', () => {
+    expect(Object.keys(AVATAR_PARTS)).toEqual(['ears', 'horns', 'tusks', 'tail'])
+  })
+})
+
+describe('supportsWebGL', () => {
+  it('reports a boolean capability flag', () => {
+    expect(typeof supportsWebGL()).toBe('boolean')
+  })
+})
+
+describe('attachToSocket', () => {
+  it('parents the part at the named socket', () => {
+    const part = { name: 'part' }
+    const socket = { add: vi.fn() }
+    const root = { getObjectByName: vi.fn((name) => (name === 'socket_ears' ? socket : null)) }
+
+    expect(attachToSocket(root, 'socket_ears', part)).toBe(true)
+    expect(socket.add).toHaveBeenCalledWith(part)
+  })
+
+  it('returns false when the socket is absent or inputs are invalid', () => {
+    expect(attachToSocket({ getObjectByName: () => null }, 'socket_ears', {})).toBe(false)
+    expect(attachToSocket(null, 'socket_ears', {})).toBe(false)
+    expect(attachToSocket({ getObjectByName: () => ({ add: vi.fn() }) }, 's', null)).toBe(false)
   })
 })
 
