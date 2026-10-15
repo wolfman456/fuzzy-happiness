@@ -8,8 +8,8 @@ maintainer approves the slices; the living bug ledger stays in
 **Status:** 🚧 in delivery — v2 vision + slice plan agreed (2026-09-13); Slice 0 Flyway baseline,
 Slice 1 wizard UX, Slice 2a sex + appearance and Slice 2b 3D avatar preview landed (2026-10-13); the in-app release
 notes page (R52, §10) landed (`feature/release-notes-page`, PR #106, 2026-10-14); social OAuth
-login (R19, §11) landed (`feature/social-oauth-login`, 2026-10-14); Slice 2c re-planned as a
-**modular avatar** (`feature/v2-modular-avatar`, in progress 2026-10-14 — §5: data chain, base
+login (R19, §11) landed (`feature/social-oauth-login`, 2026-10-14); Slice 2c landed as a
+**modular avatar** (`feature/v2-modular-avatar`, 2026-10-14 — §5: data chain, base
 assets/compositor, race-feature parts, hair parts + wizard hair picker, the client-side portrait
 snapshot and the map-token portrait all landed) with Slice 3 planned.
 
@@ -170,8 +170,9 @@ blocked on the 3D-asset research and the in-session viewport:
 
 > **Status:** ✅ **2a landed** (`feature/v2-slice-2a-sex-appearance`, R49, PR #104, 2026-10-13);
 > ✅ **2b landed** (`feature/v2-slice-2b-3d-avatar-preview`, R50, PR #105, 2026-10-13);
-> **2c** 🔨 in progress (R51) — data chain, base assets/compositor, race-feature parts, hair parts
-> + the wizard hair picker, the portrait snapshot and the map-token portrait landed 2026-10-14.
+> ✅ **2c landed** (R51, 2026-10-14) — data chain, base assets/compositor, race-feature parts,
+> hair parts + the wizard hair picker, the portrait snapshot and the map-token portrait all
+> landed; avatar creator complete.
 > 2a ships the full data chain (`Sex` enum, `CharacterAppearance` record, both DTOs, both
 > entities, `V2__character_appearance.sql`), a required-sex **Appearance** wizard step with 2D
 > tint swatches, and sex/tint display on `CharacterSheetPage`. 2b adds the code-split R3F stack +
