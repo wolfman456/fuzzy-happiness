@@ -52,28 +52,36 @@ The pipeline lives in [`tools/avatar-gen/`](../tools/avatar-gen/):
 ```sh
 tools/avatar-gen/fetch-tools.sh     # Blender LTS + MPFB2 + CC0 assets into .cache/ (gitignored)
 tools/avatar-gen/generate.sh        # headless: base-{M,F}.glb into public/models/avatars/
+tools/avatar-gen/generate_parts.sh  # headless: parts/{kind}/{id}.glb (race features)
 tools/avatar-gen/optimize.sh        # optional glTF-Transform pass
 ```
 
 `generate_base.py` (run by `generate.sh`) creates the body from MPFB's bundled CC0 base mesh,
 fits the `game_engine` skeleton, bakes the macro-detail shape keys, strips helper geometry,
-applies the flat `Skin` material and adds the socket empties, then exports GLB. It is headless
-and reproducible — no GUI step.
+applies the flat `Skin` material and adds the socket empties, then exports GLB. The sockets are
+**world-axis-aligned** at anatomical anchors (top of head, mouth height, pelvis) so a part
+authored around its own origin lands correctly. It is headless and reproducible — no GUI step.
 
-## Race-feature + hair parts (next increment)
+## Race-feature parts (landed 2026-10-14)
 
-Authored **ourselves** in Blender (clean CC0 ownership, consistent style) as simple meshes built
-around each socket origin, exported to `parts/{kind}/{id}.glb`. Planned mapping (SRD races):
+Authored **ourselves** procedurally in Blender (`generate_parts.py`, run by `generate_parts.sh`)
+— each part is built around its own origin, baked to identity, and exported to
+`parts/{kind}/{id}.glb`. Landed: **horns** (dragonborn, tiefling), **tusks** (half-orc),
+**tails** (dragonborn, tiefling), attached via `AVATAR_PARTS` / `RACE_PRESETS.parts`. Target
+mapping (SRD races; ✅ = authored):
 
 | Race | ear | horn | tusk | tail | notes |
 |---|---|---|---|---|---|
-| elf | long pointed | — | — | — | |
-| half-elf | slight point | — | — | — | |
-| half-orc | round | — | yes | — | |
-| dragonborn | round | yes | — | yes | scaled up ~1.05 |
-| tiefling | long pointed | yes | — | yes | |
+| elf | long pointed | — | — | — | ears deferred |
+| half-elf | slight point | — | — | — | ears deferred |
+| half-orc | round | — | ✅ | — | |
+| dragonborn | round | ✅ | — | ✅ | scaled up ~1.05 |
+| tiefling | long pointed | ✅ | — | ✅ | ears deferred |
 | dwarf / gnome / halfling | round | — | — | — | scaled down (0.75–0.8) |
 | human | round | — | — | — | baseline |
+
+**Pointed ears** (elf / half-elf / tiefling) are deferred: MPFB's base body bakes rounded ears
+into the skin mesh, so ears need a **base variant** (an MPFB target), not an additive part.
 
 ## Superseded sources (kept for reference / non-MakeHuman fallback)
 
@@ -88,7 +96,8 @@ useful for **parts or a stylised base** if the MakeHuman look is ever swapped ou
 | Poly Pizza (https://poly.pizza) | CC0/CC-BY search index | per-model (CC0) | Discovery for race gaps |
 | Sketchfab (CC0 filter) | Model marketplace | per-model (CC0) | Race-specific one-offs |
 
-**Recommendation:** keep the **MakeHuman + MPFB2 scripted** pipeline as the base-body source and
-**self-author** the race/hair parts around the sockets, normalising to the naming + orientation
-above. No hosted/AI avatar service is compatible with the self-hosted + offline + CC0
-constraint. Generated bases are committed (≈1.8 MB total); downloads/toolchain stay out of git.
+**Recommendation:** the **MakeHuman + MPFB2 scripted** pipeline is the base-body source, and the
+race-feature parts are **self-authored** procedurally (see above) — horns, tusks and tails have
+landed; pointed ears remain a base-variant follow-up. No hosted/AI avatar service is compatible
+with the self-hosted + offline + CC0 constraint. Generated assets are committed (≈1.8 MB of bases
+plus a few KB of parts); downloads/toolchain stay out of git.

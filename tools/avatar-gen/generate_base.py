@@ -20,20 +20,15 @@ import os
 import sys
 
 import bpy
+from mathutils import Vector
 
 from bl_ext.user_default.mpfb.services.humanservice import HumanService
 from bl_ext.user_default.mpfb.services.targetservice import TargetService
 
-# Socket empties, parented to a rig bone, that parts attach to at runtime
-# (three.js looks them up by name via scene.getObjectByName).
-SOCKETS: list[tuple[str, str]] = [
-    ("socket_head", "head"),
-    ("socket_hair", "head"),
-    ("socket_ears", "head"),
-    ("socket_horns", "head"),
-    ("socket_tusks", "head"),
-    ("socket_tail", "pelvis"),
-]
+# Attachment points that race/hair parts parent to at runtime (three.js looks
+# them up by name via scene.getObjectByName). They are world-axis-aligned (no
+# bone rotation) and sit on the body's centre line, so a part authored upright
+# around its own origin attaches upright at the anatomical anchor.
 
 # Race-neutral skin base colour; the runtime tint recolours the ``Skin`` material.
 SKIN_COLOR = (0.82, 0.62, 0.50)
@@ -78,13 +73,39 @@ def make_skin_material() -> bpy.types.Material:
     return material
 
 
-def add_socket(name: str, armature: bpy.types.Object, bone: str) -> None:
+def add_socket(name: str, armature: bpy.types.Object, location: Vector) -> None:
+    """Create a world-axis-aligned empty at ``location`` (armature space)."""
     empty = bpy.data.objects.new(name, None)
     bpy.context.scene.collection.objects.link(empty)
     empty.empty_display_size = 0.05
     empty.parent = armature
-    empty.parent_type = "BONE"
-    empty.parent_bone = bone
+    empty.parent_type = "OBJECT"
+    empty.location = location
+    empty.rotation_euler = (0.0, 0.0, 0.0)
+
+
+def socket_locations(armature: bpy.types.Object) -> dict[str, Vector]:
+    """Anatomical socket anchors derived from the fitted rig's head/pelvis bones."""
+    to_world = armature.matrix_world
+
+    def bone_head(bone: str) -> Vector:
+        return (to_world @ armature.pose.bones[bone].matrix).translation
+
+    def bone_tail(bone: str) -> Vector:
+        pose = armature.pose.bones[bone]
+        return (to_world @ pose.matrix) @ Vector((0.0, pose.length, 0.0))
+
+    head_head = bone_head("head")
+    head_tail = bone_tail("head")
+    neck_to_head = head_tail - head_head
+    return {
+        "socket_head": head_head,
+        "socket_hair": head_tail,
+        "socket_horns": head_tail,
+        "socket_ears": head_head + neck_to_head * 0.5,
+        "socket_tusks": head_head + neck_to_head * 0.2,
+        "socket_tail": bone_head("pelvis"),
+    }
 
 
 def build_base(sex: str, scale: float, rig: str) -> None:
@@ -106,8 +127,8 @@ def build_base(sex: str, scale: float, rig: str) -> None:
     basemesh.data.materials.clear()
     basemesh.data.materials.append(make_skin_material())
 
-    for socket_name, bone in SOCKETS:
-        add_socket(socket_name, armature, bone)
+    for socket_name, location in socket_locations(armature).items():
+        add_socket(socket_name, armature, location)
 
 
 def export_glb(path: str) -> None:

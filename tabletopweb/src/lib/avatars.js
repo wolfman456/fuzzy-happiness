@@ -14,31 +14,57 @@ export const AVATAR_BASES = {
 }
 
 /**
- * Part registry, keyed by kind → id → GLB URL. Authored in a later slice; while
- * empty the presets attach nothing. Each part GLB is placed at a socket by name
- * (e.g. `socket_horns`) when referenced by a race preset.
+ * Part registry: kind → the ids that actually exist as GLBs under
+ * `models/avatars/parts/{kind}/{id}.glb` (authored by `tools/avatar-gen/`). A
+ * race preset may only reference entries listed here; anything else is dropped
+ * by `resolveAvatar` so a missing file can never trip the avatar error boundary.
+ *
+ * Additive features only for now — pointed ears need a base variant and are not
+ * yet authored, so `ears` stays empty.
  */
-export const AVATAR_PARTS = {}
+export const AVATAR_PARTS = {
+  ears: [],
+  horns: ['dragonborn', 'tiefling'],
+  tusks: ['half-orc'],
+  tail: ['dragonborn', 'tiefling'],
+}
 
 /**
  * Per-race presentation: uniform scale factor and the `{ kind, id, socket }`
- * parts to attach. Parts are intentionally empty until the part GLBs exist —
- * referencing a missing file would trip the error boundary and hide the avatar.
+ * parts to attach at the matching `socket_*` empty. Ears are deferred, so the
+ * ear-bearing races carry no parts yet.
  */
 export const RACE_PRESETS = {
-  human: { scale: 1 },
-  elf: { scale: 1 },
-  'half-elf': { scale: 1 },
-  dwarf: { scale: 0.8 },
-  gnome: { scale: 0.75 },
-  halfling: { scale: 0.75 },
-  'half-orc': { scale: 1.05 },
-  dragonborn: { scale: 1.05 },
-  tiefling: { scale: 1 },
+  human: { scale: 1, parts: [] },
+  elf: { scale: 1, parts: [] },
+  'half-elf': { scale: 1, parts: [] },
+  dwarf: { scale: 0.8, parts: [] },
+  gnome: { scale: 0.75, parts: [] },
+  halfling: { scale: 0.75, parts: [] },
+  'half-orc': { scale: 1.05, parts: [{ kind: 'tusks', id: 'half-orc', socket: 'socket_tusks' }] },
+  dragonborn: {
+    scale: 1.05,
+    parts: [
+      { kind: 'horns', id: 'dragonborn', socket: 'socket_horns' },
+      { kind: 'tail', id: 'dragonborn', socket: 'socket_tail' },
+    ],
+  },
+  tiefling: {
+    scale: 1,
+    parts: [
+      { kind: 'horns', id: 'tiefling', socket: 'socket_horns' },
+      { kind: 'tail', id: 'tiefling', socket: 'socket_tail' },
+    ],
+  },
 }
 
 /** Fallback preset for an unknown/unset race. */
-export const DEFAULT_RACE_PRESET = { scale: 1 }
+export const DEFAULT_RACE_PRESET = { scale: 1, parts: [] }
+
+/** True when `id` is a registered, existing part of `kind`. */
+export function hasAvatarPart(kind, id) {
+  return Array.isArray(AVATAR_PARTS[kind]) && AVATAR_PARTS[kind].includes(id)
+}
 
 /** Maps the `Sex` enum to the single-letter asset code used in filenames. */
 export function avatarSexCode(sex) {
@@ -63,11 +89,11 @@ export function resolveAvatar(raceIndex, sex) {
   if (!base) return null
   const preset = RACE_PRESETS[raceIndex] ?? DEFAULT_RACE_PRESET
   const parts = (preset.parts ?? [])
+    .filter((part) => part.socket && hasAvatarPart(part.kind, part.id))
     .map((part) => ({
       socket: part.socket,
       url: avatarPartUrl(part.kind, part.id),
     }))
-    .filter((part) => part.url && part.socket)
   return { base, parts, scale: preset.scale ?? 1 }
 }
 
