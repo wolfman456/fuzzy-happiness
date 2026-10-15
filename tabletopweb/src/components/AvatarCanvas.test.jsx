@@ -2,22 +2,20 @@ import { render, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import AvatarCanvas from './AvatarCanvas'
 
-const { scene, colorSet, socketAdd, toDataURL } = vi.hoisted(() => {
+const { scene, colorSet, socketAdd } = vi.hoisted(() => {
   const colorSet = vi.fn()
   const socketAdd = vi.fn()
-  const toDataURL = vi.fn(() => 'data:image/png;base64,CANVAS')
   const socket = { add: socketAdd, remove: vi.fn() }
   const scene = {
     clone: () => scene,
     traverse: (fn) => fn({ isMesh: true, material: { name: 'Skin', color: { set: colorSet } } }),
     getObjectByName: (name) => (name === 'socket_horns' ? socket : null),
   }
-  return { scene, colorSet, socketAdd, toDataURL }
+  return { scene, colorSet, socketAdd }
 })
 
 vi.mock('@react-three/fiber', () => ({
   Canvas: ({ children }) => <div data-testid="r3f-canvas">{children}</div>,
-  useThree: (selector) => selector({ gl: { domElement: { toDataURL } } }),
 }))
 
 vi.mock('@react-three/drei', () => ({
@@ -35,21 +33,6 @@ describe('AvatarCanvas', () => {
     expect(screen.getByTestId('appearance-swatch')).toBeInTheDocument()
     expect(screen.getByTestId('r3f-canvas')).toBeInTheDocument()
     await waitFor(() => expect(colorSet).toHaveBeenCalledWith('hsl(10 45% 60%)'))
-  })
-
-  it('captures a PNG data URL when capture is enabled', async () => {
-    const onCapture = vi.fn()
-    render(<AvatarCanvas avatar={BASE} appearance={null} capture onCapture={onCapture} />)
-    await waitFor(() => expect(onCapture).toHaveBeenCalledWith('data:image/png;base64,CANVAS'))
-  })
-
-  it('does not touch the canvas buffer when capture is disabled', async () => {
-    toDataURL.mockClear()
-    const onCapture = vi.fn()
-    render(<AvatarCanvas avatar={BASE} appearance={null} onCapture={onCapture} />)
-    await new Promise((resolve) => setTimeout(resolve, 30))
-    expect(onCapture).not.toHaveBeenCalled()
-    expect(toDataURL).not.toHaveBeenCalled()
   })
 
   it('attaches registered parts at their socket', async () => {

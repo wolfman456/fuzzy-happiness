@@ -124,7 +124,7 @@ export const E2E_CHARACTER = {
   level: 3,
   scoreSource: 'STANDARD_ARRAY',
   sex: 'FEMALE',
-  appearance: { skinTone: 120, hairTone: 300 },
+  appearance: { skinTone: 120, hairTone: 300, hairStyle: 'ponytail', eyeColor: 90 },
   raceIndex: 'dwarf',
   classIndex: 'cleric',
   subclassIndex: 'life',
@@ -190,7 +190,7 @@ export const E2E_MAP = {
       linkedUserId: 1,
       raceIndex: 'dwarf',
       sex: 'FEMALE',
-      appearance: { skinTone: 120, hairTone: 300 },
+      appearance: { skinTone: 120, hairTone: 300, hairStyle: 'ponytail', eyeColor: 90 },
     },
   ],
 }
