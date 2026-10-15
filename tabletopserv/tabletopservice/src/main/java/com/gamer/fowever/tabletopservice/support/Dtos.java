@@ -14,6 +14,7 @@ import com.gamer.fowever.tabletopservice.domain.Participant;
 import com.gamer.fowever.tabletopservice.domain.User;
 
 import java.util.List;
+import java.util.Map;
 
 public final class Dtos {
 
@@ -33,7 +34,10 @@ public final class Dtos {
         return new ParticipantSummary(userSummary(participant.getUser()), participant.getRole(), participant.getJoinedAt());
     }
 
-    public static MapTokenDto mapToken(MapToken token) {
+    public static MapTokenDto mapToken(MapToken token, Map<Long, TokenAvatar> avatarsByUserId) {
+        TokenAvatar avatar = token.getLinkedUserId() == null
+                ? null
+                : avatarsByUserId.get(token.getLinkedUserId());
         return new MapTokenDto(
                 token.getId(),
                 token.getName(),
@@ -44,7 +48,10 @@ public final class Dtos {
                 token.getPosY(),
                 token.getMovedFeet(),
                 token.getLinkedParticipantId(),
-                token.getLinkedUserId());
+                token.getLinkedUserId(),
+                avatar == null ? null : avatar.raceIndex(),
+                avatar == null ? null : avatar.sex(),
+                avatar == null ? null : avatar.appearance());
     }
 
     public static InitiativeEntryDto initiativeEntry(InitiativeEntry entry) {
@@ -60,11 +67,12 @@ public final class Dtos {
         return entries.stream().map(Dtos::initiativeEntry).toList();
     }
 
-    public static List<MapTokenDto> mapTokens(List<MapToken> tokens) {
-        return tokens.stream().map(Dtos::mapToken).toList();
+    public static List<MapTokenDto> mapTokens(List<MapToken> tokens, Map<Long, TokenAvatar> avatarsByUserId) {
+        return tokens.stream().map(token -> mapToken(token, avatarsByUserId)).toList();
     }
 
-    public static BattleMapDto battleMap(BattleMap map, List<MapToken> tokens, List<InitiativeEntry> initiative) {
+    public static BattleMapDto battleMap(BattleMap map, List<MapToken> tokens, List<InitiativeEntry> initiative,
+                                         Map<Long, TokenAvatar> avatarsByUserId) {
         return new BattleMapDto(
                 map.getId(),
                 map.getSession().getId(),
@@ -75,6 +83,6 @@ public final class Dtos {
                 map.getCurrentTurnTokenId(),
                 map.getInitiativeIndex(),
                 initiativeEntries(initiative),
-                mapTokens(tokens));
+                mapTokens(tokens, avatarsByUserId));
     }
 }

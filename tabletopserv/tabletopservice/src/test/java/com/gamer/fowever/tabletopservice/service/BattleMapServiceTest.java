@@ -2,6 +2,7 @@ package com.gamer.fowever.tabletopservice.service;
 
 import com.gamer.fowever.tabletopservice.domain.BattleMap;
 import com.gamer.fowever.tabletopapi.EventType;
+import com.gamer.fowever.tabletopservice.domain.Dnd5eCharacter;
 import com.gamer.fowever.tabletopservice.domain.Game;
 import com.gamer.fowever.tabletopservice.domain.GameSession;
 import com.gamer.fowever.tabletopservice.domain.InitiativeEntry;
@@ -10,10 +11,12 @@ import com.gamer.fowever.tabletopservice.domain.Participant;
 import com.gamer.fowever.tabletopapi.Role;
 import com.gamer.fowever.tabletopservice.domain.SessionEvent;
 import com.gamer.fowever.tabletopapi.SessionStatus;
+import com.gamer.fowever.tabletopapi.Sex;
 import com.gamer.fowever.tabletopapi.TokenCategory;
 import com.gamer.fowever.tabletopservice.domain.User;
 import com.gamer.fowever.tabletopapi.dto.AddTokenRequest;
 import com.gamer.fowever.tabletopapi.dto.BattleMapDto;
+import com.gamer.fowever.tabletopapi.dto.CharacterAppearance;
 import com.gamer.fowever.tabletopapi.dto.CreateMapRequest;
 import com.gamer.fowever.tabletopapi.dto.InitiativeEntryDto;
 import com.gamer.fowever.tabletopapi.dto.InitiativeEntryRequest;
@@ -26,6 +29,7 @@ import com.gamer.fowever.tabletopapi.dto.TurnCommandRequest;
 import com.gamer.fowever.tabletopapi.dto.UpdateMapRequest;
 import com.gamer.fowever.tabletopapi.dto.UpdateTokenRequest;
 import com.gamer.fowever.tabletopservice.repository.BattleMapRepository;
+import com.gamer.fowever.tabletopservice.repository.CharacterRepository;
 import com.gamer.fowever.tabletopservice.repository.GameSessionRepository;
 import com.gamer.fowever.tabletopservice.repository.InitiativeEntryRepository;
 import com.gamer.fowever.tabletopservice.repository.MapTokenRepository;
@@ -73,6 +77,8 @@ class BattleMapServiceTest {
     @Mock
     private ParticipantRepository participantRepository;
     @Mock
+    private CharacterRepository characterRepository;
+    @Mock
     private GameSessionRepository sessionRepository;
     @Mock
     private UserRepository userRepository;
@@ -94,7 +100,7 @@ class BattleMapServiceTest {
     @BeforeEach
     void setUp() {
         service = new BattleMapService(mapRepository, tokenRepository, initiativeRepository,
-                participantRepository, sessionRepository, userRepository, eventRepository,
+                participantRepository, characterRepository, sessionRepository, userRepository, eventRepository,
                 messagingTemplate, objectMapper);
         savedParticipants.clear();
         savedTokens.clear();
@@ -274,6 +280,105 @@ class BattleMapServiceTest {
         });
         verify(messagingTemplate).convertAndSend(eq("/topic/sessions/" + SESSION_ID), any(SessionEventDto.class));
         assertThat(savedEvents).extracting(SessionEvent::getType).containsExactly(EventType.TABLE);
+    }
+
+    @Test
+    void createMapDecoratesPlayerTokenWithLinkedCharacterAvatar() throws Exception {
+        User gm = user(1L, "aria");
+        User player = user(2L, "ivo");
+        GameSession session = session(gm);
+        coreStubs(gm, session);
+        withGm(gm, session);
+        withPlayer(player, session);
+        when(userRepository.findById(2L)).thenReturn(Optional.of(player));
+        String appearance = objectMapper.writeValueAsString(new CharacterAppearance(120, 300, "ponytail"));
+        when(characterRepository.findFirstByOwnerIdOrderByIdAsc(2L))
+                .thenReturn(Optional.of(character(player, "dwarf", Sex.FEMALE, appearance)));
+
+        BattleMapDto dto = service.createMap(gm, SESSION_ID, new CreateMapRequest("Dungeon", null, null));
+
+        MapTokenDto playerToken = dto.tokens().stream()
+                .filter(token -> player.getId().equals(token.linkedUserId()))
+                .findFirst()
+                .orElseThrow();
+        assertThat(playerToken.raceIndex()).isEqualTo("dwarf");
+        assertThat(playerToken.sex()).isEqualTo(Sex.FEMALE);
+        assertThat(playerToken.appearance().skinTone()).isEqualTo(120);
+        assertThat(playerToken.appearance().hairTone()).isEqualTo(300);
+        assertThat(playerToken.appearance().hairStyle()).isEqualTo("ponytail");
+
+        MapTokenDto gmToken = dto.tokens().stream()
+                .filter(token -> gm.getId().equals(token.linkedUserId()))
+                .findFirst()
+                .orElseThrow();
+        assertThat(gmToken.raceIndex()).isNull();
+        assertThat(gmToken.sex()).isNull();
+        assertThat(gmToken.appearance()).isNull();
+    }
+
+    @Test
+    void playerTokenAvatarKeepsRaceAndSexWhenAppearanceIsUnparseable() {
+        User gm = user(1L, "aria");
+        User player = user(2L, "ivo");
+        GameSession session = session(gm);
+        coreStubs(gm, session);
+        withGm(gm, session);
+        withPlayer(player, session);
+        when(userRepository.findById(2L)).thenReturn(Optional.of(player));
+        when(characterRepository.findFirstByOwnerIdOrderByIdAsc(2L))
+                .thenReturn(Optional.of(character(player, "elf", Sex.MALE, "{not-json")));
+
+        BattleMapDto dto = service.createMap(gm, SESSION_ID, new CreateMapRequest("Dungeon", null, null));
+
+        MapTokenDto playerToken = dto.tokens().stream()
+                .filter(token -> player.getId().equals(token.linkedUserId()))
+                .findFirst()
+                .orElseThrow();
+        assertThat(playerToken.raceIndex()).isEqualTo("elf");
+        assertThat(playerToken.sex()).isEqualTo(Sex.MALE);
+        assertThat(playerToken.appearance()).isNull();
+    }
+
+    @Test
+    void getMapResolvesAvatarsForStoredPlayerTokens() {
+        User gm = user(1L, "aria");
+        User player = user(2L, "ivo");
+        GameSession session = session(gm);
+        coreStubs(gm, session);
+        storedMap(session);
+        storedToken("aria", TokenCategory.PLAYER, "#ef4444", 30, 1, 1, null, 1L);
+        storedToken("ivo", TokenCategory.PLAYER, "#3b82f6", 30, 3, 1, null, 2L);
+        storedToken("Goblin", TokenCategory.MONSTER_NPC, "#22c55e", 30, 5, 5, null, null);
+        when(characterRepository.findFirstByOwnerIdOrderByIdAsc(2L))
+                .thenReturn(Optional.of(character(player, "half-orc", Sex.MALE, null)));
+
+        BattleMapDto dto = service.getMap(SESSION_ID);
+
+        MapTokenDto playerToken = dto.tokens().stream()
+                .filter(token -> player.getId().equals(token.linkedUserId()))
+                .findFirst()
+                .orElseThrow();
+        assertThat(playerToken.raceIndex()).isEqualTo("half-orc");
+        assertThat(playerToken.sex()).isEqualTo(Sex.MALE);
+        assertThat(playerToken.appearance()).isNull();
+
+        MapTokenDto monsterToken = dto.tokens().stream()
+                .filter(token -> token.category() == TokenCategory.MONSTER_NPC)
+                .findFirst()
+                .orElseThrow();
+        assertThat(monsterToken.raceIndex()).isNull();
+        assertThat(monsterToken.sex()).isNull();
+        assertThat(monsterToken.appearance()).isNull();
+    }
+
+    private Dnd5eCharacter character(User owner, String raceIndex, Sex sex, String appearanceJson) {
+        Dnd5eCharacter character = new Dnd5eCharacter();
+        character.setId(100L);
+        character.setOwner(owner);
+        character.setRaceIndex(raceIndex);
+        character.setSex(sex);
+        character.setAppearance(appearanceJson);
+        return character;
     }
 
     @Test

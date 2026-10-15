@@ -7,6 +7,7 @@ import com.gamer.fowever.tabletopapi.EventType;
 import com.gamer.fowever.tabletopapi.Role;
 import com.gamer.fowever.tabletopapi.TokenCategory;
 import com.gamer.fowever.tabletopservice.domain.BattleMap;
+import com.gamer.fowever.tabletopservice.domain.Dnd5eCharacter;
 import com.gamer.fowever.tabletopservice.domain.GameSession;
 import com.gamer.fowever.tabletopservice.domain.InitiativeEntry;
 import com.gamer.fowever.tabletopservice.domain.MapToken;
@@ -15,6 +16,7 @@ import com.gamer.fowever.tabletopservice.domain.SessionEvent;
 import com.gamer.fowever.tabletopservice.domain.User;
 import com.gamer.fowever.tabletopapi.dto.AddTokenRequest;
 import com.gamer.fowever.tabletopapi.dto.BattleMapDto;
+import com.gamer.fowever.tabletopapi.dto.CharacterAppearance;
 import com.gamer.fowever.tabletopapi.dto.CreateMapRequest;
 import com.gamer.fowever.tabletopapi.dto.InitiativeEntryDto;
 import com.gamer.fowever.tabletopapi.dto.InitiativeEntryRequest;
@@ -27,8 +29,10 @@ import com.gamer.fowever.tabletopapi.dto.TurnCommandRequest;
 import com.gamer.fowever.tabletopapi.dto.UpdateMapRequest;
 import com.gamer.fowever.tabletopapi.dto.UpdateTokenRequest;
 import com.gamer.fowever.tabletopservice.repository.BattleMapRepository;
+import com.gamer.fowever.tabletopservice.repository.CharacterRepository;
 import com.gamer.fowever.tabletopservice.repository.GameSessionRepository;
 import com.gamer.fowever.tabletopservice.support.Dtos;
+import com.gamer.fowever.tabletopservice.support.TokenAvatar;
 import com.gamer.fowever.tabletopservice.repository.InitiativeEntryRepository;
 import com.gamer.fowever.tabletopservice.repository.MapTokenRepository;
 import com.gamer.fowever.tabletopservice.repository.ParticipantRepository;
@@ -40,7 +44,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 public class BattleMapService {
@@ -66,6 +75,7 @@ public class BattleMapService {
     private final MapTokenRepository tokenRepository;
     private final InitiativeEntryRepository initiativeRepository;
     private final ParticipantRepository participantRepository;
+    private final CharacterRepository characterRepository;
     private final GameSessionRepository sessionRepository;
     private final UserRepository userRepository;
     private final SessionEventRepository eventRepository;
@@ -76,6 +86,7 @@ public class BattleMapService {
                             MapTokenRepository tokenRepository,
                             InitiativeEntryRepository initiativeRepository,
                             ParticipantRepository participantRepository,
+                            CharacterRepository characterRepository,
                             GameSessionRepository sessionRepository,
                             UserRepository userRepository,
                             SessionEventRepository eventRepository,
@@ -85,6 +96,7 @@ public class BattleMapService {
         this.tokenRepository = tokenRepository;
         this.initiativeRepository = initiativeRepository;
         this.participantRepository = participantRepository;
+        this.characterRepository = characterRepository;
         this.sessionRepository = sessionRepository;
         this.userRepository = userRepository;
         this.eventRepository = eventRepository;
@@ -493,9 +505,46 @@ public class BattleMapService {
     }
 
     private BattleMapDto toDto(BattleMap map) {
-        return Dtos.battleMap(map,
-                tokenRepository.findByMapIdOrderByIdAsc(map.getId()),
-                orderedInitiative(map.getId()));
+        List<MapToken> tokens = tokenRepository.findByMapIdOrderByIdAsc(map.getId());
+        return Dtos.battleMap(map, tokens, orderedInitiative(map.getId()), resolveAvatars(tokens));
+    }
+
+    /**
+     * Resolves the avatar of each linked player's earliest-created character so
+     * player tokens can render a portrait instead of the colour disc
+     * (design-draft-v2 §5). Users without a character are simply absent from the
+     * result and their tokens keep the colour disc.
+     */
+    private Map<Long, TokenAvatar> resolveAvatars(List<MapToken> tokens) {
+        Set<Long> userIds = tokens.stream()
+                .map(MapToken::getLinkedUserId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        if (userIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, TokenAvatar> avatars = new HashMap<>();
+        for (Long userId : userIds) {
+            characterRepository.findFirstByOwnerIdOrderByIdAsc(userId)
+                    .filter(Dnd5eCharacter.class::isInstance)
+                    .map(Dnd5eCharacter.class::cast)
+                    .ifPresent(character -> avatars.put(userId, new TokenAvatar(
+                            character.getRaceIndex(),
+                            character.getSex(),
+                            parseAppearance(character.getAppearance()))));
+        }
+        return avatars;
+    }
+
+    private CharacterAppearance parseAppearance(String json) {
+        if (json == null || json.isBlank()) {
+            return null;
+        }
+        try {
+            return objectMapper.readValue(json, CharacterAppearance.class);
+        } catch (JacksonException e) {
+            return null;
+        }
     }
 
     private List<InitiativeEntry> orderedInitiative(Long battleMapId) {

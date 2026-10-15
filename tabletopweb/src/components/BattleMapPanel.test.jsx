@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import BattleMapPanel from './BattleMapPanel'
+import { avatarSnapshotKey, clearAvatarSnapshots, setAvatarSnapshot } from '../lib/avatarSnapshot'
 
 const battleMapMock = vi.hoisted(() => ({
   addToken: vi.fn(),
@@ -57,6 +58,7 @@ function renderPanel(props = {}) {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  clearAvatarSnapshots()
   battleMapMock.moveToken.mockResolvedValue(makeMap())
   battleMapMock.placeToken.mockResolvedValue(makeMap())
   battleMapMock.turnCommand.mockResolvedValue(makeMap())
@@ -84,6 +86,35 @@ describe('BattleMapPanel', () => {
   it('shows the current turn from the map', () => {
     renderPanel({ map: makeMap({ currentTurnTokenId: 11 }) })
     expect(screen.getByText('Turn: Aria Sol')).toBeInTheDocument()
+  })
+
+  it('renders the cached character portrait on a linked player token', () => {
+    const appearance = { skinTone: 120, hairTone: 300, hairStyle: 'ponytail' }
+    setAvatarSnapshot(avatarSnapshotKey('dwarf', 'MALE', appearance), 'data:image/png;base64,AAA')
+    renderPanel({
+      map: makeMap({
+        tokens: [
+          { id: 11, name: 'Aria Sol', category: 'PLAYER', color: '#3b82f6', speedFeet: 30, posX: 1, posY: 1, movedFeet: 0, linkedParticipantId: null, linkedUserId: 1, raceIndex: 'dwarf', sex: 'MALE', appearance },
+        ],
+      }),
+    })
+
+    const avatar = screen.getByTestId('token-avatar-11')
+    expect(avatar).toHaveAttribute('src', 'data:image/png;base64,AAA')
+    expect(avatar).toHaveAttribute('alt', 'Avatar for Aria Sol')
+  })
+
+  it('keeps the colour disc when no snapshot is cached for the token avatar', () => {
+    renderPanel({
+      map: makeMap({
+        tokens: [
+          { id: 11, name: 'Aria Sol', category: 'PLAYER', color: '#3b82f6', speedFeet: 30, posX: 1, posY: 1, movedFeet: 0, linkedParticipantId: null, linkedUserId: 1, raceIndex: 'dwarf', sex: 'MALE', appearance: { skinTone: 120, hairTone: 300, hairStyle: 'ponytail' } },
+        ],
+      }),
+    })
+
+    expect(screen.queryByTestId('token-avatar-11')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Token Aria Sol/ })).toHaveTextContent('AS')
   })
 
   it('lets a player move their own token within the budget during combat', async () => {

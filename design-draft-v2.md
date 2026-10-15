@@ -10,8 +10,8 @@ Slice 1 wizard UX, Slice 2a sex + appearance and Slice 2b 3D avatar preview land
 notes page (R52, §10) landed (`feature/release-notes-page`, PR #106, 2026-10-14); social OAuth
 login (R19, §11) landed (`feature/social-oauth-login`, 2026-10-14); Slice 2c re-planned as a
 **modular avatar** (`feature/v2-modular-avatar`, in progress 2026-10-14 — §5: data chain, base
-assets/compositor, race-feature parts and the client-side portrait snapshot all landed) with
-Slice 3 planned.
+assets/compositor, race-feature parts, the client-side portrait snapshot and the map-token
+portrait all landed) with Slice 3 planned.
 
 ---
 
@@ -170,8 +170,8 @@ blocked on the 3D-asset research and the in-session viewport:
 
 > **Status:** ✅ **2a landed** (`feature/v2-slice-2a-sex-appearance`, R49, PR #104, 2026-10-13);
 > ✅ **2b landed** (`feature/v2-slice-2b-3d-avatar-preview`, R50, PR #105, 2026-10-13);
-> **2c** 🔨 in progress (R51) — data chain, base assets/compositor, race-feature parts and the
-> portrait snapshot landed 2026-10-14 (wizard creator and map token next).
+> **2c** 🔨 in progress (R51) — data chain, base assets/compositor, race-feature parts, the
+> portrait snapshot and the map-token portrait landed 2026-10-14 (wizard creator next).
 > 2a ships the full data chain (`Sex` enum, `CharacterAppearance` record, both DTOs, both
 > entities, `V2__character_appearance.sql`), a required-sex **Appearance** wizard step with 2D
 > tint swatches, and sex/tint display on `CharacterSheetPage`. 2b adds the code-split R3F stack +
@@ -236,8 +236,11 @@ blocked on the 3D-asset research and the in-session viewport:
      (`lib/avatarSnapshot.js`); the sheet portrait renders the cached snapshot as a plain
      `<img>` (falling back to the live canvas to fill a cache miss). Deterministic, no storage,
      no migration.
-  5. **Map token** — the 2D map token renders that cached thumbnail instead of the color disc
-     (`MapTokenDto` carries `{raceIndex, sex, appearance}`).
+  5. **Map token** — ✅ **landed** (`feature/v2-avatar-map-token`, 2026-10-14): `MapTokenDto`
+     carries `{raceIndex, sex, appearance}` resolved server-side from the linked player's
+     earliest-created character (`BattleMapService`); the 2D map token renders that character's
+     cached thumbnail instead of the colour disc, falling back to the disc when the player has
+     no character or no snapshot is cached.
   6. **(later) Morphs** — `bodyType`/`buildScale`/`faceShape` morph-target sliders.
    - Assets are **generated in-repo** (`tools/avatar-gen/`, scripted) with the CC0 sourcing notes
      in `research/avatar resources.md`.

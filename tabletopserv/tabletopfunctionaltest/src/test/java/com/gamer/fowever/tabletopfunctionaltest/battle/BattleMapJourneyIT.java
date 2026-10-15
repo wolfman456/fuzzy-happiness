@@ -7,6 +7,7 @@ import tools.jackson.databind.JsonNode;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -188,6 +189,46 @@ class BattleMapJourneyIT extends FunctionalTestBase {
                 + "/map/tokens/" + playerTokenId + "/place", playerJwt, Api.body(Map.of("x", 10, "y", 10)));
         assertThat(placedInCombat.status()).isEqualTo(400);
         assertThat(Api.json(placedInCombat.body()).at("/message").asText()).contains("use move instead");
+    }
+
+    @Test
+    void playerTokenCarriesLinkedCharacterAvatar() throws Exception {
+        String gmJwt = registerVerifyLogin("b4gm");
+        String playerJwt = registerVerifyLogin("b4pip");
+        SessionHandle session = createSession(gmJwt, "Avatar Hall");
+        joinSession(playerJwt, session.inviteCode());
+
+        Api.requireStatus(Api.post(baseUrl() + "/api/users/me/characters", playerJwt, Api.body(Map.ofEntries(
+                Map.entry("name", "Tordek"),
+                Map.entry("strength", 15), Map.entry("dexterity", 14),
+                Map.entry("constitution", 15), Map.entry("intelligence", 12),
+                Map.entry("wisdom", 10), Map.entry("charisma", 8),
+                Map.entry("scoreSource", "STANDARD_ARRAY"),
+                Map.entry("startingLevel", 1),
+                Map.entry("sex", "MALE"),
+                Map.entry("appearance", Map.of("skinTone", 120, "hairTone", 300, "hairStyle", "ponytail")),
+                Map.entry("raceIndex", "dwarf"),
+                Map.entry("classIndex", "cleric"),
+                Map.entry("subclassIndex", "life"),
+                Map.entry("backgroundIndex", "acolyte"),
+                Map.entry("skillPickIndexes", Set.of("medicine", "religion")),
+                Map.entry("spellIndexes", Set.of("guidance", "sacred-flame", "cure-wounds")),
+                Map.entry("equipmentIndexes", Set.of("leather-armor", "shield"))))), 201, "create avatar character");
+
+        Api.requireStatus(Api.post(baseUrl() + "/api/sessions/" + session.id() + "/map", gmJwt,
+                Api.body(Map.of("name", "Avatar Hall"))), 201, "create map");
+
+        JsonNode playerToken = first(get(session.id(), playerJwt), "b4pip");
+        assertThat(playerToken.get("raceIndex").asText()).isEqualTo("dwarf");
+        assertThat(playerToken.get("sex").asText()).isEqualTo("MALE");
+        assertThat(playerToken.get("appearance").get("skinTone").asInt()).isEqualTo(120);
+        assertThat(playerToken.get("appearance").get("hairTone").asInt()).isEqualTo(300);
+        assertThat(playerToken.get("appearance").get("hairStyle").asText()).isEqualTo("ponytail");
+
+        JsonNode gmToken = first(get(session.id(), gmJwt), "b4gm");
+        assertThat(gmToken.get("raceIndex").isNull()).isTrue();
+        assertThat(gmToken.get("sex").isNull()).isTrue();
+        assertThat(gmToken.get("appearance").isNull()).isTrue();
     }
 
     private JsonNode get(long sessionId, String jwt) {

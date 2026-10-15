@@ -153,3 +153,50 @@ export function mockCharacter(page, character = E2E_CHARACTER) {
     route.fulfill(jsonResponse(200, character)),
   )
 }
+
+export const E2E_SESSION = {
+  id: 1,
+  name: 'Grumm Hall',
+  inviteCode: 'ABC234',
+  status: 'OPEN',
+  gameDisplayName: 'D&D 5e',
+  participants: [{ user: E2E_USER, role: 'PLAYER' }],
+  recentEvents: [],
+}
+
+export const E2E_MAP = {
+  id: 1,
+  sessionId: 1,
+  name: 'Grumm Hall',
+  width: 24,
+  height: 18,
+  squareFeet: 10,
+  currentTurnTokenId: null,
+  initiativeIndex: -1,
+  initiative: [],
+  tokens: [
+    {
+      id: 11,
+      name: 'Aria',
+      category: 'PLAYER',
+      color: '#3b82f6',
+      speedFeet: 30,
+      posX: 1,
+      posY: 1,
+      movedFeet: 0,
+      linkedParticipantId: 1,
+      linkedUserId: 1,
+      raceIndex: 'dwarf',
+      sex: 'FEMALE',
+      appearance: { skinTone: 120, hairTone: 300 },
+    },
+  ],
+}
+
+export function mockSession(page, session = E2E_SESSION) {
+  return page.route(`**/api/sessions/${session.id}`, (route) => route.fulfill(jsonResponse(200, session)))
+}
+
+export function mockBattleMap(page, map = E2E_MAP) {
+  return page.route(`**/api/sessions/${map.sessionId}/map`, (route) => route.fulfill(jsonResponse(200, map)))
+}
