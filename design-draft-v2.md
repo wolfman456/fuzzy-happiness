@@ -12,7 +12,7 @@ login (R19, §11) landed (`feature/social-oauth-login`, 2026-10-14); Slice 2c la
 **modular avatar** (`feature/v2-modular-avatar`, 2026-10-14 — §5: data chain, base
 assets/compositor, race-feature parts, hair parts + wizard hair picker); Slice 3 map builder
 landed (R53, `feature/map-builder`, PR #121, 2026-10-15 — §6: tiles, environment objects,
-blocking/pathing, GM map editor). **In progress:** the token/portrait face re-design (`§5` item 7)
+blocking/pathing, GM map editor). Done: the token/portrait face re-design (R54 landed) — see §5 item 7
 replaces the full-body 3D token/portrait with a modular 2D SVG face.
 
 ---
@@ -176,7 +176,7 @@ blocked on the 3D-asset research and the in-session viewport:
 > ✅ **2b landed** (`feature/v2-slice-2b-3d-avatar-preview`, R50, PR #105, 2026-10-13);
 > ✅ **2c landed** (R51, 2026-10-14) — data chain, base assets/compositor, race-feature parts,
 > hair parts + the wizard hair picker; avatar creator complete.
-> 🔨 **face re-design in progress** (`feature/face-token`, R54, 2026-10-15): the map token and the
+> ✅ **face re-design landed** (`feature/face-token`, R54, 2026-10-15): the map token and the
 > sheet portrait swap the unreadable full-body 3D snapshot for a deterministic **modular 2D SVG
 > face** (`CharacterFace`), and the static-snapshot cache is retired — see item 7 below.
 > 2a ships the full data chain (`Sex` enum, `CharacterAppearance` record, both DTOs, both
@@ -257,7 +257,7 @@ blocked on the 3D-asset research and the in-session viewport:
      character's cached thumbnail (falling back to the colour disc). The DTO contract stays; only
      the client renderer changes.
   6. **(later) Morphs** — `bodyType`/`buildScale`/`faceShape` morph-target sliders.
-  7. **Face re-design — modular 2D token/portrait** — 🔨 **in progress** (`feature/face-token`,
+  7. **Face re-design — modular 2D token/portrait** — ✅ **landed** (`feature/face-token`,
      R54, 2026-10-15). The map token and the character-sheet portrait were showing a full-body 3D
      render that was illegible at token size; they now draw a deterministic **inline-SVG face**
      instead. The wizard keeps the live 3D preview (`AvatarPreview`/`AvatarCanvas`) unchanged.
