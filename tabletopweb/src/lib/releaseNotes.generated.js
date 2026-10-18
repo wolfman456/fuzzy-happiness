@@ -4,8 +4,8 @@
 export const RELEASE_NOTES = [
   {
     "version": "1.5.0",
-    "date": null,
-    "notes": "Current `develop` (`1.5.0-SNAPSHOT`)."
+    "date": "2026-10-15",
+    "notes": "Release: **Slice 3 map builder** (R53) shipped (tiles, environment objects, blocking/pathing, GM full-screen editor) plus the **modular 2D face re-design** for tokens and character-sheet portraits (R54) — a deterministic SVG face replaces the illegible full-body 3D render, adds an `eyeColor` tint, and retires the static portrait-snapshot layer. Also includes the Ravenloft integration research plan. Bug fix: #119 class-proficiency-skills. Post-merge propagation and docs updates. (develop → master; released from this commit train.)"
   },
   {
     "version": "1.4.0",
