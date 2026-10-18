@@ -825,11 +825,12 @@ describe('CharacterWizardPage', () => {
     await walkToAppearanceStep()
 
     expect(screen.getByText(/Skin tint \(200°\)/)).toBeInTheDocument()
-    const swatch = screen.getByTestId('appearance-swatch')
-    const initialStyle = swatch.getAttribute('style')
+    const face = screen.getByTestId('appearance-swatch')
+    const initialSkinFill = face.querySelector('[data-testid="face-skin"]')?.getAttribute('fill')
     fireEvent.change(screen.getByLabelText(/Skin tint/), { target: { value: '40' } })
     expect(screen.getByText(/Skin tint \(40°\)/)).toBeInTheDocument()
-    expect(swatch.getAttribute('style')).not.toBe(initialStyle)
+    const skinAfter = face.querySelector('[data-testid="face-skin"]')?.getAttribute('fill')
+    expect(skinAfter).not.toBe(initialSkinFill)
     expect(screen.getByTestId('appearance-hair-swatch')).toBeInTheDocument()
 
     fireEvent.change(screen.getByLabelText(/Hair tint/), { target: { value: '300' } })

@@ -25,7 +25,7 @@ import {
   subclassLevel,
 } from '../lib/srd'
 import { Alert, PageHeading } from '../components/ui'
-import AvatarPreview from '../components/AvatarPreview'
+import CharacterFace from '../components/CharacterFace'
 import { HAIR_STYLES, hairStyleLabel, hueCss } from '../lib/avatars'
 import { eyeCss } from '../lib/face'
 
@@ -893,7 +893,7 @@ export default function CharacterWizardPage() {
             </fieldset>
 
             <div className="flex items-center gap-4">
-              <AvatarPreview
+              <CharacterFace testId="appearance-swatch"
                 raceIndex={draft.raceIndex}
                 sex={draft.sex}
                 appearance={draft.appearance}
